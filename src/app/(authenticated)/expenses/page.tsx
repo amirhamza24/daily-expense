@@ -2,8 +2,9 @@ import React from 'react';
 import { getSession } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { redirect } from 'next/navigation';
-import ExpensesClient from '@/components/ExpensesClient';
+import ExpensesClient, { ExpenseItem } from '@/components/ExpensesClient';
 import { getExpenses, ExpenseFilterOptions } from '@/actions/expenses';
+import { Prisma } from '@prisma/client';
 
 export const revalidate = 0; // Disable caching
 
@@ -43,13 +44,30 @@ export default async function ExpensesPage({ searchParams }: ExpensesPageProps) 
     limit: 10,
   };
 
+  let data: {
+    expenses: ExpenseItem[];
+    allExpensesForCSV: Array<{
+      title: string;
+      amount: number;
+      category: string;
+      note: string | null;
+      expenseDate: Date;
+    }>;
+    pagination: {
+      page: number;
+      totalPages: number;
+      total: number;
+      limit: number;
+    };
+  } | null = null;
+
   try {
     // 1. Fetch paginated expenses for current page
     const result = await getExpenses(filterOptions);
 
     // 2. Fetch ALL matching expenses (unpaginated) for CSV export capability
     // Build the same filter criteria for unpaginated query
-    const where: any = { userId: sessionUser.id };
+    const where: Prisma.ExpenseWhereInput = { userId: sessionUser.id };
 
     if (resolvedParams.search) {
       where.title = { contains: resolvedParams.search, mode: 'insensitive' };
@@ -90,7 +108,7 @@ export default async function ExpensesPage({ searchParams }: ExpensesPageProps) 
       where.expenseDate = { gte: start, lte: end };
     }
 
-    const orderBy: any = {};
+    const orderBy: Prisma.ExpenseOrderByWithRelationInput = {};
     if (resolvedParams.sortBy === 'highest') {
       orderBy.amount = 'desc';
     } else {
@@ -116,15 +134,16 @@ export default async function ExpensesPage({ searchParams }: ExpensesPageProps) 
       limit: result.limit,
     };
 
-    return (
-      <ExpensesClient
-        expenses={result.expenses}
-        allExpensesForCSV={allExpensesForCSV}
-        pagination={pagination}
-      />
-    );
+    data = {
+      expenses: result.expenses,
+      allExpensesForCSV,
+      pagination,
+    };
   } catch (error) {
     console.error('Expenses server page error:', error);
+  }
+
+  if (!data) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-12 text-center rounded-2xl glass-panel border border-rose-500/10">
         <h3 className="text-xl font-bold text-rose-400">Ledger Compilation Interrupted</h3>
@@ -134,4 +153,12 @@ export default async function ExpensesPage({ searchParams }: ExpensesPageProps) 
       </div>
     );
   }
+
+  return (
+    <ExpensesClient
+      expenses={data.expenses}
+      allExpensesForCSV={data.allExpensesForCSV}
+      pagination={data.pagination}
+    />
+  );
 }

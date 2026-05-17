@@ -24,15 +24,17 @@ import { deleteExpense } from "@/actions/expenses";
 import { useToast } from "./Toast";
 import { useConfirm, confirmPresets } from "./ConfirmModal";
 
+export interface ExpenseItem {
+  id: string;
+  title: string;
+  amount: number;
+  category: string;
+  note: string | null;
+  expenseDate: Date;
+}
+
 interface ExpensesClientProps {
-  expenses: Array<{
-    id: string;
-    title: string;
-    amount: number;
-    category: string;
-    note: string | null;
-    expenseDate: Date;
-  }>;
+  expenses: ExpenseItem[];
   allExpensesForCSV: Array<{
     title: string;
     amount: number;
@@ -87,17 +89,20 @@ export default function ExpensesClient({
 
   // Modal States
   const [isExpenseOpen, setIsExpenseOpen] = useState(false);
-  const [editingExpense, setEditingExpense] = useState<any>(undefined);
-  const [viewingExpense, setViewingExpense] = useState<any>(undefined);
+  const [editingExpense, setEditingExpense] = useState<ExpenseItem | undefined>(undefined);
+  const [viewingExpense, setViewingExpense] = useState<ExpenseItem | undefined>(undefined);
 
   // Sync state with URL search params when they change
   useEffect(() => {
-    setSearch(searchParams.get("search") || "");
-    setCategory(searchParams.get("category") || "All");
-    setDateRange(searchParams.get("dateRange") || "all");
-    setStartDate(searchParams.get("startDate") || "");
-    setEndDate(searchParams.get("endDate") || "");
-    setSortBy(searchParams.get("sortBy") || "latest");
+    const timer = setTimeout(() => {
+      setSearch(searchParams.get("search") || "");
+      setCategory(searchParams.get("category") || "All");
+      setDateRange(searchParams.get("dateRange") || "all");
+      setStartDate(searchParams.get("startDate") || "");
+      setEndDate(searchParams.get("endDate") || "");
+      setSortBy(searchParams.get("sortBy") || "latest");
+    }, 0);
+    return () => clearTimeout(timer);
   }, [searchParams]);
 
   // Apply filters by pushing values to URL parameters
@@ -125,7 +130,7 @@ export default function ExpensesClient({
     applyFilters({ search });
   };
 
-  const handleEdit = (expense: any) => {
+  const handleEdit = (expense: ExpenseItem) => {
     setEditingExpense(expense);
     setIsExpenseOpen(true);
   };
@@ -185,7 +190,7 @@ export default function ExpensesClient({
       {/* Title Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-600 dark:from-white dark:via-slate-200 dark:to-violet-400 bg-clip-text text-transparent">
+          <h2 className="text-2xl md:text-3xl font-extrabold tracking-wide bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-600 dark:from-white dark:via-slate-200 dark:to-violet-400 bg-clip-text text-transparent">
             Transaction Ledger
           </h2>
           <p className="text-xs md:text-sm text-slate-500 dark:text-slate-400 mt-1">
@@ -274,10 +279,16 @@ export default function ExpensesClient({
                 }}
                 className="w-full px-4 py-2.5 rounded-xl glass-input text-xs appearance-none cursor-pointer"
               >
-                <option value="latest" className="bg-white dark:bg-slate-900 text-slate-700 dark:text-white">
+                <option
+                  value="latest"
+                  className="bg-white dark:bg-slate-900 text-slate-700 dark:text-white"
+                >
                   Sort: Latest Date
                 </option>
-                <option value="highest" className="bg-white dark:bg-slate-900 text-slate-700 dark:text-white">
+                <option
+                  value="highest"
+                  className="bg-white dark:bg-slate-900 text-slate-700 dark:text-white"
+                >
                   Sort: Highest Amount
                 </option>
               </select>
@@ -299,22 +310,40 @@ export default function ExpensesClient({
                 }}
                 className="w-full px-4 py-2.5 rounded-xl glass-input text-xs appearance-none cursor-pointer"
               >
-                <option value="all" className="bg-white dark:bg-slate-900 text-slate-700 dark:text-white">
+                <option
+                  value="all"
+                  className="bg-white dark:bg-slate-900 text-slate-700 dark:text-white"
+                >
                   Filter by Timeframe
                 </option>
-                <option value="today" className="bg-white dark:bg-slate-900 text-slate-700 dark:text-white">
+                <option
+                  value="today"
+                  className="bg-white dark:bg-slate-900 text-slate-700 dark:text-white"
+                >
                   Today
                 </option>
-                <option value="yesterday" className="bg-white dark:bg-slate-900 text-slate-700 dark:text-white">
+                <option
+                  value="yesterday"
+                  className="bg-white dark:bg-slate-900 text-slate-700 dark:text-white"
+                >
                   Yesterday
                 </option>
-                <option value="week" className="bg-white dark:bg-slate-900 text-slate-700 dark:text-white">
+                <option
+                  value="week"
+                  className="bg-white dark:bg-slate-900 text-slate-700 dark:text-white"
+                >
                   Last 7 Days
                 </option>
-                <option value="month" className="bg-white dark:bg-slate-900 text-slate-700 dark:text-white">
+                <option
+                  value="month"
+                  className="bg-white dark:bg-slate-900 text-slate-700 dark:text-white"
+                >
                   This Month
                 </option>
-                <option value="custom" className="bg-white dark:bg-slate-900 text-slate-700 dark:text-white">
+                <option
+                  value="custom"
+                  className="bg-white dark:bg-slate-900 text-slate-700 dark:text-white"
+                >
                   Custom Date Range...
                 </option>
               </select>

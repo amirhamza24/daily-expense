@@ -3,6 +3,7 @@
 import { db } from '@/lib/db';
 import { getSession } from '@/lib/auth';
 import { revalidatePath } from 'next/cache';
+import { Prisma } from '@prisma/client';
 
 export type ExpenseFilterOptions = {
   search?: string;
@@ -49,7 +50,7 @@ export async function getExpenses(options: ExpenseFilterOptions = {}) {
   const skip = (page - 1) * limit;
 
   // Build prisma where filter
-  const where: any = {
+  const where: Prisma.ExpenseWhereInput = {
     userId: user.id,
   };
 
@@ -101,7 +102,7 @@ export async function getExpenses(options: ExpenseFilterOptions = {}) {
   }
 
   // Sorting
-  const orderBy: any = {};
+  const orderBy: Prisma.ExpenseOrderByWithRelationInput = {};
   if (sortBy === 'highest') {
     orderBy.amount = 'desc';
   } else {
@@ -179,9 +180,10 @@ export async function createExpense(data: ExpenseInput) {
     revalidatePath('/analytics');
 
     return { success: true, expense: result };
-  } catch (error: any) {
-    console.error('createExpense error:', error);
-    return { success: false, error: error.message || 'Failed to create expense.' };
+  } catch (error) {
+    const err = error as Error;
+    console.error('createExpense error:', err);
+    return { success: false, error: err.message || 'Failed to create expense.' };
   }
 }
 
@@ -239,9 +241,10 @@ export async function updateExpense(id: string, data: ExpenseInput) {
     revalidatePath('/analytics');
 
     return { success: true, expense: result };
-  } catch (error: any) {
-    console.error('updateExpense error:', error);
-    return { success: false, error: error.message || 'Failed to update expense.' };
+  } catch (error) {
+    const err = error as Error;
+    console.error('updateExpense error:', err);
+    return { success: false, error: err.message || 'Failed to update expense.' };
   }
 }
 
@@ -289,8 +292,9 @@ export async function deleteExpense(id: string) {
     revalidatePath('/analytics');
 
     return { success: true, expense: result };
-  } catch (error: any) {
-    console.error('deleteExpense error:', error);
-    return { success: false, error: error.message || 'Failed to delete expense.' };
+  } catch (error) {
+    const err = error as Error;
+    console.error('deleteExpense error:', err);
+    return { success: false, error: err.message || 'Failed to delete expense.' };
   }
 }

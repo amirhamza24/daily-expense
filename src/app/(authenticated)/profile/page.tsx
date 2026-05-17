@@ -2,6 +2,7 @@ import React from "react";
 import { getSession } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import GlassCard from "@/components/GlassCard";
+import ChangePasswordForm from "@/components/ChangePasswordForm";
 import {
   User,
   Mail,
@@ -78,9 +79,12 @@ export default async function ProfilePage() {
 
         {/* Right column: Audit parameters */}
         <GlassCard className="md:col-span-2 border-white/5 p-6 shadow-2xl">
-          <h4 className="font-bold text-base text-slate-900 dark:text-slate-100 mb-6 pb-2 border-b border-slate-200/50 dark:border-white/5">
-            Security Clearance Parameters
-          </h4>
+          <div className="flex items-center justify-between mb-6 pb-2 border-b border-slate-200/50 dark:border-white/5">
+            <h4 className="font-bold text-base text-slate-900 dark:text-slate-100">
+              Security Clearance Parameters
+            </h4>
+            <ChangePasswordForm />
+          </div>
 
           <div className="flex flex-col gap-4">
             {/* Row 1: Name */}

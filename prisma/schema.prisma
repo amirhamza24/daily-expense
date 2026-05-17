@@ -22,18 +22,21 @@ enum UserStatus {
 }
 
 model User {
-  id         String     @id @default(uuid())
-  name       String
-  email      String     @unique
-  password   String
-  role       Role       @default(USER)
-  status     UserStatus @default(PENDING)
-  approvedAt DateTime?
-  approvedBy String?
-  createdAt  DateTime   @default(now())
+  id                     String     @id @default(uuid())
+  name                   String
+  email                  String     @unique
+  password               String
+  role                   Role       @default(USER)
+  status                 UserStatus @default(PENDING)
+  approvedAt             DateTime?
+  approvedBy             String?
+  emailVerified          Boolean    @default(false)
+  verificationCode       String?
+  verificationCodeExpiry DateTime?
+  createdAt              DateTime   @default(now())
   
-  expenses   Expense[]
-  balance    Balance?
+  expenses               Expense[]
+  balance                Balance?
 }
 
 model Expense {

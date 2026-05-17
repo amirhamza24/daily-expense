@@ -3,6 +3,7 @@
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
+import { Prisma } from "@prisma/client";
 
 // Helper to check if current user is an admin
 async function getAdminUser() {
@@ -44,7 +45,7 @@ export async function updateUserStatus(
   const admin = await getAdminUser();
 
   try {
-    const updateData: any = { status };
+    const updateData: Prisma.UserUpdateInput = { status };
 
     if (status === "APPROVED") {
       updateData.approvedAt = new Date();
@@ -64,11 +65,12 @@ export async function updateUserStatus(
     revalidatePath("/admin/dashboard");
 
     return { success: true, user: updatedUser };
-  } catch (error: any) {
-    console.error("updateUserStatus error:", error);
+  } catch (error) {
+    const err = error as Error;
+    console.error("updateUserStatus error:", err);
     return {
       success: false,
-      error: error.message || "Failed to update user status.",
+      error: err.message || "Failed to update user status.",
     };
   }
 }
@@ -157,11 +159,12 @@ export async function updateUserRole(
     revalidatePath("/admin/dashboard");
 
     return { success: true };
-  } catch (error: any) {
-    console.error("updateUserRole error:", error);
+  } catch (error) {
+    const err = error as Error;
+    console.error("updateUserRole error:", err);
     return {
       success: false,
-      error: error.message || "Failed to update user role.",
+      error: err.message || "Failed to update user role.",
     };
   }
 }

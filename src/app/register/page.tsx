@@ -59,13 +59,13 @@ export default function RegisterPage() {
       const res = await registerUser(formData);
 
       if (res.success) {
-        setSuccessMessage(res.message);
-        showToast(res.message, "success");
+        setSuccessMessage("Registration successful! Redirecting to email verification...");
+        showToast("Registration successful! Redirecting to email verification...", "success");
 
-        // Auto-redirect to login after 3.5 seconds
+        // Redirect to email verification page after 1.5 seconds
         setTimeout(() => {
-          router.push("/login");
-        }, 3500);
+          router.push(`/verify?email=${encodeURIComponent(email)}`);
+        }, 1500);
       } else {
         setErrorMessage(res.message);
         showToast(res.message, "error");

@@ -1,10 +1,14 @@
-import { SignJWT, jwtVerify } from 'jose';
+import { SignJWT, jwtVerify, type JWTPayload } from 'jose';
 import * as bcrypt from 'bcryptjs';
 import { cookies } from 'next/headers';
 import { db } from './db';
 
+if (!process.env.JWT_SECRET && process.env.NODE_ENV === 'production') {
+  throw new Error('JWT_SECRET environment variable is missing in production!');
+}
+
 const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || 'daily_expense_tracker_secret_glow_and_frosted_glass_security_token_2026_key'
+  process.env.JWT_SECRET || 'development-secret-key-please-change-in-production'
 );
 
 export function hashPassword(password: string): string {
@@ -15,7 +19,7 @@ export function comparePassword(password: string, hash: string): boolean {
   return bcrypt.compareSync(password, hash);
 }
 
-export async function encrypt(payload: any) {
+export async function encrypt(payload: JWTPayload) {
   return await new SignJWT(payload)
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()

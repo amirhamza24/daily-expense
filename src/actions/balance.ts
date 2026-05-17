@@ -85,8 +85,9 @@ export async function setOrUpdateBalance(totalBalance: number, note: string) {
     revalidatePath('/analytics');
 
     return { success: true, balance: result };
-  } catch (error: any) {
-    console.error('setOrUpdateBalance error:', error);
-    return { success: false, error: error.message || 'Failed to update balance.' };
+  } catch (error) {
+    const err = error as Error;
+    console.error('setOrUpdateBalance error:', err);
+    return { success: false, error: err.message || 'Failed to update balance.' };
   }
 }

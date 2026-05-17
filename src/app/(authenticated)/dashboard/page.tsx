@@ -6,14 +6,7 @@ import DashboardClient from '@/components/DashboardClient';
 
 export const revalidate = 0; // Disable server caching for real-time changes
 
-export default async function DashboardPage() {
-  const sessionUser = await getSession();
-
-  // Guard: if user is not authenticated or not approved
-  if (!sessionUser || sessionUser.status !== 'APPROVED') {
-    redirect('/login');
-  }
-
+async function fetchDashboardData(userId: string) {
   const now = new Date();
 
   // Define Today's start and end limits
@@ -30,30 +23,30 @@ export default async function DashboardPage() {
     // Perform parallel database queries for efficiency
     const [balanceRecord, todaySum, monthSum, totalSpentSum, recentExpenses] = await Promise.all([
       db.balance.findUnique({
-        where: { userId: sessionUser.id },
+        where: { userId },
       }),
       db.expense.aggregate({
         where: {
-          userId: sessionUser.id,
+          userId,
           expenseDate: { gte: todayStart, lte: todayEnd },
         },
         _sum: { amount: true },
       }),
       db.expense.aggregate({
         where: {
-          userId: sessionUser.id,
+          userId,
           expenseDate: { gte: monthStart },
         },
         _sum: { amount: true },
       }),
       db.expense.aggregate({
         where: {
-          userId: sessionUser.id,
+          userId,
         },
         _sum: { amount: true },
       }),
       db.expense.findMany({
-        where: { userId: sessionUser.id },
+        where: { userId },
         orderBy: { expenseDate: 'desc' },
         take: 5,
       }),
@@ -74,14 +67,30 @@ export default async function DashboardPage() {
       balanceNote: balanceRecord?.note || undefined,
     };
 
-    return (
-      <DashboardClient
-        stats={stats}
-        recentExpenses={recentExpenses}
-      />
-    );
+    return {
+      success: true,
+      stats,
+      recentExpenses,
+    };
   } catch (error) {
     console.error('Dashboard server page error:', error);
+    return {
+      success: false,
+    };
+  }
+}
+
+export default async function DashboardPage() {
+  const sessionUser = await getSession();
+
+  // Guard: if user is not authenticated or not approved
+  if (!sessionUser || sessionUser.status !== 'APPROVED') {
+    redirect('/login');
+  }
+
+  const result = await fetchDashboardData(sessionUser.id);
+
+  if (!result.success || !result.stats || !result.recentExpenses) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-12 text-center rounded-2xl glass-panel border border-rose-500/10">
         <h3 className="text-xl font-bold text-rose-400">Database Connection Interrupted</h3>
@@ -91,4 +100,11 @@ export default async function DashboardPage() {
       </div>
     );
   }
+
+  return (
+    <DashboardClient
+      stats={result.stats}
+      recentExpenses={result.recentExpenses}
+    />
+  );
 }

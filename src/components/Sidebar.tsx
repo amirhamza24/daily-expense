@@ -27,9 +27,10 @@ interface SidebarProps {
     role: "ADMIN" | "USER";
     status: string;
   };
+  pendingUserCount?: number;
 }
 
-export default function Sidebar({ user }: SidebarProps) {
+export default function Sidebar({ user, pendingUserCount = 0 }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { showToast } = useToast();
@@ -59,7 +60,12 @@ export default function Sidebar({ user }: SidebarProps) {
 
   const adminItems = [
     { label: "Admin Dashboard", path: "/admin/dashboard", icon: ShieldCheck },
-    { label: "User Registry", path: "/admin/users", icon: Users },
+    { 
+      label: "User Registry", 
+      path: "/admin/users", 
+      icon: Users,
+      badge: pendingUserCount > 0 ? pendingUserCount : undefined
+    },
   ];
 
   const isActive = (path: string) => pathname === path;
@@ -132,7 +138,7 @@ export default function Sidebar({ user }: SidebarProps) {
                     href={item.path}
                     onClick={() => setIsOpen(false)}
                     className={`
-                      flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 group
+                      flex items-center justify-between px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 group
                       ${
                         active
                           ? "bg-gradient-to-r from-pink-500/10 to-rose-500/5 border-l-4 border-pink-500 text-pink-600 dark:from-pink-500/15 dark:to-rose-500/10 dark:border-pink-500 dark:text-pink-400 shadow-sm dark:shadow-md dark:shadow-pink-950/10"
@@ -140,10 +146,17 @@ export default function Sidebar({ user }: SidebarProps) {
                       }
                     `}
                   >
-                    <Icon
-                      className={`h-4.5 w-4.5 transition-transform duration-200 group-hover:scale-105 ${active ? "text-pink-600 dark:text-pink-400" : "text-slate-500 dark:text-slate-400 group-hover:text-slate-800 dark:group-hover:text-slate-200"}`}
-                    />
-                    {item.label}
+                    <div className="flex items-center gap-3">
+                      <Icon
+                        className={`h-4.5 w-4.5 transition-transform duration-200 group-hover:scale-105 ${active ? "text-pink-600 dark:text-pink-400" : "text-slate-500 dark:text-slate-400 group-hover:text-slate-800 dark:group-hover:text-slate-200"}`}
+                      />
+                      <span>{item.label}</span>
+                    </div>
+                    {item.badge !== undefined && (
+                      <span className="flex h-5 min-w-5 px-1.5 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white shadow-sm ring-2 ring-white dark:ring-[#09090e] animate-pulse">
+                        {item.badge}
+                      </span>
+                    )}
                   </Link>
                 );
               })}

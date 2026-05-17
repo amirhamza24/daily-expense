@@ -77,6 +77,15 @@ export const getCategoryGlow = (category: string) => {
   }
 };
 
+export interface ExpenseItem {
+  id: string;
+  title: string;
+  amount: number;
+  category: string;
+  note: string | null;
+  expenseDate: Date;
+}
+
 interface DashboardClientProps {
   stats: {
     totalBalance: number;
@@ -86,14 +95,7 @@ interface DashboardClientProps {
     todayExpenses: number;
     balanceNote?: string;
   };
-  recentExpenses: Array<{
-    id: string;
-    title: string;
-    amount: number;
-    category: string;
-    note: string | null;
-    expenseDate: Date;
-  }>;
+  recentExpenses: ExpenseItem[];
 }
 
 export default function DashboardClient({
@@ -107,10 +109,10 @@ export default function DashboardClient({
   // Modal States
   const [isBalanceOpen, setIsBalanceOpen] = useState(false);
   const [isExpenseOpen, setIsExpenseOpen] = useState(false);
-  const [editingExpense, setEditingExpense] = useState<any>(undefined);
-  const [viewingExpense, setViewingExpense] = useState<any>(undefined);
+  const [editingExpense, setEditingExpense] = useState<ExpenseItem | undefined>(undefined);
+  const [viewingExpense, setViewingExpense] = useState<ExpenseItem | undefined>(undefined);
 
-  const handleEdit = (expense: any) => {
+  const handleEdit = (expense: ExpenseItem) => {
     setEditingExpense(expense);
     setIsExpenseOpen(true);
   };
@@ -133,7 +135,7 @@ export default function DashboardClient({
       {/* Title Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-600 dark:from-white dark:via-slate-200 dark:to-violet-400 bg-clip-text text-transparent">
+          <h2 className="text-2xl md:text-3xl font-extrabold tracking-wide bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-600 dark:from-white dark:via-slate-200 dark:to-violet-400 bg-clip-text text-transparent">
             Financial Dashboard
           </h2>
           <p className="text-xs md:text-sm text-slate-500 dark:text-slate-400 mt-1">
@@ -186,7 +188,10 @@ export default function DashboardClient({
             })}
           </h3>
           {stats.balanceNote && (
-            <p className="text-[11px] text-slate-400 dark:text-slate-400 mt-2 italic line-clamp-1 border-t border-white/5 dark:border-white/5 pt-2" title={stats.balanceNote}>
+            <p
+              className="text-[11px] text-slate-400 dark:text-slate-400 mt-2 italic line-clamp-1 border-t border-white/5 dark:border-white/5 pt-2"
+              title={stats.balanceNote}
+            >
               Note: {stats.balanceNote}
             </p>
           )}

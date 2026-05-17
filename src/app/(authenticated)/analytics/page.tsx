@@ -14,6 +14,18 @@ export default async function AnalyticsPage() {
     redirect('/login');
   }
 
+  let data: {
+    categoryDistribution: Array<{ name: string; value: number }>;
+    monthlyTrend: Array<{ name: string; spent: number }>;
+    weeklyPattern: Array<{ name: string; spent: number }>;
+    aggregates: {
+      highest: { title: string; amount: number } | null;
+      lowest: { title: string; amount: number } | null;
+      average: number;
+      topCategory: string;
+    };
+  } | null = null;
+
   try {
     // 1. Fetch ALL user expenses in parallel to compute programmatic aggregates
     const [expenses, highestExpenseRecord, lowestExpenseRecord, averageAgg] = await Promise.all([
@@ -136,16 +148,17 @@ export default async function AnalyticsPage() {
       topCategory,
     };
 
-    return (
-      <AnalyticsClient
-        categoryDistribution={categoryDistribution}
-        monthlyTrend={monthlyTrend}
-        weeklyPattern={weeklyPattern}
-        aggregates={aggregates}
-      />
-    );
+    data = {
+      categoryDistribution,
+      monthlyTrend,
+      weeklyPattern,
+      aggregates,
+    };
   } catch (error) {
     console.error('Analytics server page error:', error);
+  }
+
+  if (!data) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-12 text-center rounded-2xl glass-panel border border-rose-500/10">
         <h3 className="text-xl font-bold text-rose-400">Analytics Compiler Interrupted</h3>
@@ -155,4 +168,13 @@ export default async function AnalyticsPage() {
       </div>
     );
   }
+
+  return (
+    <AnalyticsClient
+      categoryDistribution={data.categoryDistribution}
+      monthlyTrend={data.monthlyTrend}
+      weeklyPattern={data.weeklyPattern}
+      aggregates={data.aggregates}
+    />
+  );
 }

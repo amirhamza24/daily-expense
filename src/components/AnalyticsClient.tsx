@@ -50,6 +50,32 @@ const COLORS = [
   "#94a3b8", // Slate
 ];
 
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: Array<{
+    name: string;
+    value: number;
+  }>;
+}
+
+// Custom tooltips matching the premium dark glass theme
+const CustomTooltip = ({ active, payload }: CustomTooltipProps) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="p-3 bg-slate-950/90 backdrop-blur-md border border-white/10 rounded-xl shadow-xl text-xs font-semibold text-slate-100">
+        <p className="text-slate-400 mb-1">{payload[0].name}</p>
+        <p className="text-sm font-bold text-violet-400">
+          $
+          {payload[0].value.toLocaleString("en-US", {
+            minimumFractionDigits: 2,
+          })}
+        </p>
+      </div>
+    );
+  }
+  return null;
+};
+
 export default function AnalyticsClient({
   categoryDistribution,
   monthlyTrend,
@@ -60,7 +86,10 @@ export default function AnalyticsClient({
 
   // Prevent server hydration mismatches by mounting on client first
   useEffect(() => {
-    setIsMounted(true);
+    const timer = setTimeout(() => {
+      setIsMounted(true);
+    }, 0);
+    return () => clearTimeout(timer);
   }, []);
 
   if (!isMounted) {
@@ -74,29 +103,11 @@ export default function AnalyticsClient({
     );
   }
 
-  // Custom tooltips matching the premium dark glass theme
-  const CustomTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="p-3 bg-slate-950/90 backdrop-blur-md border border-white/10 rounded-xl shadow-xl text-xs font-semibold text-slate-100">
-          <p className="text-slate-400 mb-1">{payload[0].name}</p>
-          <p className="text-sm font-bold text-violet-400">
-            $
-            {payload[0].value.toLocaleString("en-US", {
-              minimumFractionDigits: 2,
-            })}
-          </p>
-        </div>
-      );
-    }
-    return null;
-  };
-
   return (
     <>
       {/* Title Header */}
       <div>
-        <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-600 dark:from-white dark:via-slate-200 dark:to-violet-400 bg-clip-text text-transparent">
+        <h2 className="text-2xl md:text-3xl font-extrabold tracking-wide bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-600 dark:from-white dark:via-slate-200 dark:to-violet-400 bg-clip-text text-transparent">
           Budget Analytics & Trends
         </h2>
         <p className="text-xs md:text-sm text-slate-500 dark:text-slate-400 mt-1">

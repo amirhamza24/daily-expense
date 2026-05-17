@@ -1,6 +1,7 @@
 import { getSession, removeSession } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
+import { db } from '@/lib/db';
 
 export default async function AuthenticatedLayout({
   children,
@@ -26,10 +27,24 @@ export default async function AuthenticatedLayout({
     redirect(`/login?error=${errorParam}`);
   }
 
+  // Retrieve count of pending users if current user is an Admin
+  let pendingUserCount = 0;
+  if (user.role === 'ADMIN') {
+    try {
+      pendingUserCount = await db.user.count({
+        where: {
+          status: 'PENDING',
+        },
+      });
+    } catch (error) {
+      console.error('Failed to fetch pending user count:', error);
+    }
+  }
+
   return (
     <div className="flex-1 flex flex-col md:flex-row min-h-screen">
       {/* Premium Navigation Sidebar */}
-      <Sidebar user={user} />
+      <Sidebar user={user} pendingUserCount={pendingUserCount} />
 
       {/* Main Contents Window */}
       <main className="flex-1 flex flex-col pt-16 md:pt-0 overflow-y-auto">
