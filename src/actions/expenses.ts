@@ -143,14 +143,23 @@ export async function createExpense(data: ExpenseInput) {
     // Transaction to create expense and subtract remaining balance
     const result = await db.$transaction(async (tx) => {
       // 1. Get user's balance
-      const balance = await tx.balance.findUnique({
+      let balance = await tx.balance.findUnique({
         where: { userId: user.id },
       });
 
       if (!balance) {
-        throw new Error(
-          "Please set an initial balance before adding expenses.",
-        );
+        balance = await tx.balance.create({
+          data: {
+            userId: user.id,
+            totalBalance: 0,
+            remainingBalance: 0,
+            note: "Auto-created balance",
+          },
+        });
+      }
+
+      if (data.category !== "Income" && balance.remainingBalance < data.amount) {
+        throw new Error(`Insufficient balance. You cannot debit more than your current balance ($${balance.remainingBalance.toLocaleString("en-US", { minimumFractionDigits: 2 })}).`);
       }
 
       // 2. Add or subtract the amount based on Credit / Debit rules
@@ -212,12 +221,19 @@ export async function updateExpense(id: string, data: ExpenseInput) {
       }
 
       // 2. Fetch user's balance
-      const balance = await tx.balance.findUnique({
+      let balance = await tx.balance.findUnique({
         where: { userId: user.id },
       });
 
       if (!balance) {
-        throw new Error("Balance record not found.");
+        balance = await tx.balance.create({
+          data: {
+            userId: user.id,
+            totalBalance: 0,
+            remainingBalance: 0,
+            note: "Auto-created balance",
+          },
+        });
       }
 
       // 3. Calculate difference and update remaining balance
@@ -235,6 +251,10 @@ export async function updateExpense(id: string, data: ExpenseInput) {
         balanceChange -= data.amount;
       }
       const newRemainingBalance = balance.remainingBalance + balanceChange;
+
+      if (newRemainingBalance < 0) {
+        throw new Error(`Insufficient balance. You cannot debit more than your current balance ($${balance.remainingBalance.toLocaleString("en-US", { minimumFractionDigits: 2 })}).`);
+      }
 
       await tx.balance.update({
         where: { userId: user.id },
@@ -286,12 +306,19 @@ export async function deleteExpense(id: string) {
       }
 
       // 2. Fetch user's balance
-      const balance = await tx.balance.findUnique({
+      let balance = await tx.balance.findUnique({
         where: { userId: user.id },
       });
 
       if (!balance) {
-        throw new Error("Balance record not found.");
+        balance = await tx.balance.create({
+          data: {
+            userId: user.id,
+            totalBalance: 0,
+            remainingBalance: 0,
+            note: "Auto-created balance",
+          },
+        });
       }
 
       // 3. Restore the remaining balance (revert transaction)
@@ -299,6 +326,10 @@ export async function deleteExpense(id: string) {
         oldExpense.category === "Income"
           ? balance.remainingBalance - oldExpense.amount
           : balance.remainingBalance + oldExpense.amount;
+
+      if (newRemainingBalance < 0) {
+        throw new Error(`Insufficient balance. You cannot delete this income as your current balance ($${balance.remainingBalance.toLocaleString("en-US", { minimumFractionDigits: 2 })}) would be negative.`);
+      }
 
       await tx.balance.update({
         where: { userId: user.id },

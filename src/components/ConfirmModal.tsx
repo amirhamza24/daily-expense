@@ -168,7 +168,7 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
           <div
             className={`
               relative w-full max-w-md rounded-2xl
-              bg-slate-950/95 backdrop-blur-2xl
+              bg-white/95 dark:bg-slate-950/95 backdrop-blur-2xl
               border ${cfg.borderAccent}
               shadow-2xl ${cfg.glowClass}
               flex flex-col gap-0
@@ -202,7 +202,7 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
                 <div>
                   <h3
                     id="confirm-modal-title"
-                    className="text-base font-bold text-slate-100 leading-snug"
+                    className="text-base font-bold text-slate-900 dark:text-slate-100 leading-snug"
                   >
                     {modal.title}
                   </h3>
@@ -223,11 +223,11 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
             </div>
 
             {/* Divider */}
-            <div className="mx-6 mt-4 border-t border-white/5" />
+            <div className="mx-6 mt-4 border-t border-slate-200 dark:border-white/5" />
 
             {/* Body message */}
             <div className="px-6 py-4">
-              <p className="text-sm text-slate-300 leading-relaxed">
+              <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
                 {modal.message}
               </p>
             </div>
@@ -237,7 +237,7 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
               {/* Cancel */}
               <button
                 onClick={handleCancel}
-                className="px-5 py-2.5 rounded-xl border border-white/10 hover:bg-white/5 text-slate-300 hover:text-slate-100 text-sm font-semibold transition-all duration-200 cursor-pointer active:scale-[0.98]"
+                className="px-5 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 text-sm font-semibold transition-all duration-200 cursor-pointer active:scale-[0.98]"
               >
                 {modal.cancelText ?? 'Cancel'}
               </button>
