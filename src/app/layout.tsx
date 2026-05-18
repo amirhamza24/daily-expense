@@ -69,6 +69,9 @@ export default function RootLayout({
                 <div className="glow-blob glow-pink top-[40%] left-[30%] opacity-20" />
               </div>
 
+              {/* Global Portal Target for DatePicker & other absolute overlays */}
+              <div id="root-portal" className="relative z-[100]" />
+
               {/* Core App View */}
               <div className="relative z-10 min-h-screen flex flex-col">
                 {children}

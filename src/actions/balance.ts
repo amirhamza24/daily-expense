@@ -44,14 +44,21 @@ export async function setOrUpdateBalance(totalBalance: number, note: string) {
         where: { userId: user.id },
       });
 
-      // 2. Fetch sum of all expenses logged by the user
-      const spentAggregation = await tx.expense.aggregate({
-        where: { userId: user.id },
-        _sum: { amount: true },
-      });
+      // 2. Fetch sum of all debits (non-Income) and credits (Income) logged by the user
+      const [debitsAggregation, creditsAggregation] = await Promise.all([
+        tx.expense.aggregate({
+          where: { userId: user.id, NOT: { category: 'Income' } },
+          _sum: { amount: true },
+        }),
+        tx.expense.aggregate({
+          where: { userId: user.id, category: 'Income' },
+          _sum: { amount: true },
+        }),
+      ]);
 
-      const totalSpent = spentAggregation._sum.amount || 0;
-      const remainingBalance = totalBalance - totalSpent;
+      const totalDebits = debitsAggregation._sum.amount || 0;
+      const totalCredits = creditsAggregation._sum.amount || 0;
+      const remainingBalance = totalBalance + totalCredits - totalDebits;
 
       let balanceRecord;
 

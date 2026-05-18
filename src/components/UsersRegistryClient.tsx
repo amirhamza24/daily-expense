@@ -111,21 +111,21 @@ export default function UsersRegistryClient({
     switch (status) {
       case "APPROVED":
         return (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg border border-emerald-500/20 bg-emerald-500/10 text-emerald-400 text-xs font-bold uppercase tracking-wide">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 text-emerald-500 text-xs font-semibold uppercase tracking-wide">
             <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400"></span>
             Approved
           </span>
         );
       case "PENDING":
         return (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg border border-amber-500/20 bg-amber-500/10 text-amber-400 text-xs font-bold uppercase tracking-wide">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-amber-500/20 bg-amber-500/10 text-amber-500 text-xs font-semibold uppercase tracking-wide">
             <span className="inline-block h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse"></span>
             Pending
           </span>
         );
       case "SUSPENDED":
         return (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-400 text-xs font-bold uppercase tracking-wide">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-rose-500/20 bg-rose-500/10 text-rose-400 text-xs font-semibold uppercase tracking-wide">
             <span className="inline-block h-1.5 w-1.5 rounded-full bg-rose-400 animate-pulse"></span>
             Suspended
           </span>
@@ -133,7 +133,7 @@ export default function UsersRegistryClient({
       default:
         // REJECTED
         return (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg border border-slate-500/20 bg-slate-500/10 text-slate-400 text-xs font-bold uppercase tracking-wide">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-slate-500/20 bg-slate-500/10 text-slate-400 text-xs font-semibold uppercase tracking-wide">
             <span className="inline-block h-1.5 w-1.5 rounded-full bg-slate-400"></span>
             Rejected
           </span>
@@ -145,7 +145,7 @@ export default function UsersRegistryClient({
     <>
       {/* Title Header */}
       <div>
-        <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-600 dark:from-white dark:via-slate-200 dark:to-violet-400 bg-clip-text text-transparent">
+        <h2 className="text-2xl md:text-3xl font-extrabold tracking-wide bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-600 dark:from-white dark:via-slate-200 dark:to-violet-400 bg-clip-text text-transparent">
           User Security Registry
         </h2>
         <p className="text-xs md:text-sm text-slate-500 dark:text-slate-400 mt-1">
@@ -181,8 +181,8 @@ export default function UsersRegistryClient({
                   px-4 py-2 rounded-xl transition-all duration-200 cursor-pointer
                   ${
                     statusFilter === tab
-                      ? "bg-violet-600/30 border border-violet-500/40 text-violet-300 shadow-md shadow-violet-950/15"
-                      : "border border-white/5 hover:bg-white/5 text-slate-400 hover:text-slate-200"
+                      ? "bg-violet-500/10 dark:bg-violet-600/30 border border-violet-500/30 dark:border-violet-500/40 text-violet-700 dark:text-violet-300 shadow-md shadow-violet-900/10"
+                      : "border border-slate-200 dark:border-white/5 hover:bg-slate-100 dark:hover:bg-white/5 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
                   }
                 `}
               >
@@ -208,7 +208,7 @@ export default function UsersRegistryClient({
           </div>
         ) : (
           <div className="overflow-x-auto flex-1">
-            <table className="glass-table w-full text-left">
+            <table className="glass-table w-full text-left text-md">
               <thead>
                 <tr>
                   <th>Identity Details</th>
@@ -283,8 +283,18 @@ export default function UsersRegistryClient({
                           }
                         `}
                       >
-                        <option value="USER" className="bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200">USER</option>
-                        <option value="ADMIN" className="bg-white dark:bg-slate-900 text-violet-700 dark:text-violet-300">ADMIN</option>
+                        <option
+                          value="USER"
+                          className="bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200"
+                        >
+                          USER
+                        </option>
+                        <option
+                          value="ADMIN"
+                          className="bg-white dark:bg-slate-900 text-violet-700 dark:text-violet-300"
+                        >
+                          ADMIN
+                        </option>
                       </select>
                     </td>
 
@@ -293,12 +303,16 @@ export default function UsersRegistryClient({
 
                     {/* Moderation Controls */}
                     <td>
-                      <div className="flex items-center justify-end gap-1.5">
+                      <div className="flex items-center justify-start gap-1.5">
                         {user.status === "PENDING" && (
                           <>
                             <button
                               onClick={() =>
-                                handleStatusChange(user.id, user.name, "APPROVED")
+                                handleStatusChange(
+                                  user.id,
+                                  user.name,
+                                  "APPROVED",
+                                )
                               }
                               disabled={isPending}
                               className="p-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 rounded-lg border border-emerald-500/20 cursor-pointer disabled:opacity-50"
@@ -308,7 +322,11 @@ export default function UsersRegistryClient({
                             </button>
                             <button
                               onClick={() =>
-                                handleStatusChange(user.id, user.name, "REJECTED")
+                                handleStatusChange(
+                                  user.id,
+                                  user.name,
+                                  "REJECTED",
+                                )
                               }
                               disabled={isPending}
                               className="p-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded-lg border border-rose-500/20 cursor-pointer disabled:opacity-50"
@@ -323,7 +341,11 @@ export default function UsersRegistryClient({
                           user.role !== "ADMIN" && (
                             <button
                               onClick={() =>
-                                handleStatusChange(user.id, user.name, "SUSPENDED")
+                                handleStatusChange(
+                                  user.id,
+                                  user.name,
+                                  "SUSPENDED",
+                                )
                               }
                               disabled={isPending}
                               className="p-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded-lg border border-rose-500/20 cursor-pointer disabled:opacity-50"

@@ -23,6 +23,7 @@ import { getCategoryIcon, getCategoryGlow } from "./DashboardClient";
 import { deleteExpense } from "@/actions/expenses";
 import { useToast } from "./Toast";
 import { useConfirm, confirmPresets } from "./ConfirmModal";
+import DatePicker from "react-datepicker";
 
 export interface ExpenseItem {
   id: string;
@@ -60,6 +61,7 @@ const CATEGORIES = [
   "Education",
   "Entertainment",
   "Others",
+  "Income",
 ];
 
 export default function ExpensesClient({
@@ -89,8 +91,12 @@ export default function ExpensesClient({
 
   // Modal States
   const [isExpenseOpen, setIsExpenseOpen] = useState(false);
-  const [editingExpense, setEditingExpense] = useState<ExpenseItem | undefined>(undefined);
-  const [viewingExpense, setViewingExpense] = useState<ExpenseItem | undefined>(undefined);
+  const [editingExpense, setEditingExpense] = useState<ExpenseItem | undefined>(
+    undefined,
+  );
+  const [viewingExpense, setViewingExpense] = useState<ExpenseItem | undefined>(
+    undefined,
+  );
 
   // Sync state with URL search params when they change
   useEffect(() => {
@@ -353,29 +359,36 @@ export default function ExpensesClient({
             {dateRange === "custom" && (
               <>
                 <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
-                  <input
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => {
-                      setStartDate(e.target.value);
-                      applyFilters({ startDate: e.target.value });
+                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 z-10 pointer-events-none" />
+                  <DatePicker
+                    selected={startDate ? new Date(startDate) : null}
+                    onChange={(date) => {
+                      // format date to YYYY-MM-DD
+                      const dateStr = date ? date.toISOString().split('T')[0] : '';
+                      setStartDate(dateStr);
+                      applyFilters({ startDate: dateStr });
                     }}
-                    placeholder="Start date"
+                    placeholderText="Start date"
+                    dateFormat="yyyy-MM-dd"
+                    fixedHeight
                     className="w-full pl-9 pr-4 py-2.5 rounded-xl glass-input text-xs cursor-pointer"
+                    wrapperClassName="w-full"
                   />
                 </div>
                 <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
-                  <input
-                    type="date"
-                    value={endDate}
-                    onChange={(e) => {
-                      setEndDate(e.target.value);
-                      applyFilters({ endDate: e.target.value });
+                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 z-10 pointer-events-none" />
+                  <DatePicker
+                    selected={endDate ? new Date(endDate) : null}
+                    onChange={(date) => {
+                      const dateStr = date ? date.toISOString().split('T')[0] : '';
+                      setEndDate(dateStr);
+                      applyFilters({ endDate: dateStr });
                     }}
-                    placeholder="End date"
+                    placeholderText="End date"
+                    dateFormat="yyyy-MM-dd"
+                    fixedHeight
                     className="w-full pl-9 pr-4 py-2.5 rounded-xl glass-input text-xs cursor-pointer"
+                    wrapperClassName="w-full"
                   />
                 </div>
               </>
@@ -492,24 +505,24 @@ export default function ExpensesClient({
 
                       {/* Actions */}
                       <td>
-                        <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex items-center justify-start gap-1">
                           <button
                             onClick={() => setViewingExpense(exp)}
-                            className="p-2 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                            className="p-2 rounded-lg hover:bg-slate-200/50 dark:hover:bg-white/10 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors cursor-pointer"
                             title="View details"
                           >
                             <Eye className="h-4 w-4" />
                           </button>
                           <button
                             onClick={() => handleEdit(exp)}
-                            className="p-2 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                            className="p-2 rounded-lg hover:bg-slate-200/50 dark:hover:bg-white/10 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors cursor-pointer"
                             title="Edit"
                           >
                             <Edit2 className="h-4 w-4" />
                           </button>
                           <button
                             onClick={() => handleDelete(exp.id)}
-                            className="p-2 rounded-lg hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 transition-colors cursor-pointer"
+                            className="p-2 rounded-lg hover:bg-rose-500/10 dark:hover:bg-rose-500/20 text-slate-500 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-400 transition-colors cursor-pointer"
                             title="Delete"
                           >
                             <Trash2 className="h-4 w-4" />

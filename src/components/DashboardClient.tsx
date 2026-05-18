@@ -27,7 +27,6 @@ import {
   X,
 } from "lucide-react";
 import GlassCard from "./GlassCard";
-import BalanceModal from "./BalanceModal";
 import ExpenseModal from "./ExpenseModal";
 import { deleteExpense } from "@/actions/expenses";
 import { useToast } from "./Toast";
@@ -50,6 +49,8 @@ export const getCategoryIcon = (category: string) => {
       return GraduationCap;
     case "Entertainment":
       return Tv;
+    case "Income":
+      return Coins;
     default:
       return DollarSign;
   }
@@ -72,6 +73,8 @@ export const getCategoryGlow = (category: string) => {
       return "border-violet-500/20 text-violet-400 bg-violet-500/10";
     case "Entertainment":
       return "border-rose-500/20 text-rose-400 bg-rose-500/10";
+    case "Income":
+      return "border-emerald-500/20 text-emerald-400 bg-emerald-500/10";
     default:
       return "border-slate-500/20 text-slate-400 bg-slate-500/10";
   }
@@ -94,6 +97,9 @@ interface DashboardClientProps {
     monthlyExpenses: number;
     todayExpenses: number;
     balanceNote?: string;
+    monthlyCredit: number;
+    monthlyDebit: number;
+    monthlyRemaining: number;
   };
   recentExpenses: ExpenseItem[];
 }
@@ -107,10 +113,13 @@ export default function DashboardClient({
   const [isPending, startTransition] = useTransition();
 
   // Modal States
-  const [isBalanceOpen, setIsBalanceOpen] = useState(false);
   const [isExpenseOpen, setIsExpenseOpen] = useState(false);
-  const [editingExpense, setEditingExpense] = useState<ExpenseItem | undefined>(undefined);
-  const [viewingExpense, setViewingExpense] = useState<ExpenseItem | undefined>(undefined);
+  const [editingExpense, setEditingExpense] = useState<ExpenseItem | undefined>(
+    undefined,
+  );
+  const [viewingExpense, setViewingExpense] = useState<ExpenseItem | undefined>(
+    undefined,
+  );
 
   const handleEdit = (expense: ExpenseItem) => {
     setEditingExpense(expense);
@@ -146,13 +155,6 @@ export default function DashboardClient({
         {/* Global Action Buttons */}
         <div className="flex items-center gap-3">
           <button
-            onClick={() => setIsBalanceOpen(true)}
-            className="flex-1 md:flex-initial px-4 py-3 rounded-xl border border-white/10 hover:bg-white/5 font-semibold text-xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
-          >
-            <Coins className="h-4 w-4 text-violet-400" />
-            Set Balance
-          </button>
-          <button
             onClick={() => {
               setEditingExpense(undefined);
               setIsExpenseOpen(true);
@@ -160,7 +162,7 @@ export default function DashboardClient({
             className="flex-1 md:flex-initial px-4 py-3 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-semibold text-xs rounded-xl shadow-lg shadow-violet-950/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer"
           >
             <Plus className="h-4 w-4" />
-            Add Expense
+            Record Item
           </button>
         </div>
       </div>
@@ -170,7 +172,10 @@ export default function DashboardClient({
         {/* Card 1: Total Balance */}
         <GlassCard
           hoverable
-          onClick={() => setIsBalanceOpen(true)}
+          onClick={() => {
+            setEditingExpense(undefined);
+            setIsExpenseOpen(true);
+          }}
           className="border-violet-500/10 shadow-violet-950/5 relative overflow-hidden"
         >
           <div className="flex items-center justify-between">
@@ -181,7 +186,7 @@ export default function DashboardClient({
               <Wallet className="h-5 w-5 text-violet-400" />
             </div>
           </div>
-          <h3 className="text-3xl font-extrabold text-slate-900 dark:text-white mt-4 tracking-tight">
+          <h3 className="text-3xl font-extrabold text-slate-900 dark:text-white mt-4 tracking-wide">
             $
             {stats.totalBalance.toLocaleString("en-US", {
               minimumFractionDigits: 2,
@@ -195,9 +200,9 @@ export default function DashboardClient({
               Note: {stats.balanceNote}
             </p>
           )}
-          <p className="text-[10px] text-violet-400 mt-2 font-medium flex items-center gap-1">
-            <span className="inline-block h-1.5 w-1.5 rounded-full bg-violet-400 animate-ping"></span>
-            Click card to edit total limit
+          <p className="text-[10px] text-emerald-400 mt-2 font-medium flex items-center gap-1">
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400 animate-ping"></span>
+            Click card to record transaction
           </p>
         </GlassCard>
 
@@ -211,7 +216,7 @@ export default function DashboardClient({
               <TrendingDown className="h-5 w-5 text-rose-400" />
             </div>
           </div>
-          <h3 className="text-3xl font-extrabold text-slate-900 dark:text-white mt-4 tracking-tight">
+          <h3 className="text-3xl font-extrabold text-slate-900 dark:text-white mt-4 tracking-wide">
             $
             {stats.totalExpenses.toLocaleString("en-US", {
               minimumFractionDigits: 2,
@@ -232,7 +237,7 @@ export default function DashboardClient({
               <TrendingUp className="h-5 w-5 text-emerald-400" />
             </div>
           </div>
-          <h3 className="text-3xl font-extrabold text-slate-900 dark:text-white mt-4 tracking-tight">
+          <h3 className="text-3xl font-extrabold text-slate-900 dark:text-white mt-4 tracking-wide">
             $
             {stats.remainingBalance.toLocaleString("en-US", {
               minimumFractionDigits: 2,
@@ -241,6 +246,83 @@ export default function DashboardClient({
           <p className="text-[10px] text-emerald-400 mt-2 font-medium flex items-center gap-1.5">
             <span className="inline-block h-2 w-2 rounded-full bg-emerald-500"></span>
             Adjusted wallet limits
+          </p>
+        </GlassCard>
+      </div>
+
+      {/* Monthly Summary Section */}
+      <div className="mt-2">
+        <h3 className="text-lg font-bold tracking-wide text-slate-800 dark:text-slate-200">
+          Monthly Summary (Current Month)
+        </h3>
+        <p className="text-xs text-slate-500 dark:text-slate-400">
+          A summary of your credits and debits logged during the current month.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Card 1: Total Credit (This Month) */}
+        <GlassCard className="border-emerald-500/10 shadow-emerald-950/5 relative overflow-hidden">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+              Total Credit (This Month)
+            </span>
+            <div className="p-2 bg-emerald-500/15 rounded-lg border border-emerald-500/25">
+              <TrendingUp className="h-5 w-5 text-emerald-400" />
+            </div>
+          </div>
+          <h3 className="text-3xl font-extrabold text-emerald-600 dark:text-emerald-400 mt-4 tracking-wide">
+            +$
+            {stats.monthlyCredit.toLocaleString("en-US", {
+              minimumFractionDigits: 2,
+            })}
+          </h3>
+          <p className="text-[10px] text-slate-400 mt-2 font-medium">
+            Total income/deposits logged this month
+          </p>
+        </GlassCard>
+
+        {/* Card 2: Total Debit (This Month) */}
+        <GlassCard className="border-rose-500/10 shadow-rose-950/5 relative overflow-hidden">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+              Total Debit (This Month)
+            </span>
+            <div className="p-2 bg-rose-500/15 rounded-lg border border-rose-500/25">
+              <TrendingDown className="h-5 w-5 text-rose-400" />
+            </div>
+          </div>
+          <h3 className="text-3xl font-extrabold text-rose-600 dark:text-rose-400 mt-4 tracking-wide">
+            -$
+            {stats.monthlyDebit.toLocaleString("en-US", {
+              minimumFractionDigits: 2,
+            })}
+          </h3>
+          <p className="text-[10px] text-slate-400 mt-2 font-medium">
+            Total expenses logged this month
+          </p>
+        </GlassCard>
+
+        {/* Card 3: Remaining Balance (This Month) */}
+        <GlassCard className="border-indigo-500/10 shadow-indigo-950/5 relative overflow-hidden">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+              Remaining Balance (This Month)
+            </span>
+            <div className="p-2 bg-indigo-500/15 rounded-lg border border-indigo-500/25">
+              <Wallet className="h-5 w-5 text-indigo-400" />
+            </div>
+          </div>
+          <h3
+            className={`text-3xl font-extrabold mt-4 tracking-wide ${stats.monthlyRemaining >= 0 ? "text-indigo-600 dark:text-indigo-400" : "text-rose-600 dark:text-rose-400"}`}
+          >
+            {stats.monthlyRemaining < 0 ? "-" : ""}$
+            {Math.abs(stats.monthlyRemaining).toLocaleString("en-US", {
+              minimumFractionDigits: 2,
+            })}
+          </h3>
+          <p className="text-[10px] text-slate-400 mt-2 font-medium">
+            Net monthly balance (Credit - Debit)
           </p>
         </GlassCard>
       </div>
@@ -378,24 +460,24 @@ export default function DashboardClient({
                         </span>
 
                         {/* Interactive Buttons */}
-                        <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex items-center gap-1.5">
                           <button
                             onClick={() => setViewingExpense(exp)}
-                            className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                            className="p-1.5 rounded-lg hover:bg-slate-200/50 dark:hover:bg-white/10 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors cursor-pointer"
                             title="View notes"
                           >
                             <Eye className="h-4 w-4" />
                           </button>
                           <button
                             onClick={() => handleEdit(exp)}
-                            className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                            className="p-1.5 rounded-lg hover:bg-slate-200/50 dark:hover:bg-white/10 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors cursor-pointer"
                             title="Edit"
                           >
                             <Edit2 className="h-4 w-4" />
                           </button>
                           <button
                             onClick={() => handleDelete(exp.id)}
-                            className="p-1.5 rounded-lg hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 transition-colors cursor-pointer"
+                            className="p-1.5 rounded-lg hover:bg-rose-500/10 dark:hover:bg-rose-500/20 text-slate-500 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-400 transition-colors cursor-pointer"
                             title="Delete"
                           >
                             <Trash2 className="h-4 w-4" />
@@ -483,15 +565,7 @@ export default function DashboardClient({
         </div>
       )}
 
-      {/* Balance Configuration Prompt Modal */}
-      <BalanceModal
-        isOpen={isBalanceOpen}
-        onClose={() => setIsBalanceOpen(false)}
-        currentBalance={stats.totalBalance}
-        currentNote={stats.balanceNote}
-      />
-
-      {/* Expense Modal (Creation or Modification Mode) */}
+      {/* Unified Transaction Modal (Credit / Debit) */}
       <ExpenseModal
         isOpen={isExpenseOpen}
         onClose={() => {

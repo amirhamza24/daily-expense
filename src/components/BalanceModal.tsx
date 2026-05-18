@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import React, { useState, useTransition, useEffect } from 'react';
-import { X, DollarSign, Loader2, FileText } from 'lucide-react';
-import { setOrUpdateBalance } from '@/actions/balance';
-import { useToast } from './Toast';
-import { useConfirm, confirmPresets } from './ConfirmModal';
+import React, { useState, useTransition, useEffect } from "react";
+import { X, DollarSign, Loader2, FileText } from "lucide-react";
+import { setOrUpdateBalance } from "@/actions/balance";
+import { useToast } from "./Toast";
+import { useConfirm, confirmPresets } from "./ConfirmModal";
 
 interface BalanceModalProps {
   isOpen: boolean;
@@ -17,7 +17,7 @@ export default function BalanceModal({
   isOpen,
   onClose,
   currentBalance = 0,
-  currentNote = '',
+  currentNote = "",
 }: BalanceModalProps) {
   const { showToast } = useToast();
   const confirm = useConfirm();
@@ -39,12 +39,12 @@ export default function BalanceModal({
     const parsed = parseFloat(balanceInput);
 
     if (isNaN(parsed) || parsed < 0) {
-      showToast('Please enter a valid positive number.', 'error');
+      showToast("Please enter a valid positive number.", "error");
       return;
     }
 
     if (!noteInput.trim()) {
-      showToast('Please add a note describing this balance.', 'error');
+      showToast("Please add a note describing this balance.", "error");
       return;
     }
 
@@ -54,10 +54,10 @@ export default function BalanceModal({
     startTransition(async () => {
       const res = await setOrUpdateBalance(parsed, noteInput.trim());
       if (res.success) {
-        showToast('Initial balance updated successfully.', 'success');
+        showToast("Initial balance updated successfully.", "success");
         onClose();
       } else {
-        showToast(res.error || 'Failed to update balance.', 'error');
+        showToast(res.error || "Failed to update balance.", "error");
       }
     });
   };
@@ -75,8 +75,12 @@ export default function BalanceModal({
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h3 className="font-bold text-lg text-slate-100">Configure Balance</h3>
-            <p className="text-xs text-slate-400 mt-0.5">Define your starting wallet amount</p>
+            <h3 className="font-bold text-lg text-slate-100">
+              Configure Balance
+            </h3>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Define your starting wallet amount
+            </p>
           </div>
           <button
             onClick={onClose}
@@ -106,7 +110,8 @@ export default function BalanceModal({
               />
             </div>
             <p className="text-[10px] text-slate-500 px-1 mt-1">
-              * Changing initial balance automatically adjusts remaining balance by subtracting logged expenses.
+              * Changing initial balance automatically adjusts remaining balance
+              by subtracting logged expenses.
             </p>
           </div>
 
@@ -153,7 +158,7 @@ export default function BalanceModal({
                   Saving...
                 </>
               ) : (
-                'Save Changes'
+                "Save Changes"
               )}
             </button>
           </div>

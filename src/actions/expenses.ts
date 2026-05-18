@@ -1,17 +1,17 @@
-'use server';
+"use server";
 
-import { db } from '@/lib/db';
-import { getSession } from '@/lib/auth';
-import { revalidatePath } from 'next/cache';
-import { Prisma } from '@prisma/client';
+import { db } from "@/lib/db";
+import { getSession } from "@/lib/auth";
+import { revalidatePath } from "next/cache";
+import { Prisma } from "@prisma/client";
 
 export type ExpenseFilterOptions = {
   search?: string;
   category?: string;
-  dateRange?: 'today' | 'yesterday' | 'week' | 'month' | 'custom';
+  dateRange?: "today" | "yesterday" | "week" | "month" | "custom";
   startDate?: string; // ISO string
   endDate?: string; // ISO string
-  sortBy?: 'latest' | 'highest';
+  sortBy?: "latest" | "highest";
   page?: number;
   limit?: number;
 };
@@ -27,8 +27,8 @@ export type ExpenseInput = {
 // Helper to check user session and throw error if not approved
 async function getAuthenticatedUser() {
   const session = await getSession();
-  if (!session || session.status !== 'APPROVED') {
-    throw new Error('Unauthorized or account not approved.');
+  if (!session || session.status !== "APPROVED") {
+    throw new Error("Unauthorized or account not approved.");
   }
   return session;
 }
@@ -42,7 +42,7 @@ export async function getExpenses(options: ExpenseFilterOptions = {}) {
     dateRange,
     startDate,
     endDate,
-    sortBy = 'latest',
+    sortBy = "latest",
     page = 1,
     limit = 10,
   } = options;
@@ -58,24 +58,24 @@ export async function getExpenses(options: ExpenseFilterOptions = {}) {
   if (search) {
     where.title = {
       contains: search,
-      mode: 'insensitive',
+      mode: "insensitive",
     };
   }
 
   // Category filter
-  if (category && category !== 'All') {
+  if (category && category !== "All") {
     where.category = category;
   }
 
   // Date Range filter
   const now = new Date();
-  if (dateRange === 'today') {
+  if (dateRange === "today") {
     const start = new Date();
     start.setHours(0, 0, 0, 0);
     const end = new Date();
     end.setHours(23, 59, 59, 999);
     where.expenseDate = { gte: start, lte: end };
-  } else if (dateRange === 'yesterday') {
+  } else if (dateRange === "yesterday") {
     const start = new Date();
     start.setDate(now.getDate() - 1);
     start.setHours(0, 0, 0, 0);
@@ -83,17 +83,17 @@ export async function getExpenses(options: ExpenseFilterOptions = {}) {
     end.setDate(now.getDate() - 1);
     end.setHours(23, 59, 59, 999);
     where.expenseDate = { gte: start, lte: end };
-  } else if (dateRange === 'week') {
+  } else if (dateRange === "week") {
     // Last 7 days
     const start = new Date();
     start.setDate(now.getDate() - 7);
     start.setHours(0, 0, 0, 0);
     where.expenseDate = { gte: start };
-  } else if (dateRange === 'month') {
+  } else if (dateRange === "month") {
     // This Month
     const start = new Date(now.getFullYear(), now.getMonth(), 1);
     where.expenseDate = { gte: start };
-  } else if (dateRange === 'custom' && startDate) {
+  } else if (dateRange === "custom" && startDate) {
     const start = new Date(startDate);
     start.setHours(0, 0, 0, 0);
     const end = endDate ? new Date(endDate) : new Date();
@@ -103,11 +103,11 @@ export async function getExpenses(options: ExpenseFilterOptions = {}) {
 
   // Sorting
   const orderBy: Prisma.ExpenseOrderByWithRelationInput = {};
-  if (sortBy === 'highest') {
-    orderBy.amount = 'desc';
+  if (sortBy === "highest") {
+    orderBy.amount = "desc";
   } else {
     // default 'latest'
-    orderBy.expenseDate = 'desc';
+    orderBy.expenseDate = "desc";
   }
 
   try {
@@ -129,8 +129,8 @@ export async function getExpenses(options: ExpenseFilterOptions = {}) {
       totalPages: Math.ceil(total / limit),
     };
   } catch (error) {
-    console.error('getExpenses error:', error);
-    throw new Error('Failed to retrieve expenses.');
+    console.error("getExpenses error:", error);
+    throw new Error("Failed to retrieve expenses.");
   }
 }
 
@@ -148,11 +148,16 @@ export async function createExpense(data: ExpenseInput) {
       });
 
       if (!balance) {
-        throw new Error('Please set an initial balance before adding expenses.');
+        throw new Error(
+          "Please set an initial balance before adding expenses.",
+        );
       }
 
-      // 2. Subtract the amount
-      const newRemainingBalance = balance.remainingBalance - data.amount;
+      // 2. Add or subtract the amount based on Credit / Debit rules
+      const newRemainingBalance =
+        data.category === "Income"
+          ? balance.remainingBalance + data.amount
+          : balance.remainingBalance - data.amount;
 
       // 3. Update Balance
       await tx.balance.update({
@@ -175,15 +180,18 @@ export async function createExpense(data: ExpenseInput) {
       return expense;
     });
 
-    revalidatePath('/dashboard');
-    revalidatePath('/expenses');
-    revalidatePath('/analytics');
+    revalidatePath("/dashboard");
+    revalidatePath("/expenses");
+    revalidatePath("/analytics");
 
     return { success: true, expense: result };
   } catch (error) {
     const err = error as Error;
-    console.error('createExpense error:', err);
-    return { success: false, error: err.message || 'Failed to create expense.' };
+    console.error("createExpense error:", err);
+    return {
+      success: false,
+      error: err.message || "Failed to create expense.",
+    };
   }
 }
 
@@ -200,7 +208,7 @@ export async function updateExpense(id: string, data: ExpenseInput) {
       });
 
       if (!oldExpense) {
-        throw new Error('Expense not found.');
+        throw new Error("Expense not found.");
       }
 
       // 2. Fetch user's balance
@@ -209,12 +217,24 @@ export async function updateExpense(id: string, data: ExpenseInput) {
       });
 
       if (!balance) {
-        throw new Error('Balance record not found.');
+        throw new Error("Balance record not found.");
       }
 
       // 3. Calculate difference and update remaining balance
-      const diff = data.amount - oldExpense.amount;
-      const newRemainingBalance = balance.remainingBalance - diff;
+      let balanceChange = 0;
+      // Revert old transaction
+      if (oldExpense.category === "Income") {
+        balanceChange -= oldExpense.amount;
+      } else {
+        balanceChange += oldExpense.amount;
+      }
+      // Apply new transaction
+      if (data.category === "Income") {
+        balanceChange += data.amount;
+      } else {
+        balanceChange -= data.amount;
+      }
+      const newRemainingBalance = balance.remainingBalance + balanceChange;
 
       await tx.balance.update({
         where: { userId: user.id },
@@ -236,15 +256,18 @@ export async function updateExpense(id: string, data: ExpenseInput) {
       return updated;
     });
 
-    revalidatePath('/dashboard');
-    revalidatePath('/expenses');
-    revalidatePath('/analytics');
+    revalidatePath("/dashboard");
+    revalidatePath("/expenses");
+    revalidatePath("/analytics");
 
     return { success: true, expense: result };
   } catch (error) {
     const err = error as Error;
-    console.error('updateExpense error:', err);
-    return { success: false, error: err.message || 'Failed to update expense.' };
+    console.error("updateExpense error:", err);
+    return {
+      success: false,
+      error: err.message || "Failed to update expense.",
+    };
   }
 }
 
@@ -259,7 +282,7 @@ export async function deleteExpense(id: string) {
       });
 
       if (!oldExpense) {
-        throw new Error('Expense not found.');
+        throw new Error("Expense not found.");
       }
 
       // 2. Fetch user's balance
@@ -268,11 +291,14 @@ export async function deleteExpense(id: string) {
       });
 
       if (!balance) {
-        throw new Error('Balance record not found.');
+        throw new Error("Balance record not found.");
       }
 
-      // 3. Restore the remaining balance
-      const newRemainingBalance = balance.remainingBalance + oldExpense.amount;
+      // 3. Restore the remaining balance (revert transaction)
+      const newRemainingBalance =
+        oldExpense.category === "Income"
+          ? balance.remainingBalance - oldExpense.amount
+          : balance.remainingBalance + oldExpense.amount;
 
       await tx.balance.update({
         where: { userId: user.id },
@@ -287,14 +313,17 @@ export async function deleteExpense(id: string) {
       return oldExpense;
     });
 
-    revalidatePath('/dashboard');
-    revalidatePath('/expenses');
-    revalidatePath('/analytics');
+    revalidatePath("/dashboard");
+    revalidatePath("/expenses");
+    revalidatePath("/analytics");
 
     return { success: true, expense: result };
   } catch (error) {
     const err = error as Error;
-    console.error('deleteExpense error:', err);
-    return { success: false, error: err.message || 'Failed to delete expense.' };
+    console.error("deleteExpense error:", err);
+    return {
+      success: false,
+      error: err.message || "Failed to delete expense.",
+    };
   }
 }

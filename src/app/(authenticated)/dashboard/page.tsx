@@ -21,7 +21,7 @@ async function fetchDashboardData(userId: string) {
 
   try {
     // Perform parallel database queries for efficiency
-    const [balanceRecord, todaySum, monthSum, totalSpentSum, recentExpenses] = await Promise.all([
+    const [balanceRecord, todaySum, monthSum, totalSpentSum, recentExpenses, monthlyCreditSum, monthlyDebitSum] = await Promise.all([
       db.balance.findUnique({
         where: { userId },
       }),
@@ -50,6 +50,22 @@ async function fetchDashboardData(userId: string) {
         orderBy: { expenseDate: 'desc' },
         take: 5,
       }),
+      db.expense.aggregate({
+        where: {
+          userId,
+          expenseDate: { gte: monthStart },
+          category: 'Income',
+        },
+        _sum: { amount: true },
+      }),
+      db.expense.aggregate({
+        where: {
+          userId,
+          expenseDate: { gte: monthStart },
+          category: { not: 'Income' },
+        },
+        _sum: { amount: true },
+      }),
     ]);
 
     const totalBalance = balanceRecord?.totalBalance || 0;
@@ -58,6 +74,10 @@ async function fetchDashboardData(userId: string) {
     // Total expenses calculated directly from logged expenses
     const totalExpenses = totalSpentSum._sum.amount || 0;
 
+    const monthlyCredit = monthlyCreditSum._sum.amount || 0;
+    const monthlyDebit = monthlyDebitSum._sum.amount || 0;
+    const monthlyRemaining = monthlyCredit - monthlyDebit;
+
     const stats = {
       totalBalance,
       remainingBalance,
@@ -65,6 +85,9 @@ async function fetchDashboardData(userId: string) {
       monthlyExpenses: monthSum._sum.amount || 0,
       todayExpenses: todaySum._sum.amount || 0,
       balanceNote: balanceRecord?.note || undefined,
+      monthlyCredit,
+      monthlyDebit,
+      monthlyRemaining,
     };
 
     return {

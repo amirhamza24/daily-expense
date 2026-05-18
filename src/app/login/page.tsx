@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useTransition } from "react";
+import React, { useState, useTransition, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -16,7 +16,7 @@ import { loginUser } from "@/actions/auth";
 import { useToast } from "@/components/Toast";
 import GlassCard from "@/components/GlassCard";
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { showToast } = useToast();
@@ -230,5 +230,19 @@ export default function LoginPage() {
         }
       `}</style>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex-1 flex items-center justify-center p-6 min-h-screen">
+          <Loader2 className="h-8 w-8 animate-spin text-violet-500" />
+        </div>
+      }
+    >
+      <LoginContent />
+    </Suspense>
   );
 }

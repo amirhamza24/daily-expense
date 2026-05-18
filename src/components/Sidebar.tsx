@@ -15,6 +15,7 @@ import {
   Menu,
   X,
   TrendingUp,
+  History,
 } from "lucide-react";
 import { logoutUser } from "@/actions/auth";
 import { useToast } from "./Toast";
@@ -53,6 +54,7 @@ export default function Sidebar({ user, pendingUserCount = 0 }: SidebarProps) {
   const navItems = [
     { label: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
     { label: "Expenses", path: "/expenses", icon: Receipt },
+    { label: "Transaction History", path: "/transaction-history", icon: History },
     { label: "Analytics", path: "/analytics", icon: BarChart3 },
     { label: "Profile", path: "/profile", icon: User },
     { label: "Settings", path: "/settings", icon: Settings },

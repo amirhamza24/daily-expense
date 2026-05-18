@@ -1,4 +1,57 @@
 @import "tailwindcss";
+@import "react-datepicker/dist/react-datepicker.css";
+
+/* Premium Custom React DatePicker Overrides */
+.react-datepicker {
+  font-family: inherit !important;
+  background-color: var(--card-glow-bg) !important;
+  backdrop-filter: blur(24px) !important;
+  -webkit-backdrop-filter: blur(24px) !important;
+  border: 1px solid var(--card-glow-border) !important;
+  border-radius: 1rem !important;
+  box-shadow: var(--card-glow-shadow) !important;
+  color: var(--foreground) !important;
+  padding: 0.5rem;
+}
+.react-datepicker__header {
+  background-color: transparent !important;
+  border-bottom: 1px solid var(--card-border) !important;
+  padding-top: 0.5rem !important;
+}
+.react-datepicker__current-month, .react-datepicker-time__header, .react-datepicker-year-header {
+  color: var(--foreground) !important;
+  font-weight: 700 !important;
+}
+.react-datepicker__day-name, .react-datepicker__day, .react-datepicker__time-name {
+  color: var(--foreground) !important;
+  width: 2.2rem !important;
+  line-height: 2.2rem !important;
+  margin: 0.2rem !important;
+  border-radius: 0.5rem !important;
+}
+.react-datepicker__day:hover, .react-datepicker__month-text:hover, .react-datepicker__quarter-text:hover, .react-datepicker__year-text:hover {
+  background-color: rgba(139, 92, 246, 0.2) !important;
+}
+.react-datepicker__day--selected, .react-datepicker__day--in-selecting-range, .react-datepicker__day--in-range, .react-datepicker__month-text--selected, .react-datepicker__month-text--in-selecting-range, .react-datepicker__month-text--in-range, .react-datepicker__quarter-text--selected, .react-datepicker__quarter-text--in-selecting-range, .react-datepicker__quarter-text--in-range, .react-datepicker__year-text--selected, .react-datepicker__year-text--in-selecting-range, .react-datepicker__year-text--in-range {
+  background-color: var(--primary) !important;
+  color: #fff !important;
+  font-weight: bold;
+}
+.react-datepicker__day--keyboard-selected, .react-datepicker__month-text--keyboard-selected, .react-datepicker__quarter-text--keyboard-selected, .react-datepicker__year-text--keyboard-selected {
+  background-color: rgba(139, 92, 246, 0.3) !important;
+  color: var(--foreground) !important;
+}
+.react-datepicker-popper[data-placement^=bottom] .react-datepicker__triangle {
+  fill: var(--card-glow-bg) !important;
+  color: var(--card-glow-bg) !important;
+  stroke: var(--card-glow-border) !important;
+}
+.react-datepicker-popper[data-placement^=top] .react-datepicker__triangle {
+  fill: var(--card-glow-bg) !important;
+  color: var(--card-glow-bg) !important;
+  stroke: var(--card-glow-border) !important;
+}
+
 
 @variant dark (&:where(.dark, .dark *));
 
