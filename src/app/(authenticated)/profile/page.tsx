@@ -46,7 +46,7 @@ export default async function ProfilePage() {
     <>
       {/* Title Header */}
       <div>
-        <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-600 dark:from-white dark:via-slate-200 dark:to-violet-400 bg-clip-text text-transparent">
+        <h2 className="text-2xl md:text-3xl font-extrabold tracking-wide bg-gradient-to-r from-slate-900 via-slate-700 to-indigo-600 dark:from-white dark:via-slate-200 dark:to-violet-400 bg-clip-text text-transparent w-fit">
           User Account Profile
         </h2>
         <p className="text-xs md:text-sm text-slate-500 dark:text-slate-400 mt-1">
@@ -66,7 +66,9 @@ export default async function ProfilePage() {
               .substring(0, 2)
               .toUpperCase()}
           </div>
-          <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">{fullUser.name}</h3>
+          <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">
+            {fullUser.name}
+          </h3>
           <span className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
             {fullUser.email}
           </span>

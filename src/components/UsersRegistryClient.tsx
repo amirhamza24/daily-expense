@@ -111,22 +111,22 @@ export default function UsersRegistryClient({
     switch (status) {
       case "APPROVED":
         return (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 text-emerald-500 text-xs font-semibold uppercase tracking-wide">
-            <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400"></span>
+          <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 text-emerald-500 text-xs font-semibold uppercase tracking-wide">
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
             Approved
           </span>
         );
       case "PENDING":
         return (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-amber-500/20 bg-amber-500/10 text-amber-500 text-xs font-semibold uppercase tracking-wide">
-            <span className="inline-block h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse"></span>
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-amber-500/20 bg-amber-500/10 text-amber-600 text-xs font-semibold uppercase tracking-wide">
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse"></span>
             Pending
           </span>
         );
       case "SUSPENDED":
         return (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-rose-500/20 bg-rose-500/10 text-rose-400 text-xs font-semibold uppercase tracking-wide">
-            <span className="inline-block h-1.5 w-1.5 rounded-full bg-rose-400 animate-pulse"></span>
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-rose-500/20 bg-rose-500/10 text-rose-600 text-xs font-semibold uppercase tracking-wide">
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-rose-500 animate-pulse"></span>
             Suspended
           </span>
         );
@@ -145,7 +145,7 @@ export default function UsersRegistryClient({
     <>
       {/* Title Header */}
       <div>
-        <h2 className="text-2xl md:text-3xl font-extrabold tracking-wide bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-600 dark:from-white dark:via-slate-200 dark:to-violet-400 bg-clip-text text-transparent">
+        <h2 className="text-2xl md:text-3xl font-extrabold tracking-wide bg-gradient-to-r from-slate-900 via-slate-700 to-indigo-600 dark:from-white dark:via-slate-200 dark:to-violet-400 bg-clip-text text-transparent w-fit">
           User Security Registry
         </h2>
         <p className="text-xs md:text-sm text-slate-500 dark:text-slate-400 mt-1">
@@ -208,14 +208,24 @@ export default function UsersRegistryClient({
           </div>
         ) : (
           <div className="overflow-x-auto flex-1">
-            <table className="glass-table w-full text-left text-md">
+            <table className="glass-table w-full text-left text-md border-collapse">
               <thead>
                 <tr>
-                  <th>Identity Details</th>
-                  <th className="hidden md:table-cell">Reg Date</th>
-                  <th className="hidden md:table-cell">Privilege</th>
-                  <th>Clearance Status</th>
-                  <th className="text-right">Actions</th>
+                  <th className="px-6 py-4 text-sm font-bold! text-slate-800! dark:text-slate-300! uppercase tracking-wider w-36">
+                    Name & Email
+                  </th>
+                  <th className="hidden md:table-cell px-6 py-4 text-sm font-bold! text-slate-800! dark:text-slate-300! uppercase tracking-wider w-36">
+                    Reg Date
+                  </th>
+                  <th className="hidden md:table-cell px-6 py-4 text-sm font-bold! text-slate-800! dark:text-slate-300! uppercase tracking-wider w-36">
+                    Role
+                  </th>
+                  <th className="px-6 py-4 text-sm font-bold! text-slate-800! dark:text-slate-300! uppercase tracking-wider w-36">
+                    Status
+                  </th>
+                  <th className="px-6 py-4 text-sm font-bold! text-slate-800! dark:text-slate-300! uppercase tracking-wider w-36">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody>

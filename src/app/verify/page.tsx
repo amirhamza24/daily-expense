@@ -1,9 +1,23 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useTransition, Suspense } from "react";
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  useTransition,
+  Suspense,
+} from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { TrendingUp, Mail, Loader2, AlertCircle, CheckCircle2, ArrowLeft, RefreshCw } from "lucide-react";
+import {
+  TrendingUp,
+  Mail,
+  Loader2,
+  AlertCircle,
+  CheckCircle2,
+  ArrowLeft,
+  RefreshCw,
+} from "lucide-react";
 import { verifyEmailOTP, resendVerificationOTP } from "@/actions/auth";
 import { useToast } from "@/components/Toast";
 import GlassCard from "@/components/GlassCard";
@@ -63,7 +77,10 @@ function VerifyEmailForm() {
   };
 
   // Handle backspace key
-  const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleKeyDown = (
+    index: number,
+    e: React.KeyboardEvent<HTMLInputElement>,
+  ) => {
     if (e.key === "Backspace" && !otpDigits[index] && index > 0) {
       inputRefs.current[index - 1]?.focus();
     }
@@ -77,7 +94,7 @@ function VerifyEmailForm() {
 
     const digits = pastedData.substring(0, 6).split("");
     const newOtp = [...otpDigits];
-    
+
     digits.forEach((digit, index) => {
       if (index < 6) {
         newOtp[index] = digit;
@@ -128,25 +145,25 @@ function VerifyEmailForm() {
   };
 
   const handleResend = async () => {
-     if (resendCooldown > 0) return;
-     setErrorMessage(null);
-     setSuccessMessage(null);
- 
-     startResendTransition(async () => {
-       const res = await resendVerificationOTP(email);
- 
-       if (res.success) {
-         showToast(res.message, "success");
-         setExpiryTimeLeft(120); // reset expiration timer to 2 minutes
-         setResendCooldown(120);  // trigger 120s (2 minutes) resend cooldown
-         setOtpDigits(Array(6).fill(""));
-         inputRefs.current[0]?.focus();
-       } else {
-         setErrorMessage(res.message);
-         showToast(res.message, "error");
-       }
-     });
-   };
+    if (resendCooldown > 0) return;
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    startResendTransition(async () => {
+      const res = await resendVerificationOTP(email);
+
+      if (res.success) {
+        showToast(res.message, "success");
+        setExpiryTimeLeft(120); // reset expiration timer to 2 minutes
+        setResendCooldown(120); // trigger 120s (2 minutes) resend cooldown
+        setOtpDigits(Array(6).fill(""));
+        inputRefs.current[0]?.focus();
+      } else {
+        setErrorMessage(res.message);
+        showToast(res.message, "error");
+      }
+    });
+  };
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -162,7 +179,7 @@ function VerifyEmailForm() {
           <div className="p-3 bg-violet-600/30 rounded-2xl border border-violet-500/40 shadow-xl shadow-violet-500/20 mb-3 animate-pulse">
             <TrendingUp className="h-8 w-8 text-violet-400" />
           </div>
-          <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-600 dark:from-white dark:via-slate-200 dark:to-violet-400 bg-clip-text text-transparent">
+          <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-slate-900 via-slate-700 to-indigo-600 dark:from-white dark:via-slate-200 dark:to-violet-400 bg-clip-text text-transparent">
             Expensify
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 uppercase tracking-widest font-semibold">
@@ -171,8 +188,14 @@ function VerifyEmailForm() {
         </div>
 
         {/* Verification frosted card */}
-        <GlassCard glow className="relative overflow-hidden border-violet-500/10 shadow-2xl">
-          <Link href="/register" className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-violet-400 transition-colors mb-4 group">
+        <GlassCard
+          glow
+          className="relative overflow-hidden border-violet-500/10 shadow-2xl"
+        >
+          <Link
+            href="/register"
+            className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-violet-400 transition-colors mb-4 group"
+          >
             <ArrowLeft className="h-3.5 w-3.5 transition-transform duration-200 group-hover:-translate-x-0.5" />
             Back to registration
           </Link>
@@ -181,7 +204,11 @@ function VerifyEmailForm() {
             Verify Email
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400 mb-6">
-            We have sent a 6-digit verification code to <span className="font-semibold text-slate-700 dark:text-slate-350">{email || "your email"}</span>.
+            We have sent a 6-digit verification code to{" "}
+            <span className="font-semibold text-slate-700 dark:text-slate-350">
+              {email || "your email"}
+            </span>
+            .
           </p>
 
           {/* Messages */}
@@ -206,7 +233,10 @@ function VerifyEmailForm() {
                 <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider px-1">
                   Verification Code
                 </label>
-                <div className="flex justify-between gap-2.5" onPaste={handlePaste}>
+                <div
+                  className="flex justify-between gap-2.5"
+                  onPaste={handlePaste}
+                >
                   {otpDigits.map((digit, idx) => (
                     <input
                       key={idx}
@@ -232,7 +262,9 @@ function VerifyEmailForm() {
               <div className="flex items-center justify-between text-xs text-slate-500 px-1">
                 <span>
                   Code expires in:{" "}
-                  <strong className={`${expiryTimeLeft <= 60 ? "text-rose-400 animate-pulse" : "text-violet-400 font-semibold"}`}>
+                  <strong
+                    className={`${expiryTimeLeft <= 60 ? "text-rose-400 animate-pulse" : "text-violet-400 font-semibold"}`}
+                  >
                     {formatTime(expiryTimeLeft)}
                   </strong>
                 </span>
@@ -285,8 +317,12 @@ function VerifyEmailForm() {
           {successMessage && (
             <div className="mt-4 text-center">
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                You will be automatically redirected to the login page shortly, or click{" "}
-                <Link href="/login" className="text-violet-500 hover:underline font-semibold">
+                You will be automatically redirected to the login page shortly,
+                or click{" "}
+                <Link
+                  href="/login"
+                  className="text-violet-500 hover:underline font-semibold"
+                >
                   here
                 </Link>{" "}
                 to sign in now.
@@ -301,11 +337,13 @@ function VerifyEmailForm() {
 
 export default function VerifyEmailPage() {
   return (
-    <Suspense fallback={
-      <div className="flex-1 flex items-center justify-center min-h-screen">
-        <Loader2 className="h-8 w-8 text-violet-500 animate-spin" />
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div className="flex-1 flex items-center justify-center min-h-screen">
+          <Loader2 className="h-8 w-8 text-violet-500 animate-spin" />
+        </div>
+      }
+    >
       <VerifyEmailForm />
     </Suspense>
   );

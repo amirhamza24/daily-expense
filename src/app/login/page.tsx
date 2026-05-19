@@ -69,7 +69,7 @@ function LoginContent() {
           <div className="p-3 bg-violet-600/30 rounded-2xl border border-violet-500/40 shadow-xl shadow-violet-500/20 mb-3 animate-pulse">
             <TrendingUp className="h-8 w-8 text-violet-400" />
           </div>
-          <h1 className="text-3xl font-extrabold tracking-wide bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-600 dark:from-white dark:via-slate-200 dark:to-violet-400 bg-clip-text text-transparent">
+          <h1 className="text-3xl font-extrabold tracking-wide bg-gradient-to-r from-slate-900 via-slate-700 to-indigo-600 dark:from-white dark:via-slate-200 dark:to-violet-400 bg-clip-text text-transparent">
             Expensify
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 uppercase tracking-widest font-semibold">

@@ -59,8 +59,13 @@ export default function RegisterPage() {
       const res = await registerUser(formData);
 
       if (res.success) {
-        setSuccessMessage("Registration successful! Redirecting to email verification...");
-        showToast("Registration successful! Redirecting to email verification...", "success");
+        setSuccessMessage(
+          "Registration successful! Redirecting to email verification...",
+        );
+        showToast(
+          "Registration successful! Redirecting to email verification...",
+          "success",
+        );
 
         // Redirect to email verification page after 1.5 seconds
         setTimeout(() => {
@@ -81,7 +86,7 @@ export default function RegisterPage() {
           <div className="p-3 bg-violet-600/30 rounded-2xl border border-violet-500/40 shadow-xl shadow-violet-500/20 mb-3 animate-pulse">
             <TrendingUp className="h-8 w-8 text-violet-400" />
           </div>
-          <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-600 dark:from-white dark:via-slate-200 dark:to-violet-400 bg-clip-text text-transparent">
+          <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-slate-900 via-slate-700 to-indigo-600 dark:from-white dark:via-slate-200 dark:to-violet-400 bg-clip-text text-transparent">
             Expensify
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 uppercase tracking-widest font-semibold">
@@ -169,7 +174,7 @@ export default function RegisterPage() {
                 <div className="relative">
                   <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
                   <input
-                    type={showPassword ? 'text' : 'password'}
+                    type={showPassword ? "text" : "password"}
                     name="password"
                     required
                     placeholder="••••••••"
@@ -180,10 +185,16 @@ export default function RegisterPage() {
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
                     tabIndex={-1}
-                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    aria-label={
+                      showPassword ? "Hide password" : "Show password"
+                    }
                     className="absolute right-3.5 top-1/2 -translate-y-1/2 p-0.5 rounded-md text-slate-500 hover:text-violet-400 transition-colors cursor-pointer"
                   >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
                   </button>
                 </div>
               </div>
@@ -196,7 +207,7 @@ export default function RegisterPage() {
                 <div className="relative">
                   <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
                   <input
-                    type={showConfirmPassword ? 'text' : 'password'}
+                    type={showConfirmPassword ? "text" : "password"}
                     name="confirmPassword"
                     required
                     placeholder="••••••••"
@@ -207,10 +218,16 @@ export default function RegisterPage() {
                     type="button"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                     tabIndex={-1}
-                    aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                    aria-label={
+                      showConfirmPassword ? "Hide password" : "Show password"
+                    }
                     className="absolute right-3.5 top-1/2 -translate-y-1/2 p-0.5 rounded-md text-slate-500 hover:text-violet-400 transition-colors cursor-pointer"
                   >
-                    {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    {showConfirmPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
                   </button>
                 </div>
               </div>

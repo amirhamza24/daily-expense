@@ -35,7 +35,8 @@ export async function proxy(request: NextRequest) {
     path.startsWith("/expenses") ||
     path.startsWith("/analytics") ||
     path.startsWith("/profile") ||
-    path.startsWith("/settings");
+    path.startsWith("/settings") ||
+    path.startsWith("/transaction-history");
   const isAdminPath = path.startsWith("/admin");
 
   // Verify JWT signature and database status

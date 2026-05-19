@@ -63,7 +63,7 @@ export default async function AdminDashboardPage() {
       {/* Title Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-600 dark:from-white dark:via-slate-200 dark:to-violet-400 bg-clip-text text-transparent flex items-center gap-2">
+          <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight bg-gradient-to-r from-slate-900 via-slate-700 to-indigo-600 dark:from-white dark:via-slate-200 dark:to-violet-400 bg-clip-text text-transparent flex items-center gap-2 w-fit">
             <ShieldCheck className="h-8 w-8 text-violet-500 dark:text-violet-400 shrink-0" />
             Administrative Overview
           </h2>

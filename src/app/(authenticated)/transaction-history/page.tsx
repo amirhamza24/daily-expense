@@ -5,7 +5,8 @@ import TransactionHistoryClient from "@/components/TransactionHistoryClient";
 
 export const metadata = {
   title: "Transaction History Ledger | Wallet Tracker",
-  description: "View and filter your complete credit and debit ledger with real-time running balance.",
+  description:
+    "View and filter your complete credit and debit ledger with real-time running balance.",
 };
 
 export default async function TransactionHistoryPage() {
@@ -42,11 +43,12 @@ export default async function TransactionHistoryPage() {
   return (
     <div className="flex flex-col gap-6 md:gap-8 w-full">
       <div>
-        <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-slate-900 to-slate-700 dark:from-white dark:to-slate-300 bg-clip-text text-transparent">
+        <h1 className="text-2xl md:text-3xl font-extrabold tracking-wide bg-gradient-to-r from-slate-900 via-slate-700 to-indigo-600 dark:from-white dark:via-slate-200 dark:to-violet-400 bg-clip-text text-transparent w-fit">
           Transaction History
         </h1>
         <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-          Explore your complete account ledger with chronological running balances, filters, and transaction types.
+          Explore your complete account ledger with chronological running
+          balances, filters, and transaction types.
         </p>
       </div>
 

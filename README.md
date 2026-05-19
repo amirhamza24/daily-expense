@@ -52,6 +52,7 @@ A full-stack, production-grade personal finance management application built wit
 | **Charts** | [Recharts](https://recharts.org/) | 3.x |
 | **Forms** | [React Hook Form](https://react-hook-form.com/) | 7.x |
 | **Validation** | [Zod](https://zod.dev/) | 4.x |
+| **Date Handling** | [date-fns](https://date-fns.org/) & [React DatePicker](https://reactdatepicker.com/) | Latest |
 | **Authentication** | [jose](https://github.com/panva/jose) (JWT) + [bcryptjs](https://github.com/dcodeIO/bcrypt.js) | Latest |
 | **Email** | [Resend](https://resend.com/) | 6.x |
 | **Icons** | [Lucide React](https://lucide.dev/) | 1.x |
@@ -65,6 +66,8 @@ A full-stack, production-grade personal finance management application built wit
 - **Email Registration & Verification** — secure signup with a one-time verification code sent via email
 - **JWT Session Management** — stateless, cookie-based authentication with server-side middleware guards
 - **Expense CRUD** — create, read, update, and delete expenses with title, amount, category, date, and optional notes
+- **Transaction Ledger** — view a chronological history of your expenses with a calculated **running balance**
+- **CSV Data Export** — securely download your expense reports directly from the client side
 - **Balance Management** — set total balance and track remaining balance in real time
 - **Analytics Dashboard** — interactive bar & pie charts for monthly spending breakdowns and category analysis
 - **Profile Management** — update personal details and change password securely
@@ -82,6 +85,7 @@ A full-stack, production-grade personal finance management application built wit
 - Route-level protection via **Next.js Middleware**
 - Admin routes additionally guarded at the **Server Component** level
 - Email verification required before account activation
+- Secure, interactive credential visibility toggles (Show/Hide password)
 
 ---
 
@@ -179,26 +183,7 @@ cd daily-expense-track
 npm install
 ```
 
-### 3. Configure Environment Variables
-
-Create a `.env` file in the root directory:
-
-```env
-# Database
-DATABASE_URL="postgresql://USER:PASSWORD@HOST:PORT/DATABASE"
-
-# Authentication
-JWT_SECRET="your-super-secret-jwt-key-min-32-chars"
-
-# Email (Resend)
-RESEND_API_KEY="re_xxxxxxxxxxxxxxxxxxxx"
-RESEND_FROM_EMAIL="noreply@yourdomain.com"
-
-# App
-NEXT_PUBLIC_APP_URL="http://localhost:3000"
-```
-
-### 4. Set Up the Database
+### 3. Set Up the Database
 
 ```bash
 # Push the Prisma schema to your database
@@ -208,7 +193,7 @@ npx prisma db push
 npx prisma db seed
 ```
 
-### 5. Run the Development Server
+### 4. Run the Development Server
 
 ```bash
 npm run dev
@@ -240,6 +225,7 @@ The UI is built around a **premium glassmorphism** aesthetic:
 - **Glass Cards**: Frosted-glass effect with `backdrop-blur` and translucent backgrounds
 - **Theme**: Full dark/light mode support with SSR-safe flash-free initialization
 - **Animations**: Smooth transitions and micro-interactions throughout
+- **Premium Components**: Custom-styled calendar interfaces (`react-datepicker`) overriding standard native HTML inputs for a consistent aesthetic
 
 ---
 

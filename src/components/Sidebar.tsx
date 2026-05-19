@@ -16,6 +16,7 @@ import {
   X,
   TrendingUp,
   History,
+  HelpCircle,
 } from "lucide-react";
 import { logoutUser } from "@/actions/auth";
 import { useToast } from "./Toast";
@@ -58,6 +59,7 @@ export default function Sidebar({ user, pendingUserCount = 0 }: SidebarProps) {
     { label: "Analytics", path: "/analytics", icon: BarChart3 },
     { label: "Profile", path: "/profile", icon: User },
     { label: "Settings", path: "/settings", icon: Settings },
+    // { label: "Help Center", path: "/help", icon: HelpCircle },
   ];
 
   const adminItems = [
@@ -72,7 +74,7 @@ export default function Sidebar({ user, pendingUserCount = 0 }: SidebarProps) {
 
   const isActive = (path: string) => pathname === path;
 
-  const SidebarContent = () => (
+  const sidebarContent = (
     <div className="flex flex-col h-full bg-slate-50/80 dark:bg-[#09090e] backdrop-blur-2xl border-r border-slate-200/50 dark:border-white/5 text-slate-800 dark:text-slate-100 overflow-hidden">
       {/* App Logo — always visible at top */}
       <div className="flex items-center gap-3 px-6 pt-6 pb-4 shrink-0">
@@ -223,7 +225,7 @@ export default function Sidebar({ user, pendingUserCount = 0 }: SidebarProps) {
 
       {/* Desktop Sidebar */}
       <aside className="hidden md:block w-64 h-screen sticky top-0 shrink-0">
-        <SidebarContent />
+        {sidebarContent}
       </aside>
 
       {/* Mobile Drawer Backdrop */}
@@ -241,7 +243,7 @@ export default function Sidebar({ user, pendingUserCount = 0 }: SidebarProps) {
           ${isOpen ? "translate-x-0" : "-translate-x-full"}
         `}
       >
-        <SidebarContent />
+        {sidebarContent}
       </aside>
     </>
   );

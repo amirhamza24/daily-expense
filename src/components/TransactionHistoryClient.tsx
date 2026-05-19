@@ -39,7 +39,9 @@ export default function TransactionHistoryClient({
 }: TransactionHistoryClientProps) {
   // --- Filter and Search States ---
   const [searchQuery, setSearchQuery] = useState("");
-  const [typeFilter, setTypeFilter] = useState<"All" | "Credit" | "Debit">("All");
+  const [typeFilter, setTypeFilter] = useState<"All" | "Credit" | "Debit">(
+    "All",
+  );
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
@@ -97,7 +99,7 @@ export default function TransactionHistoryClient({
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedTransactions = filteredTransactions.slice(
     startIndex,
-    startIndex + itemsPerPage
+    startIndex + itemsPerPage,
   );
 
   const handleResetFilters = () => {
@@ -161,8 +163,8 @@ export default function TransactionHistoryClient({
                       ? type === "Credit"
                         ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
                         : type === "Debit"
-                        ? "bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/30"
-                        : "bg-violet-500/20 text-violet-600 dark:text-violet-400 border border-violet-500/30"
+                          ? "bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/30"
+                          : "bg-violet-500/20 text-violet-600 dark:text-violet-400 border border-violet-500/30"
                       : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 border border-transparent"
                   }`}
                 >
@@ -182,7 +184,9 @@ export default function TransactionHistoryClient({
                 <DatePicker
                   selected={startDate ? new Date(startDate) : null}
                   onChange={(date) => {
-                    const dateStr = date ? date.toISOString().split('T')[0] : '';
+                    const dateStr = date
+                      ? date.toISOString().split("T")[0]
+                      : "";
                     setStartDate(dateStr);
                     setCurrentPage(1);
                   }}
@@ -202,7 +206,9 @@ export default function TransactionHistoryClient({
                 <DatePicker
                   selected={endDate ? new Date(endDate) : null}
                   onChange={(date) => {
-                    const dateStr = date ? date.toISOString().split('T')[0] : '';
+                    const dateStr = date
+                      ? date.toISOString().split("T")[0]
+                      : "";
                     setEndDate(dateStr);
                     setCurrentPage(1);
                   }}
@@ -257,7 +263,7 @@ export default function TransactionHistoryClient({
           <div className="hidden md:block overflow-hidden border border-slate-200 dark:border-slate-500/10 rounded-2xl glass-panel shadow-xl">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-slate-100/30 dark:bg-slate-900/35 border-b border-slate-200 dark:border-slate-500/15">
+                <tr className="bg-slate-100 dark:bg-slate-900/35 border-b border-slate-200 dark:border-slate-500/15">
                   <th className="px-6 py-4 text-xs font-bold text-slate-505 dark:text-slate-400 uppercase tracking-wider w-36">
                     Date
                   </th>
@@ -304,7 +310,9 @@ export default function TransactionHistoryClient({
                         >
                           <span
                             className={`h-1.5 w-1.5 rounded-full ${
-                              isCredit ? "bg-emerald-500 dark:bg-emerald-400 animate-pulse" : "bg-rose-500 dark:bg-rose-400"
+                              isCredit
+                                ? "bg-emerald-500 dark:bg-emerald-400 animate-pulse"
+                                : "bg-rose-500 dark:bg-rose-400"
                             }`}
                           ></span>
                           {t.type}
@@ -313,9 +321,14 @@ export default function TransactionHistoryClient({
 
                       {/* Amount */}
                       <td className="px-6 py-4.5 whitespace-nowrap text-sm font-extrabold">
-                        <span className={isCredit ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}>
-                          {isCredit ? "+" : "-"}
-                          $
+                        <span
+                          className={
+                            isCredit
+                              ? "text-emerald-600 dark:text-emerald-400"
+                              : "text-rose-600 dark:text-rose-400"
+                          }
+                        >
+                          {isCredit ? "+" : "-"}$
                           {t.amount.toLocaleString("en-US", {
                             minimumFractionDigits: 2,
                           })}
@@ -327,7 +340,7 @@ export default function TransactionHistoryClient({
                         <div className="flex items-center gap-2">
                           <div
                             className={`p-1.5 rounded-lg border ${getCategoryGlow(
-                              t.category
+                              t.category,
                             )}`}
                           >
                             <CategoryIcon className="h-3.5 w-3.5" />
@@ -353,7 +366,7 @@ export default function TransactionHistoryClient({
                       </td>
 
                       {/* Running Balance */}
-                      <td className="px-6 py-4.5 whitespace-nowrap text-right">
+                      <td className="px-6 py-4.5 whitespace-nowrap">
                         <span className="inline-block px-3 py-1 bg-slate-100/50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-500/10 rounded-xl text-sm font-extrabold text-slate-700 dark:text-slate-200 tracking-wide">
                           $
                           {t.runningBalance.toLocaleString("en-US", {
@@ -406,7 +419,7 @@ export default function TransactionHistoryClient({
                       <div className="flex items-center gap-2">
                         <div
                           className={`p-1 rounded-md border ${getCategoryGlow(
-                            t.category
+                            t.category,
                           )}`}
                         >
                           <CategoryIcon className="h-3 w-3" />
@@ -423,9 +436,10 @@ export default function TransactionHistoryClient({
                     </div>
 
                     <div className="flex flex-col items-end gap-2 shrink-0">
-                      <span className={`text-base font-extrabold ${isCredit ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
-                        {isCredit ? "+" : "-"}
-                        $
+                      <span
+                        className={`text-base font-extrabold ${isCredit ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}
+                      >
+                        {isCredit ? "+" : "-"}$
                         {t.amount.toLocaleString("en-US", {
                           minimumFractionDigits: 2,
                         })}
@@ -453,8 +467,14 @@ export default function TransactionHistoryClient({
           {totalPages > 1 && (
             <div className="flex items-center justify-between bg-slate-100/30 dark:bg-slate-900/10 border border-slate-200 dark:border-slate-500/10 p-4 rounded-2xl mt-2 shadow-md">
               <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-                Page <strong className="text-slate-700 dark:text-slate-300">{currentPage}</strong> of{" "}
-                <strong className="text-slate-700 dark:text-slate-300">{totalPages}</strong>
+                Page{" "}
+                <strong className="text-slate-700 dark:text-slate-300">
+                  {currentPage}
+                </strong>{" "}
+                of{" "}
+                <strong className="text-slate-700 dark:text-slate-300">
+                  {totalPages}
+                </strong>
               </span>
 
               <div className="flex items-center gap-2">
@@ -484,7 +504,9 @@ export default function TransactionHistoryClient({
                   })}
                 </div>
                 <button
-                  onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
+                  onClick={() =>
+                    setCurrentPage((p) => Math.min(p + 1, totalPages))
+                  }
                   disabled={currentPage === totalPages}
                   className="p-2 border border-slate-200 dark:border-slate-500/20 rounded-xl bg-white dark:bg-slate-900/50 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                 >
@@ -504,7 +526,8 @@ export default function TransactionHistoryClient({
             No Transactions Found
           </h3>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-sm">
-            We couldn't find any transaction history matches. Try clearing some search queries or adjusting date/type filters.
+            We couldn't find any transaction history matches. Try clearing some
+            search queries or adjusting date/type filters.
           </p>
           {(searchQuery || typeFilter !== "All" || startDate || endDate) && (
             <button

@@ -196,7 +196,7 @@ export default function ExpensesClient({
       {/* Title Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl md:text-3xl font-extrabold tracking-wide bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-600 dark:from-white dark:via-slate-200 dark:to-violet-400 bg-clip-text text-transparent">
+          <h2 className="text-2xl md:text-3xl font-extrabold tracking-wide bg-gradient-to-r from-slate-900 via-slate-700 to-indigo-600 dark:from-white dark:via-slate-200 dark:to-violet-400 bg-clip-text text-transparent w-fit">
             Transaction Ledger
           </h2>
           <p className="text-xs md:text-sm text-slate-500 dark:text-slate-400 mt-1">
@@ -364,7 +364,9 @@ export default function ExpensesClient({
                     selected={startDate ? new Date(startDate) : null}
                     onChange={(date) => {
                       // format date to YYYY-MM-DD
-                      const dateStr = date ? date.toISOString().split('T')[0] : '';
+                      const dateStr = date
+                        ? date.toISOString().split("T")[0]
+                        : "";
                       setStartDate(dateStr);
                       applyFilters({ startDate: dateStr });
                     }}
@@ -380,7 +382,9 @@ export default function ExpensesClient({
                   <DatePicker
                     selected={endDate ? new Date(endDate) : null}
                     onChange={(date) => {
-                      const dateStr = date ? date.toISOString().split('T')[0] : '';
+                      const dateStr = date
+                        ? date.toISOString().split("T")[0]
+                        : "";
                       setEndDate(dateStr);
                       applyFilters({ endDate: dateStr });
                     }}
@@ -436,11 +440,21 @@ export default function ExpensesClient({
             <table className="glass-table w-full">
               <thead>
                 <tr>
-                  <th>Description</th>
-                  <th className="hidden md:table-cell">Category</th>
-                  <th className="hidden md:table-cell">Log Date</th>
-                  <th>Amount</th>
-                  <th className="text-right">Actions</th>
+                  <th className="px-6 py-4 text-sm font-bold! text-slate-800! dark:text-slate-300! uppercase tracking-wider w-36">
+                    Description
+                  </th>
+                  <th className="px-6 py-4 text-sm font-bold! text-slate-800! dark:text-slate-300! uppercase tracking-wider w-36">
+                    Category
+                  </th>
+                  <th className="px-6 py-4 text-sm font-bold! text-slate-800! dark:text-slate-300! uppercase tracking-wider w-36">
+                    Log Date
+                  </th>
+                  <th className="px-6 py-4 text-sm font-bold! text-slate-800! dark:text-slate-300! uppercase tracking-wider w-36">
+                    Amount
+                  </th>
+                  <th className="px-6 py-4 text-sm font-bold! text-slate-800! dark:text-slate-300! uppercase tracking-wider w-36">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -475,7 +489,7 @@ export default function ExpensesClient({
                       </td>
 
                       {/* Category */}
-                      <td className="hidden md:table-cell">
+                      <td className="">
                         <span
                           className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-semibold ${glowClass}`}
                         >
@@ -485,7 +499,7 @@ export default function ExpensesClient({
                       </td>
 
                       {/* Date */}
-                      <td className="hidden md:table-cell text-xs text-slate-600 dark:text-slate-400 font-semibold">
+                      <td className="text-xs text-slate-600 dark:text-slate-400 font-semibold">
                         {new Date(exp.expenseDate).toLocaleDateString("en-US", {
                           year: "numeric",
                           month: "long",
