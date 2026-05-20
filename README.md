@@ -16,6 +16,13 @@ A full-stack, production-grade personal finance management application built wit
 
 ---
 
+## 🚀 Live Demo
+
+The application is deployed and live! You can access the production version here:  
+**[https://daily-expense-tracker-zeta-one.vercel.app](https://daily-expense-tracker-zeta-one.vercel.app)**
+
+---
+
 ## 🎯 Project Goal
 
 **Expensify** is designed to give individuals a clear, secure, and beautiful way to manage their day-to-day finances. The core goals are:

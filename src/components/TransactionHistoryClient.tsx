@@ -183,7 +183,7 @@ export default function TransactionHistoryClient({
               <div className="relative">
                 <DatePicker
                   selected={startDate ? new Date(startDate) : null}
-                  onChange={(date) => {
+                  onChange={(date: Date | null) => {
                     const dateStr = date
                       ? date.toISOString().split("T")[0]
                       : "";
@@ -205,7 +205,7 @@ export default function TransactionHistoryClient({
               <div className="relative">
                 <DatePicker
                   selected={endDate ? new Date(endDate) : null}
-                  onChange={(date) => {
+                  onChange={(date: Date | null) => {
                     const dateStr = date
                       ? date.toISOString().split("T")[0]
                       : "";
@@ -526,7 +526,7 @@ export default function TransactionHistoryClient({
             No Transactions Found
           </h3>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-sm">
-            We couldn't find any transaction history matches. Try clearing some
+            We couldn&apos;t find any transaction history matches. Try clearing some
             search queries or adjusting date/type filters.
           </p>
           {(searchQuery || typeFilter !== "All" || startDate || endDate) && (

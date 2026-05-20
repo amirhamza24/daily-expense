@@ -362,7 +362,7 @@ export default function ExpensesClient({
                   <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 z-10 pointer-events-none" />
                   <DatePicker
                     selected={startDate ? new Date(startDate) : null}
-                    onChange={(date) => {
+                    onChange={(date: Date | null) => {
                       // format date to YYYY-MM-DD
                       const dateStr = date
                         ? date.toISOString().split("T")[0]
@@ -381,7 +381,7 @@ export default function ExpensesClient({
                   <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 z-10 pointer-events-none" />
                   <DatePicker
                     selected={endDate ? new Date(endDate) : null}
-                    onChange={(date) => {
+                    onChange={(date: Date | null) => {
                       const dateStr = date
                         ? date.toISOString().split("T")[0]
                         : "";
