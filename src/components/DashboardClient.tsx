@@ -6,7 +6,6 @@ import {
   Wallet,
   TrendingUp,
   TrendingDown,
-  Calendar,
   Clock,
   Plus,
   Edit2,
@@ -110,7 +109,7 @@ export default function DashboardClient({
 }: DashboardClientProps) {
   const { showToast } = useToast();
   const confirm = useConfirm();
-  const [isPending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
 
   // Modal States
   const [isExpenseOpen, setIsExpenseOpen] = useState(false);
@@ -162,186 +161,149 @@ export default function DashboardClient({
             className="flex-1 md:flex-initial px-4 py-3 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-semibold text-xs rounded-xl shadow-lg shadow-violet-950/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer"
           >
             <Plus className="h-4 w-4" />
-            Record Item
+            <span className="tracking-wider">New Record</span>
           </button>
         </div>
       </div>
 
       {/* Statistics Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Card 1: Total Balance */}
-        <GlassCard
-          hoverable
-          onClick={() => {
-            setEditingExpense(undefined);
-            setIsExpenseOpen(true);
-          }}
-          className="border-violet-500/10 shadow-violet-950/5 relative overflow-hidden"
-        >
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Card 1: Total Expenses */}
+        <GlassCard className="border-rose-500/10 shadow-rose-950/5 p-4">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-              Initial Balance
-            </span>
-            <div className="p-2 bg-violet-500/15 rounded-lg border border-violet-500/25">
-              <Wallet className="h-5 w-5 text-violet-400" />
-            </div>
-          </div>
-          <h3 className="text-3xl font-extrabold text-slate-900 dark:text-white mt-4 tracking-wide">
-            $
-            {stats.totalBalance.toLocaleString("en-US", {
-              minimumFractionDigits: 2,
-            })}
-          </h3>
-          {stats.balanceNote && (
-            <p
-              className="text-[11px] text-slate-400 dark:text-slate-400 mt-2 italic line-clamp-1 border-t border-white/5 dark:border-white/5 pt-2"
-              title={stats.balanceNote}
-            >
-              Note: {stats.balanceNote}
-            </p>
-          )}
-          <p className="text-[10px] text-emerald-400 mt-2 font-medium flex items-center gap-1">
-            <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400 animate-ping"></span>
-            Click card to record transaction
-          </p>
-        </GlassCard>
-
-        {/* Card 2: Total Expenses */}
-        <GlassCard className="border-rose-500/10 shadow-rose-950/5">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
               Total Expenses
             </span>
-            <div className="p-2 bg-rose-500/15 rounded-lg border border-rose-500/25">
-              <TrendingDown className="h-5 w-5 text-rose-400" />
+            <div className="p-1.5 bg-rose-500/15 rounded-lg border border-rose-500/25">
+              <TrendingDown className="h-4 w-4 text-rose-400" />
             </div>
           </div>
-          <h3 className="text-3xl font-extrabold text-slate-900 dark:text-white mt-4 tracking-wide">
+          <h3 className="text-2xl font-extrabold text-slate-900 dark:text-white mt-3 tracking-wide">
             $
             {stats.totalExpenses.toLocaleString("en-US", {
               minimumFractionDigits: 2,
             })}
           </h3>
-          <p className="text-[10px] text-rose-400 mt-2 font-medium">
+          <p className="text-[9px] text-rose-400 mt-1.5 font-medium">
             Accumulated sum of logged items
           </p>
         </GlassCard>
 
-        {/* Card 3: Remaining Balance */}
-        <GlassCard className="border-emerald-500/10 shadow-emerald-950/5">
+        {/* Card 2: Remaining Balance */}
+        <GlassCard className="border-emerald-500/10 shadow-emerald-950/5 p-4">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
               Remaining Balance
             </span>
-            <div className="p-2 bg-emerald-500/15 rounded-lg border border-emerald-500/25">
-              <TrendingUp className="h-5 w-5 text-emerald-400" />
+            <div className="p-1.5 bg-emerald-500/15 rounded-lg border border-emerald-500/25">
+              <TrendingUp className="h-4 w-4 text-emerald-400" />
             </div>
           </div>
-          <h3 className="text-3xl font-extrabold text-slate-900 dark:text-white mt-4 tracking-wide">
+          <h3 className="text-2xl font-extrabold text-slate-900 dark:text-white mt-3 tracking-wide">
             $
             {stats.remainingBalance.toLocaleString("en-US", {
               minimumFractionDigits: 2,
             })}
           </h3>
-          <p className="text-[10px] text-emerald-400 mt-2 font-medium flex items-center gap-1.5">
-            <span className="inline-block h-2 w-2 rounded-full bg-emerald-500"></span>
+          <p className="text-[9px] text-emerald-400 mt-1.5 font-medium flex items-center gap-1.5">
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
             Adjusted wallet limits
           </p>
         </GlassCard>
       </div>
 
       {/* Monthly Summary Section */}
-      <div className="mt-2">
-        <h3 className="text-lg font-bold tracking-wide text-slate-800 dark:text-slate-200">
+      <div className="mt-4">
+        <h3 className="text-base font-bold tracking-wide text-slate-800 dark:text-slate-200">
           Monthly Summary (Current Month)
         </h3>
-        <p className="text-xs text-slate-500 dark:text-slate-400">
+        <p className="text-[10px] text-slate-500 dark:text-slate-400">
           A summary of your credits and debits logged during the current month.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         {/* Card 1: Total Credit (This Month) */}
-        <GlassCard className="border-emerald-500/10 shadow-emerald-950/5 relative overflow-hidden">
+        <GlassCard className="border-emerald-500/10 shadow-emerald-950/5 relative overflow-hidden p-4">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-              Total Credit (This Month)
+            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+              Monthly Credit
             </span>
-            <div className="p-2 bg-emerald-500/15 rounded-lg border border-emerald-500/25">
-              <TrendingUp className="h-5 w-5 text-emerald-400" />
+            <div className="p-1.5 bg-emerald-500/15 rounded-lg border border-emerald-500/25">
+              <TrendingUp className="h-4 w-4 text-emerald-400" />
             </div>
           </div>
-          <h3 className="text-3xl font-extrabold text-emerald-600 dark:text-emerald-400 mt-4 tracking-wide">
+          <h3 className="text-xl font-extrabold text-emerald-600 dark:text-emerald-400 mt-3 tracking-wide">
             +$
             {stats.monthlyCredit.toLocaleString("en-US", {
               minimumFractionDigits: 2,
             })}
           </h3>
-          <p className="text-[10px] text-slate-400 mt-2 font-medium">
-            Total income/deposits logged this month
+          <p className="text-[9px] text-slate-400 mt-1.5 font-medium">
+            Total income this month
           </p>
         </GlassCard>
 
         {/* Card 2: Total Debit (This Month) */}
-        <GlassCard className="border-rose-500/10 shadow-rose-950/5 relative overflow-hidden">
+        <GlassCard className="border-rose-500/10 shadow-rose-950/5 relative overflow-hidden p-4">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-              Total Debit (This Month)
+            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+              Monthly Debit
             </span>
-            <div className="p-2 bg-rose-500/15 rounded-lg border border-rose-500/25">
-              <TrendingDown className="h-5 w-5 text-rose-400" />
+            <div className="p-1.5 bg-rose-500/15 rounded-lg border border-rose-500/25">
+              <TrendingDown className="h-4 w-4 text-rose-400" />
             </div>
           </div>
-          <h3 className="text-3xl font-extrabold text-rose-600 dark:text-rose-400 mt-4 tracking-wide">
+          <h3 className="text-xl font-extrabold text-rose-600 dark:text-rose-400 mt-3 tracking-wide">
             -$
             {stats.monthlyDebit.toLocaleString("en-US", {
               minimumFractionDigits: 2,
             })}
           </h3>
-          <p className="text-[10px] text-slate-400 mt-2 font-medium">
-            Total expenses logged this month
+          <p className="text-[9px] text-slate-400 mt-1.5 font-medium">
+            Total expenses this month
           </p>
         </GlassCard>
 
         {/* Card 3: Remaining Balance (This Month) */}
-        <GlassCard className="border-indigo-500/10 shadow-indigo-950/5 relative overflow-hidden">
+        <GlassCard className="col-span-2 md:col-span-1 border-indigo-500/10 shadow-indigo-950/5 relative overflow-hidden p-4">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-              Remaining Balance (This Month)
+            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+              Monthly Net
             </span>
-            <div className="p-2 bg-indigo-500/15 rounded-lg border border-indigo-500/25">
-              <Wallet className="h-5 w-5 text-indigo-400" />
+            <div className="p-1.5 bg-indigo-500/15 rounded-lg border border-indigo-500/25">
+              <Wallet className="h-4 w-4 text-indigo-400" />
             </div>
           </div>
           <h3
-            className={`text-3xl font-extrabold mt-4 tracking-wide ${stats.monthlyRemaining >= 0 ? "text-indigo-600 dark:text-indigo-400" : "text-rose-600 dark:text-rose-400"}`}
+            className={`text-xl font-extrabold mt-3 tracking-wide ${stats.monthlyRemaining >= 0 ? "text-indigo-600 dark:text-indigo-400" : "text-rose-600 dark:text-rose-400"}`}
           >
             {stats.monthlyRemaining < 0 ? "-" : ""}$
             {Math.abs(stats.monthlyRemaining).toLocaleString("en-US", {
               minimumFractionDigits: 2,
             })}
           </h3>
-          <p className="text-[10px] text-slate-400 mt-2 font-medium">
-            Net monthly balance (Credit - Debit)
+          <p className="text-[9px] text-slate-400 mt-1.5 font-medium">
+            Net balance (Credit - Debit)
           </p>
         </GlassCard>
       </div>
 
       {/* Sub Grid for Monthly/Today and Recent Activity */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Left column: Quick Stats Overview */}
-        <div className="flex flex-col gap-6 lg:col-span-1">
+        <div className="flex flex-row lg:flex-col gap-4 lg:col-span-1">
           {/* Card: Monthly Spent */}
-          <GlassCard className="border-blue-500/10 shadow-blue-950/5 flex-1">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-blue-500/10 border border-blue-500/20 rounded-xl text-blue-400">
-                <CalendarDays className="h-5 w-5" />
+          <GlassCard className="border-blue-500/10 shadow-blue-950/5 flex-1 p-3">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 bg-blue-500/10 border border-blue-500/20 rounded-xl text-blue-400">
+                <CalendarDays className="h-4 w-4" />
               </div>
               <div>
-                <p className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider">
-                  Monthly Expenses
+                <p className="text-[9px] text-slate-500 font-semibold uppercase tracking-wider">
+                  Monthly Spent
                 </p>
-                <h4 className="text-xl font-bold text-slate-800 dark:text-slate-200 mt-0.5">
+                <h4 className="text-lg font-bold text-slate-800 dark:text-slate-200">
                   $
                   {stats.monthlyExpenses.toLocaleString("en-US", {
                     minimumFractionDigits: 2,
@@ -352,16 +314,16 @@ export default function DashboardClient({
           </GlassCard>
 
           {/* Card: Today Spent */}
-          <GlassCard className="border-amber-500/10 shadow-amber-950/5 flex-1">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-400">
-                <Clock className="h-5 w-5" />
+          <GlassCard className="border-amber-500/10 shadow-amber-950/5 flex-1 p-3">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-400">
+                <Clock className="h-4 w-4" />
               </div>
               <div>
-                <p className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider">
-                  Today Expenses
+                <p className="text-[9px] text-slate-500 font-semibold uppercase tracking-wider">
+                  Today Spent
                 </p>
-                <h4 className="text-xl font-bold text-slate-800 dark:text-slate-200 mt-0.5">
+                <h4 className="text-lg font-bold text-slate-800 dark:text-slate-200">
                   $
                   {stats.todayExpenses.toLocaleString("en-US", {
                     minimumFractionDigits: 2,

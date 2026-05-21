@@ -4,15 +4,9 @@ import React, { useState, useTransition } from "react";
 import {
   UserCheck,
   UserX,
-  Clock,
   Ban,
-  Activity,
-  Calendar,
-  Shield,
-  Loader2,
   Info,
   Search,
-  Filter,
 } from "lucide-react";
 import GlassCard from "./GlassCard";
 import { updateUserStatus, updateUserRole } from "@/actions/admin";
@@ -211,19 +205,19 @@ export default function UsersRegistryClient({
             <table className="glass-table w-full text-left text-md border-collapse">
               <thead>
                 <tr>
-                  <th className="px-6 py-4 text-sm font-bold! text-slate-800! dark:text-slate-300! uppercase tracking-wider w-36">
+                  <th className="px-6 py-3 text-[11px] font-bold! text-slate-800! dark:text-slate-300! uppercase tracking-wider w-36">
                     Name & Email
                   </th>
-                  <th className="hidden md:table-cell px-6 py-4 text-sm font-bold! text-slate-800! dark:text-slate-300! uppercase tracking-wider w-36">
+                  <th className="hidden md:table-cell px-6 py-3 text-[11px] font-bold! text-slate-800! dark:text-slate-300! uppercase tracking-wider w-36">
                     Reg Date
                   </th>
-                  <th className="hidden md:table-cell px-6 py-4 text-sm font-bold! text-slate-800! dark:text-slate-300! uppercase tracking-wider w-36">
+                  <th className="hidden md:table-cell px-6 py-3 text-[11px] font-bold! text-slate-800! dark:text-slate-300! uppercase tracking-wider w-36">
                     Role
                   </th>
-                  <th className="px-6 py-4 text-sm font-bold! text-slate-800! dark:text-slate-300! uppercase tracking-wider w-36">
+                  <th className="px-6 py-3 text-[11px] font-bold! text-slate-800! dark:text-slate-300! uppercase tracking-wider w-36">
                     Status
                   </th>
-                  <th className="px-6 py-4 text-sm font-bold! text-slate-800! dark:text-slate-300! uppercase tracking-wider w-36">
+                  <th className="px-6 py-3 text-[11px] font-bold! text-slate-800! dark:text-slate-300! uppercase tracking-wider w-36">
                     Actions
                   </th>
                 </tr>
@@ -244,10 +238,10 @@ export default function UsersRegistryClient({
                             .toUpperCase()}
                         </div>
                         <div className="min-w-0">
-                          <span className="font-semibold text-sm text-slate-800 dark:text-slate-200 block truncate max-w-[140px] md:max-w-xs group-hover:text-violet-500 dark:group-hover:text-violet-400 transition-colors">
+                          <span className="font-semibold text-xs text-slate-800 dark:text-slate-200 block truncate max-w-[140px] md:max-w-xs group-hover:text-violet-500 dark:group-hover:text-violet-400 transition-colors">
                             {user.name}
                           </span>
-                          <span className="text-[10px] text-slate-500 block truncate max-w-[140px] md:max-w-xs mt-0.5">
+                          <span className="text-[9px] text-slate-500 block truncate max-w-[140px] md:max-w-xs mt-0.5">
                             {user.email}
                           </span>
                         </div>
@@ -255,7 +249,7 @@ export default function UsersRegistryClient({
                     </td>
 
                     {/* Registration Date */}
-                    <td className="hidden md:table-cell text-xs text-slate-600 dark:text-slate-400 font-semibold">
+                    <td className="hidden md:table-cell text-[10px] text-slate-600 dark:text-slate-400 font-semibold">
                       {new Date(user.createdAt).toLocaleDateString("en-US", {
                         year: "numeric",
                         month: "short",

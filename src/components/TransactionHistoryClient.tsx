@@ -3,16 +3,11 @@
 import React, { useState } from "react";
 import {
   Search,
-  Calendar,
   ChevronLeft,
   ChevronRight,
   FilterX,
-  TrendingUp,
-  TrendingDown,
-  Coins,
   DollarSign,
   ArrowRightLeft,
-  CalendarDays,
 } from "lucide-react";
 import GlassCard from "./GlassCard";
 import { getCategoryIcon, getCategoryGlow } from "./DashboardClient";
@@ -47,23 +42,21 @@ export default function TransactionHistoryClient({
 
   // --- Pagination States ---
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [itemsPerPage] = useState(10);
 
   // 1. Calculate sequential Running Balance chronologically (oldest-to-newest)
-  let balanceAccumulator = startingBalance;
-  const enrichedTransactions = transactions.map((t) => {
+  const enrichedTransactions = transactions.reduce((acc, t) => {
     const isCredit = t.category === "Income";
-    if (isCredit) {
-      balanceAccumulator += t.amount;
-    } else {
-      balanceAccumulator -= t.amount;
-    }
-    return {
+    const lastBalance = acc.length > 0 ? acc[acc.length - 1].runningBalance : startingBalance;
+    const currentBalance = isCredit ? lastBalance + t.amount : lastBalance - t.amount;
+    
+    acc.push({
       ...t,
-      type: isCredit ? ("Credit" as const) : ("Debit" as const),
-      runningBalance: balanceAccumulator,
-    };
-  });
+      type: isCredit ? "Credit" : "Debit",
+      runningBalance: currentBalance,
+    });
+    return acc;
+  }, [] as Array<SerializedExpense & { type: "Credit" | "Debit"; runningBalance: number }>);
 
   // 2. Present transactions LATEST FIRST by default
   const chronologicalLatestFirst = [...enrichedTransactions].reverse();
@@ -264,22 +257,22 @@ export default function TransactionHistoryClient({
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-100 dark:bg-slate-900/35 border-b border-slate-200 dark:border-slate-500/15">
-                  <th className="px-6 py-4 text-xs font-bold text-slate-505 dark:text-slate-400 uppercase tracking-wider w-36">
+                  <th className="px-6 py-3 text-[11px] font-bold text-slate-505 dark:text-slate-400 uppercase tracking-wider w-36">
                     Date
                   </th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-505 dark:text-slate-400 uppercase tracking-wider w-28">
+                  <th className="px-6 py-3 text-[11px] font-bold text-slate-505 dark:text-slate-400 uppercase tracking-wider w-28">
                     Type
                   </th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-505 dark:text-slate-400 uppercase tracking-wider w-32">
+                  <th className="px-6 py-3 text-[11px] font-bold text-slate-505 dark:text-slate-400 uppercase tracking-wider w-32">
                     Amount
                   </th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-505 dark:text-slate-400 uppercase tracking-wider w-40">
+                  <th className="px-6 py-3 text-[11px] font-bold text-slate-505 dark:text-slate-400 uppercase tracking-wider w-40">
                     Category
                   </th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-505 dark:text-slate-400 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-[11px] font-bold text-slate-505 dark:text-slate-400 uppercase tracking-wider">
                     Transaction Details
                   </th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-505 dark:text-slate-400 uppercase tracking-wider w-44 text-right">
+                  <th className="px-6 py-3 text-[11px] font-bold text-slate-505 dark:text-slate-400 uppercase tracking-wider w-44 text-right">
                     Running Balance
                   </th>
                 </tr>
@@ -295,7 +288,7 @@ export default function TransactionHistoryClient({
                       className="hover:bg-slate-950/5 dark:hover:bg-white/5 transition-all duration-150 group"
                     >
                       {/* Date */}
-                      <td className="px-6 py-4.5 whitespace-nowrap text-sm font-semibold text-slate-700 dark:text-slate-300">
+                      <td className="px-6 py-3.5 whitespace-nowrap text-xs font-semibold text-slate-700 dark:text-slate-300">
                         {formatTransactionDate(t.expenseDate)}
                       </td>
 
@@ -320,7 +313,7 @@ export default function TransactionHistoryClient({
                       </td>
 
                       {/* Amount */}
-                      <td className="px-6 py-4.5 whitespace-nowrap text-sm font-extrabold">
+                      <td className="px-6 py-3.5 whitespace-nowrap text-xs font-extrabold">
                         <span
                           className={
                             isCredit
@@ -345,20 +338,20 @@ export default function TransactionHistoryClient({
                           >
                             <CategoryIcon className="h-3.5 w-3.5" />
                           </div>
-                          <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                          <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
                             {t.category}
                           </span>
                         </div>
                       </td>
 
                       {/* Title & Notes */}
-                      <td className="px-6 py-4.5">
+                      <td className="px-6 py-3.5">
                         <div className="flex flex-col">
-                          <span className="text-sm font-bold text-slate-800 dark:text-slate-200 group-hover:text-slate-950 dark:group-hover:text-white transition">
+                          <span className="text-xs font-bold text-slate-800 dark:text-slate-200 group-hover:text-slate-950 dark:group-hover:text-white transition">
                             {t.title}
                           </span>
                           {t.note && (
-                            <span className="text-xs text-slate-400 dark:text-slate-500 italic mt-0.5 max-w-sm truncate">
+                            <span className="text-[10px] text-slate-400 dark:text-slate-500 italic mt-0.5 max-w-sm truncate">
                               {t.note}
                             </span>
                           )}
@@ -366,8 +359,8 @@ export default function TransactionHistoryClient({
                       </td>
 
                       {/* Running Balance */}
-                      <td className="px-6 py-4.5 whitespace-nowrap">
-                        <span className="inline-block px-3 py-1 bg-slate-100/50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-500/10 rounded-xl text-sm font-extrabold text-slate-700 dark:text-slate-200 tracking-wide">
+                      <td className="px-6 py-3.5 whitespace-nowrap">
+                        <span className="inline-block px-3 py-1 bg-slate-100/50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-500/10 rounded-xl text-xs font-extrabold text-slate-700 dark:text-slate-200 tracking-wide">
                           $
                           {t.runningBalance.toLocaleString("en-US", {
                             minimumFractionDigits: 2,

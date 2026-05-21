@@ -16,6 +16,7 @@ import {
   FileSpreadsheet,
   Info,
   ArrowUpDown,
+  Plus,
 } from "lucide-react";
 import GlassCard from "./GlassCard";
 import ExpenseModal from "./ExpenseModal";
@@ -220,7 +221,8 @@ export default function ExpensesClient({
             }}
             className="flex-1 md:flex-initial px-4 py-3 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-semibold text-xs rounded-xl shadow-lg shadow-violet-950/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer"
           >
-            Record Item
+            <Plus className="h-4 w-4" />
+            <span className="tracking-wider">New Record</span>
           </button>
         </div>
       </div>
@@ -440,19 +442,19 @@ export default function ExpensesClient({
             <table className="glass-table w-full">
               <thead>
                 <tr>
-                  <th className="px-6 py-4 text-sm font-bold! text-slate-800! dark:text-slate-300! uppercase tracking-wider w-36">
+                  <th className="px-6 py-3 text-[11px] font-bold! text-slate-800! dark:text-slate-300! uppercase tracking-wider w-36">
                     Description
                   </th>
-                  <th className="px-6 py-4 text-sm font-bold! text-slate-800! dark:text-slate-300! uppercase tracking-wider w-36">
+                  <th className="px-6 py-3 text-[11px] font-bold! text-slate-800! dark:text-slate-300! uppercase tracking-wider w-36">
                     Category
                   </th>
-                  <th className="px-6 py-4 text-sm font-bold! text-slate-800! dark:text-slate-300! uppercase tracking-wider w-36">
+                  <th className="px-6 py-3 text-[11px] font-bold! text-slate-800! dark:text-slate-300! uppercase tracking-wider w-36">
                     Log Date
                   </th>
-                  <th className="px-6 py-4 text-sm font-bold! text-slate-800! dark:text-slate-300! uppercase tracking-wider w-36">
+                  <th className="px-6 py-3 text-[11px] font-bold! text-slate-800! dark:text-slate-300! uppercase tracking-wider w-36">
                     Amount
                   </th>
-                  <th className="px-6 py-4 text-sm font-bold! text-slate-800! dark:text-slate-300! uppercase tracking-wider w-36">
+                  <th className="px-6 py-3 text-[11px] font-bold! text-slate-800! dark:text-slate-300! uppercase tracking-wider w-36">
                     Actions
                   </th>
                 </tr>
@@ -473,7 +475,7 @@ export default function ExpensesClient({
                             <Icon className="h-4 w-4" />
                           </div>
                           <div>
-                            <span className="font-semibold text-sm text-slate-850 dark:text-slate-200 block truncate max-w-[150px] md:max-w-xs group-hover:text-violet-500 dark:group-hover:text-violet-400 transition-colors">
+                            <span className="font-semibold text-xs text-slate-850 dark:text-slate-200 block truncate max-w-[150px] md:max-w-xs group-hover:text-violet-500 dark:group-hover:text-violet-400 transition-colors">
                               {exp.title}
                             </span>
                             {/* Subtitle indicators for mobile */}
@@ -491,9 +493,9 @@ export default function ExpensesClient({
                       {/* Category */}
                       <td className="">
                         <span
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-semibold ${glowClass}`}
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[10px] font-semibold ${glowClass}`}
                         >
-                          <Icon className="h-3.5 w-3.5" />
+                          <Icon className="h-3 w-3" />
                           {exp.category}
                         </span>
                       </td>
@@ -509,7 +511,7 @@ export default function ExpensesClient({
 
                       {/* Amount */}
                       <td>
-                        <span className="text-sm font-bold text-slate-850 dark:text-slate-100 block">
+                        <span className="text-xs font-bold text-slate-850 dark:text-slate-100 block">
                           -$
                           {exp.amount.toLocaleString("en-US", {
                             minimumFractionDigits: 2,
