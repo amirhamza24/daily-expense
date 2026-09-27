@@ -30,8 +30,10 @@ import {
   ExternalLink,
   FileText,
   Camera,
+  LifeBuoy,
 } from "lucide-react";
 import Link from "next/link";
+import PageHeader from "@/components/PageHeader";
 
 interface Section {
   id: string;
@@ -74,7 +76,7 @@ function Step({
 }) {
   return (
     <div className="flex gap-3 items-start">
-      <span className="shrink-0 h-6 w-6 rounded-full bg-violet-500/20 border border-violet-500/30 flex items-center justify-center text-[11px] font-bold text-violet-500 dark:text-violet-400">
+      <span className="shrink-0 h-6 w-6 rounded-full bg-accent-soft border border-accent/30 flex items-center justify-center text-[11px] font-bold text-accent-fg">
         {num}
       </span>
       <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed pt-0.5">
@@ -179,12 +181,12 @@ export default function HelpPage() {
       id: "getting-started",
       title: "Getting Started",
       icon: <UserPlus className="h-5 w-5" />,
-      color: "text-violet-500 dark:text-violet-400",
+      color: "text-accent-fg",
       content: (
         <div className="flex flex-col gap-5">
           <div>
             <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200 mb-3 flex items-center gap-2">
-              <Mail className="h-4 w-4 text-violet-400" />
+              <Mail className="h-4 w-4 text-accent-fg" />
               Step 1 — Register an Account
             </h4>
             <div className="flex flex-col gap-2.5">
@@ -326,7 +328,7 @@ export default function HelpPage() {
       id: "dashboard",
       title: "Dashboard Overview",
       icon: <LayoutDashboard className="h-5 w-5" />,
-      color: "text-indigo-500 dark:text-indigo-400",
+      color: "text-accent-fg",
       content: (
         <div className="flex flex-col gap-4">
           <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
@@ -447,7 +449,7 @@ export default function HelpPage() {
 
           <div>
             <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200 mb-3 flex items-center gap-2">
-              <Filter className="h-4 w-4 text-violet-400" />
+              <Filter className="h-4 w-4 text-accent-fg" />
               Filtering & Searching
             </h4>
             <SimpleTable
@@ -883,20 +885,18 @@ export default function HelpPage() {
   return (
     <>
       {/* Header */}
-      <div>
-        <h1 className="page-title">Help Center</h1>
-        <p className="page-subtitle">
-          Complete guide to using Expensify — from account creation to advanced
-          features.
-        </p>
-      </div>
+      <PageHeader
+        icon={LifeBuoy}
+        title="Help Center"
+        description="Complete guide to using Expensify — from account creation to advanced features."
+      />
 
       {/* Download Manual Button */}
-      <GlassCard className="border-violet-500/10 bg-violet-500/3">
+      <GlassCard className="border-accent/10 bg-accent/3">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-violet-500/10 border border-violet-500/20">
-              <BookOpen className="h-5 w-5 text-violet-500 dark:text-violet-400" />
+            <div className="p-2.5 rounded-xl bg-accent-soft border border-accent/20">
+              <BookOpen className="h-5 w-5 text-accent-fg" />
             </div>
             <div>
               <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200">
@@ -910,7 +910,7 @@ export default function HelpPage() {
           <a
             href="/USER_MANUAL.md"
             download="Expensify_User_Manual.md"
-            className="shrink-0 flex items-center gap-2 px-4 py-2.5 bg-violet-600 hover:bg-violet-700 text-white text-xs font-semibold rounded-xl transition-colors duration-200 shadow-md shadow-violet-500/20"
+            className="shrink-0 flex items-center gap-2 px-4 py-2.5 bg-accent hover:bg-accent-hover text-white text-xs font-semibold rounded-xl transition-colors duration-200 shadow-md shadow-accent/20"
           >
             <Download className="h-4 w-4" />
             Download Manual
@@ -928,7 +928,7 @@ export default function HelpPage() {
             onClick={() =>
               setOpenSections(new Set(sections.map((s) => s.id)))
             }
-            className="text-[11px] font-semibold text-violet-500 dark:text-violet-400 hover:text-violet-600 dark:hover:text-violet-300 px-3 py-1.5 rounded-lg hover:bg-violet-500/5 transition-colors cursor-pointer"
+            className="text-[11px] font-semibold text-accent-fg hover:text-accent-hover px-3 py-1.5 rounded-lg hover:bg-accent/5 transition-colors cursor-pointer"
           >
             Expand All
           </button>

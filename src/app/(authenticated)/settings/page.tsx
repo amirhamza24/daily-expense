@@ -4,7 +4,7 @@ import React, { useState, useTransition } from "react";
 import PageHeader from "@/components/PageHeader";
 import { useToast } from "@/components/Toast";
 import { useConfirm, confirmPresets } from "@/components/ConfirmModal";
-import { Trash2, Loader2, Sun, Moon, LogOut } from "lucide-react";
+import { Trash2, Loader2, Sun, Moon, LogOut, Settings as SettingsIcon } from "lucide-react";
 import { logoutUser } from "@/actions/auth";
 import { useRouter } from "next/navigation";
 
@@ -64,10 +64,10 @@ export default function SettingsPage() {
 
   return (
     <>
-      <PageHeader title="Settings" description="Appearance, notifications and account." />
+      <PageHeader icon={SettingsIcon} title="Settings" description="Appearance, notifications and account." />
 
-      <section className="card max-w-3xl divide-y divide-line">
-        <div className="px-5 py-4">
+      <section className="card overflow-hidden max-w-3xl divide-y divide-line">
+        <div className="card-head px-5 py-4">
           <h2 className="section-title">Appearance</h2>
         </div>
         <Row title="Theme" description="Saved on this device.">
@@ -87,8 +87,8 @@ export default function SettingsPage() {
         </Row>
       </section>
 
-      <section className="card max-w-3xl divide-y divide-line">
-        <div className="px-5 py-4">
+      <section className="card overflow-hidden max-w-3xl divide-y divide-line">
+        <div className="card-head px-5 py-4">
           <h2 className="section-title">Notifications</h2>
         </div>
         <Row title="In-app alerts" description="Show a toast after you add, edit or delete.">
@@ -107,8 +107,8 @@ export default function SettingsPage() {
         </Row>
       </section>
 
-      <section className="card max-w-3xl divide-y divide-line">
-        <div className="px-5 py-4">
+      <section className="card overflow-hidden max-w-3xl divide-y divide-line">
+        <div className="card-head px-5 py-4">
           <h2 className="section-title">Account</h2>
         </div>
         <Row title="Sign out" description="End your session on this device.">

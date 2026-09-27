@@ -15,8 +15,9 @@ import {
   Area,
   CartesianGrid,
 } from "recharts";
-import { TrendingUp, TrendingDown, CircleDollarSign, Tag } from "lucide-react";
+import { TrendingUp, TrendingDown, CircleDollarSign, Tag, BarChart3 } from "lucide-react";
 import PageHeader from "./PageHeader";
+import { StatGridSkeleton, CardSkeleton } from "./Skeletons";
 import { formatMoney } from "@/lib/format";
 
 interface AnalyticsClientProps {
@@ -32,13 +33,13 @@ interface AnalyticsClientProps {
 }
 
 const COLORS = [
-  "#6366f1", // indigo
-  "#0ea5e9", // sky
-  "#14b8a6", // teal
+  "#166534", // deep green (brand)
+  "#22c55e", // green
+  "#0d9488", // teal
   "#f59e0b", // amber
   "#f43f5e", // rose
-  "#a855f7", // purple
-  "#22c55e", // green
+  "#84cc16", // lime
+  "#0ea5e9", // sky
   "#94a3b8", // slate
 ];
 
@@ -83,12 +84,12 @@ function ChartCard({
   children: React.ReactNode;
 }) {
   return (
-    <section className={`card p-5 flex flex-col ${className}`}>
-      <div className="mb-5">
+    <section className={`card overflow-hidden flex flex-col ${className}`}>
+      <div className="card-head px-5 py-4">
         <h2 className="section-title">{title}</h2>
         <p className="section-subtitle">{subtitle}</p>
       </div>
-      <div className="flex-1 min-h-0">{children}</div>
+      <div className="flex-1 min-h-0 p-5">{children}</div>
     </section>
   );
 }
@@ -113,12 +114,14 @@ function StatTile({
   icon: React.ComponentType<{ className?: string }>;
 }) {
   return (
-    <div className="card card-interactive p-4 min-w-0">
+    <div className="card card-interactive p-4 md:p-5 min-w-0">
       <div className="flex items-center justify-between">
         <span className="stat-label">{label}</span>
-        <Icon className="h-4 w-4 text-faint" />
+        <span className="icon-tile h-8 w-8 rounded-lg">
+          <Icon className="h-4 w-4" />
+        </span>
       </div>
-      <p className="stat-value mt-2 truncate">{value}</p>
+      <p key={value} className="stat-value mt-3 truncate animate-fade-up">{value}</p>
       {hint && (
         <p className="text-xs text-faint mt-1 truncate" title={hint}>
           {hint}
@@ -146,6 +149,7 @@ export default function AnalyticsClient({
 
   const header = (
     <PageHeader
+      icon={BarChart3}
       title="Analytics"
       description="Where your money goes, month by month."
     />
@@ -155,14 +159,10 @@ export default function AnalyticsClient({
     return (
       <>
         {header}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="skeleton h-24.5" />
-          ))}
-        </div>
+        <StatGridSkeleton />
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-          <div className="skeleton h-80 lg:col-span-3" />
-          <div className="skeleton h-80 lg:col-span-2" />
+          <CardSkeleton className="lg:col-span-3" bodyHeight="h-65" />
+          <CardSkeleton className="lg:col-span-2" bodyHeight="h-65" />
         </div>
       </>
     );

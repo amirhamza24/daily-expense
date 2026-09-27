@@ -9,10 +9,10 @@ import React, {
 } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Loader2, AlertCircle, CheckCircle2, ArrowLeft, RefreshCw } from "lucide-react";
+import { Loader2, AlertCircle, CheckCircle2, ArrowLeft, RefreshCw, MailCheck } from "lucide-react";
 import { verifyEmailOTP, resendVerificationOTP } from "@/actions/auth";
 import { useToast } from "@/components/Toast";
-import AuthShell from "@/components/AuthShell";
+import AuthShell, { AuthShellSkeleton } from "@/components/AuthShell";
 
 function VerifyEmailForm() {
   const router = useRouter();
@@ -166,6 +166,7 @@ function VerifyEmailForm() {
 
   return (
     <AuthShell
+      icon={MailCheck}
       title="Check your email"
       description={
         <>
@@ -219,9 +220,9 @@ function VerifyEmailForm() {
                   onChange={(e) => handleChange(idx, e.target.value)}
                   onKeyDown={(e) => handleKeyDown(idx, e)}
                   aria-label={`Digit ${idx + 1}`}
-                  className={`input h-12 px-0 text-center text-lg font-semibold tabular transition-[border-color,box-shadow,transform] duration-150 ${
-                    digit ? "border-line-strong" : ""
-                  } focus:scale-[1.04]`}
+                  className={`input h-13 px-0 rounded-xl text-center text-xl font-semibold tabular transition-[border-color,box-shadow,transform,background-color] duration-200 ${
+                    digit ? "border-accent/50 bg-accent-soft text-accent-fg" : ""
+                  } focus:scale-[1.05]`}
                   disabled={isPending || isResending}
                   autoFocus={idx === 0}
                 />
@@ -288,13 +289,7 @@ function VerifyEmailForm() {
 
 export default function VerifyEmailPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="flex-1 flex items-center justify-center min-h-screen">
-          <Loader2 className="h-6 w-6 text-faint animate-spin" />
-        </div>
-      }
-    >
+    <Suspense fallback={<AuthShellSkeleton />}>
       <VerifyEmailForm />
     </Suspense>
   );

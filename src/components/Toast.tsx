@@ -52,15 +52,31 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
           <div
             key={toast.id}
             role="status"
-            className="pointer-events-auto w-full sm:w-90 flex items-start gap-3 p-3.5 rounded-xl card shadow-(--shadow-lg) animate-toast-in"
+            className="relative overflow-hidden pointer-events-auto w-full sm:w-90 flex items-start gap-3 p-3.5 rounded-xl card shadow-(--shadow-lg) animate-toast-in"
           >
-            <div className="shrink-0 mt-px">
-              {toast.type === 'success' && <CheckCircle className="h-4.5 w-4.5 text-success" />}
-              {toast.type === 'error' && <AlertTriangle className="h-4.5 w-4.5 text-danger" />}
-              {toast.type === 'info' && <Info className="h-4.5 w-4.5 text-accent" />}
+            <div
+              className={`shrink-0 h-7 w-7 rounded-lg flex items-center justify-center animate-pop-in ${
+                toast.type === 'success'
+                  ? 'bg-success-soft text-success'
+                  : toast.type === 'error'
+                    ? 'bg-danger-soft text-danger'
+                    : 'bg-accent-soft text-accent-fg'
+              }`}
+            >
+              {toast.type === 'success' && <CheckCircle className="h-4 w-4" />}
+              {toast.type === 'error' && <AlertTriangle className="h-4 w-4" />}
+              {toast.type === 'info' && <Info className="h-4 w-4" />}
             </div>
 
-            <p className="flex-1 text-[13px] leading-snug text-fg">{toast.message}</p>
+            <p className="flex-1 text-[13px] leading-snug text-fg pt-1">{toast.message}</p>
+
+            {/* Time left before auto-dismiss */}
+            <span
+              aria-hidden
+              className={`absolute left-0 bottom-0 h-0.5 w-full animate-toast-progress ${
+                toast.type === 'error' ? 'bg-danger' : toast.type === 'success' ? 'bg-success' : 'bg-accent'
+              }`}
+            />
 
             <button
               onClick={() => removeToast(toast.id)}

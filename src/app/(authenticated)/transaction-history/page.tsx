@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import TransactionHistoryClient from "@/components/TransactionHistoryClient";
 import PageHeader from "@/components/PageHeader";
+import { History } from "lucide-react";
 
 export const metadata = {
   title: "Transaction History Ledger | Wallet Tracker",
@@ -51,6 +52,7 @@ export default async function TransactionHistoryPage() {
   return (
     <>
       <PageHeader
+        icon={History}
         title="Transaction history"
         description="Your complete ledger with a running balance after every entry."
       />

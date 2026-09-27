@@ -1,36 +1,66 @@
 'use client';
 
 import React, { useState, useTransition } from 'react';
-import { Lock, Key, Loader2, Eye, EyeOff } from 'lucide-react';
+import { KeyRound, Loader2, Check, X, ShieldCheck } from 'lucide-react';
 import Modal from './Modal';
+import PasswordInput from './PasswordInput';
 import { changeUserPassword } from '@/actions/auth';
 import { useToast } from './Toast';
-import { useConfirm } from './ConfirmModal';
+
+const strengthLevels = [
+  { label: 'Too short', bar: 'bg-danger', text: 'text-danger' },
+  { label: 'Weak', bar: 'bg-danger', text: 'text-danger' },
+  { label: 'Fair', bar: 'bg-warning', text: 'text-warning' },
+  { label: 'Good', bar: 'bg-accent-2', text: 'text-accent-fg' },
+  { label: 'Strong', bar: 'bg-accent', text: 'text-accent-fg' },
+];
+
+/** 0 = too short … 4 = strong */
+function scorePassword(pw: string) {
+  if (pw.length < 6) return 0;
+  let score = 1;
+  if (pw.length >= 10) score++;
+  if (/[A-Z]/.test(pw) && /[a-z]/.test(pw)) score++;
+  if (/\d/.test(pw) && /[^A-Za-z0-9]/.test(pw)) score++;
+  return Math.min(score, 4);
+}
+
+function Requirement({ met, children }: { met: boolean; children: React.ReactNode }) {
+  return (
+    <li
+      className={`flex items-center gap-2 text-xs transition-colors duration-200 ${
+        met ? 'text-accent-fg' : 'text-faint'
+      }`}
+    >
+      <span
+        className={`h-4 w-4 rounded-full flex items-center justify-center transition-all duration-300 ${
+          met ? 'bg-accent text-white scale-100' : 'bg-muted-bg text-faint scale-90'
+        }`}
+      >
+        {met ? <Check className="h-2.5 w-2.5" strokeWidth={3} /> : <span className="h-1 w-1 rounded-full bg-current" />}
+      </span>
+      {children}
+    </li>
+  );
+}
 
 export default function ChangePasswordForm() {
   const { showToast } = useToast();
-  const confirm = useConfirm();
   const [isPending, startTransition] = useTransition();
 
   const [isOpen, setIsOpen] = useState(false);
-  
-  // Fields state
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
-
-  // Password visibility peeks
-  const [showCurrent, setShowCurrent] = useState(false);
-  const [showNew, setShowNew] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  // Bumped on each failed submit so the error alert re-plays its shake
+  const [errorKey, setErrorKey] = useState(0);
 
   const resetForm = () => {
     setCurrentPassword('');
     setNewPassword('');
     setConfirmNewPassword('');
-    setShowCurrent(false);
-    setShowNew(false);
-    setShowConfirm(false);
+    setError(null);
   };
 
   const handleOpen = () => {
@@ -43,40 +73,30 @@ export default function ChangePasswordForm() {
     setIsOpen(false);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const fail = (msg: string) => {
+    setError(msg);
+    setErrorKey((k) => k + 1);
+  };
+
+  const score = scorePassword(newPassword);
+  const level = strengthLevels[score];
+  const checks = {
+    length: newPassword.length >= 6,
+    mixed: /[A-Z]/.test(newPassword) && /[a-z]/.test(newPassword),
+    number: /\d/.test(newPassword),
+    differs: newPassword.length > 0 && newPassword !== currentPassword,
+  };
+  const matches = confirmNewPassword.length > 0 && confirmNewPassword === newPassword;
+  const mismatch = confirmNewPassword.length > 0 && confirmNewPassword !== newPassword;
+
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
 
-    if (!currentPassword || !newPassword || !confirmNewPassword) {
-      showToast('All fields are required.', 'error');
-      return;
-    }
-
-    if (newPassword !== confirmNewPassword) {
-      showToast('New passwords do not match.', 'error');
-      return;
-    }
-
-    if (newPassword.length < 6) {
-      showToast('New password must be at least 6 characters long.', 'error');
-      return;
-    }
-
-    if (currentPassword === newPassword) {
-      showToast('New password cannot be the same as your current password.', 'error');
-      return;
-    }
-
-    // Trigger standard confirm modal preset
-    const ok = await confirm({
-      title: 'Update Login Password',
-      message: 'Are you sure you want to change your password? This will overwrite your existing account credentials.',
-      confirmText: 'Yes, Update Password',
-      cancelText: 'Cancel',
-      variant: 'info',
-      icon: <Lock className="h-6 w-6" />,
-    });
-
-    if (!ok) return;
+    if (!currentPassword || !newPassword || !confirmNewPassword) return fail('All fields are required.');
+    if (newPassword.length < 6) return fail('New password must be at least 6 characters long.');
+    if (newPassword !== confirmNewPassword) return fail('New passwords do not match.');
+    if (currentPassword === newPassword) return fail('New password must be different from your current one.');
 
     startTransition(async () => {
       const formData = new FormData();
@@ -91,47 +111,15 @@ export default function ChangePasswordForm() {
         resetForm();
         setIsOpen(false);
       } else {
-        showToast(res.message, 'error');
+        fail(res.message);
       }
     });
   };
 
-
-  const fields = [
-    {
-      id: 'current',
-      label: 'Current password',
-      value: currentPassword,
-      set: setCurrentPassword,
-      show: showCurrent,
-      toggle: () => setShowCurrent((v) => !v),
-      autoComplete: 'current-password',
-    },
-    {
-      id: 'new',
-      label: 'New password',
-      value: newPassword,
-      set: setNewPassword,
-      show: showNew,
-      toggle: () => setShowNew((v) => !v),
-      autoComplete: 'new-password',
-      hint: 'At least 6 characters.',
-    },
-    {
-      id: 'confirm',
-      label: 'Confirm new password',
-      value: confirmNewPassword,
-      set: setConfirmNewPassword,
-      show: showConfirm,
-      toggle: () => setShowConfirm((v) => !v),
-      autoComplete: 'new-password',
-    },
-  ];
-
   return (
     <>
       <button type="button" onClick={handleOpen} className="btn btn-secondary btn-sm">
-        <Key />
+        <KeyRound />
         Change password
       </button>
 
@@ -139,8 +127,9 @@ export default function ChangePasswordForm() {
         open={isOpen}
         onClose={handleClose}
         locked={isPending}
+        icon={<KeyRound className="h-5 w-5" />}
         title="Change password"
-        description="Use a password you don't use anywhere else."
+        description="Use a strong password you don't use anywhere else."
         footer={
           <>
             <button type="button" onClick={handleClose} className="btn btn-secondary" disabled={isPending}>
@@ -153,42 +142,110 @@ export default function ChangePasswordForm() {
                   Updating…
                 </>
               ) : (
-                'Update password'
+                <>
+                  <ShieldCheck />
+                  Update password
+                </>
               )}
             </button>
           </>
         }
       >
-        <form id="password-form" onSubmit={handleSubmit} className="flex flex-col gap-4">
-          {fields.map((f) => (
-            <div key={f.id}>
-              <label className="label" htmlFor={`pw-${f.id}`}>
-                {f.label}
-              </label>
-              <div className="relative">
-                <input
-                  id={`pw-${f.id}`}
-                  type={f.show ? 'text' : 'password'}
-                  required
-                  value={f.value}
-                  onChange={(e) => f.set(e.target.value)}
-                  autoComplete={f.autoComplete}
-                  className="input pr-10"
-                  disabled={isPending}
-                />
-                <button
-                  type="button"
-                  onClick={f.toggle}
-                  className="absolute right-1 top-1/2 -translate-y-1/2 icon-btn h-7 w-7"
-                  tabIndex={-1}
-                  aria-label={f.show ? 'Hide password' : 'Show password'}
-                >
-                  {f.show ? <EyeOff /> : <Eye />}
-                </button>
-              </div>
-              {f.hint && <p className="text-xs text-faint mt-1.5">{f.hint}</p>}
+        <form id="password-form" onSubmit={handleSubmit} className="flex flex-col gap-5">
+          {error && (
+            <div key={errorKey} className="alert alert-danger animate-shake" role="alert">
+              <X />
+              <span>{error}</span>
             </div>
-          ))}
+          )}
+
+          <div>
+            <label className="label" htmlFor="pw-current">
+              Current password
+            </label>
+            <PasswordInput
+              id="pw-current"
+              required
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              autoComplete="current-password"
+              placeholder="Enter current password"
+              disabled={isPending}
+              autoFocus
+            />
+          </div>
+
+          <div className="h-px bg-line" />
+
+          <div>
+            <label className="label" htmlFor="pw-new">
+              New password
+            </label>
+            <PasswordInput
+              id="pw-new"
+              required
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              autoComplete="new-password"
+              placeholder="At least 6 characters"
+              disabled={isPending}
+            />
+
+            {/* Strength meter */}
+            <div className="mt-2.5 flex items-center gap-3">
+              <div className="flex-1 grid grid-cols-4 gap-1.5">
+                {[1, 2, 3, 4].map((i) => (
+                  <span key={i} className="h-1.5 rounded-full bg-muted-bg overflow-hidden">
+                    <span
+                      className={`block h-full rounded-full origin-left transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${level.bar}`}
+                      style={{ transform: `scaleX(${newPassword && score >= i ? 1 : 0})` }}
+                    />
+                  </span>
+                ))}
+              </div>
+              <span className={`w-16 text-right text-xs font-medium transition-colors ${newPassword ? level.text : 'text-faint'}`}>
+                {newPassword ? level.label : '—'}
+              </span>
+            </div>
+
+            <ul className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1.5 rounded-xl bg-subtle border border-line p-3">
+              <Requirement met={checks.length}>6+ characters</Requirement>
+              <Requirement met={checks.mixed}>Upper &amp; lowercase</Requirement>
+              <Requirement met={checks.number}>Contains a number</Requirement>
+              <Requirement met={checks.differs}>Differs from current</Requirement>
+            </ul>
+          </div>
+
+          <div>
+            <label className="label" htmlFor="pw-confirm">
+              Confirm new password
+            </label>
+            <PasswordInput
+              id="pw-confirm"
+              required
+              value={confirmNewPassword}
+              onChange={(e) => setConfirmNewPassword(e.target.value)}
+              autoComplete="new-password"
+              placeholder="Repeat new password"
+              disabled={isPending}
+              className={mismatch ? 'border-danger! focus:shadow-[0_0_0_3px_var(--danger-soft)]!' : matches ? 'border-accent!' : ''}
+            />
+            <p
+              className={`text-xs mt-1.5 h-4 flex items-center gap-1 transition-opacity duration-200 ${
+                matches ? 'text-accent-fg opacity-100' : mismatch ? 'text-danger opacity-100' : 'opacity-0'
+              }`}
+            >
+              {matches ? (
+                <>
+                  <Check className="h-3.5 w-3.5" /> Passwords match
+                </>
+              ) : mismatch ? (
+                <>
+                  <X className="h-3.5 w-3.5" /> Passwords don&apos;t match
+                </>
+              ) : null}
+            </p>
+          </div>
         </form>
       </Modal>
     </>

@@ -3,7 +3,7 @@
 import React, { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { User, Mail, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
+import { User, Mail, Loader2, AlertCircle, CheckCircle2, UserPlus } from "lucide-react";
 import { registerUser } from "@/actions/auth";
 import { useToast } from "@/components/Toast";
 import AuthShell from "@/components/AuthShell";
@@ -69,6 +69,7 @@ export default function RegisterPage() {
 
   return (
     <AuthShell
+      icon={UserPlus}
       title="Create your account"
       description="Start tracking where your money goes."
       footer={
@@ -112,7 +113,7 @@ export default function RegisterPage() {
                 required
                 autoComplete="name"
                 placeholder="Jane Doe"
-                className="input pl-9"
+                className="input pl-9 h-11"
                 disabled={isPending}
               />
             </div>
@@ -131,7 +132,7 @@ export default function RegisterPage() {
                 required
                 autoComplete="email"
                 placeholder="you@example.com"
-                className="input pl-9"
+                className="input pl-9 h-11"
                 disabled={isPending}
               />
             </div>
@@ -142,6 +143,7 @@ export default function RegisterPage() {
               Password
             </label>
             <PasswordInput
+              className="h-11"
               id="password"
               name="password"
               required
@@ -156,6 +158,7 @@ export default function RegisterPage() {
               Confirm password
             </label>
             <PasswordInput
+              className="h-11"
               id="confirmPassword"
               name="confirmPassword"
               required
@@ -165,7 +168,7 @@ export default function RegisterPage() {
             />
           </div>
 
-          <button type="submit" disabled={isPending} className="btn btn-primary btn-lg w-full mt-2">
+          <button type="submit" disabled={isPending} className="btn btn-primary btn-lg w-full h-11 mt-2">
             {isPending ? (
               <>
                 <Loader2 className="animate-spin" />

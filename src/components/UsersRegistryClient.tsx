@@ -115,12 +115,13 @@ export default function UsersRegistryClient({
   return (
     <>
       <PageHeader
+        icon={Users}
         title="Users"
         description="Approve new registrations and manage access."
       />
 
       <section className="card overflow-hidden">
-        <div className="flex flex-col lg:flex-row lg:items-center gap-3 p-3 md:p-4 border-b border-line">
+        <div className="card-head flex flex-col lg:flex-row lg:items-center gap-3 p-3 md:p-4">
           <div className="relative flex-1 lg:max-w-sm">
             <Search className="input-icon" />
             <input
@@ -140,12 +141,12 @@ export default function UsersRegistryClient({
                   key={tab}
                   onClick={() => setStatusFilter(tab)}
                   className={`btn btn-sm shrink-0 capitalize ${
-                    active ? "bg-subtle text-fg border-line" : "btn-ghost"
+                    active ? "btn-primary" : "btn-ghost"
                   }`}
                 >
                   {tab.toLowerCase()}
                   <span
-                    className={`tabular text-xs ${active ? "text-muted" : "text-faint"}`}
+                    className={`tabular text-xs ${active ? "text-white/75" : "text-faint"}`}
                   >
                     {countFor(tab)}
                   </span>
@@ -166,7 +167,7 @@ export default function UsersRegistryClient({
             </p>
           </div>
         ) : (
-          <div className={`overflow-x-auto transition-opacity ${isPending ? "opacity-60" : ""}`}>
+          <div className={`overflow-x-auto transition-[opacity,filter] ${isPending ? "is-refreshing" : ""}`}>
             <table className="data-table">
               <thead>
                 <tr>
@@ -177,7 +178,7 @@ export default function UsersRegistryClient({
                   <th className="text-right!">Actions</th>
                 </tr>
               </thead>
-              <tbody className="stagger-rows" key={statusFilter}>
+              <tbody className="stagger-rows" key={`${statusFilter}-${searchTerm}`}>
                 {filteredUsers.map((user) => (
                   <tr key={user.id}>
                     <td>

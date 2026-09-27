@@ -14,6 +14,7 @@ import {
   Receipt,
   ArrowUpRight,
   ArrowDownRight,
+  LayoutDashboard,
 } from "lucide-react";
 import ExpenseModal from "./ExpenseModal";
 import ExpenseDetailsModal from "./ExpenseDetailsModal";
@@ -59,23 +60,29 @@ function StatCard({
   value,
   hint,
   icon: Icon,
+  featured = false,
 }: {
   label: string;
   value: number;
   hint: string;
   icon: React.ComponentType<{ className?: string }>;
+  featured?: boolean;
 }) {
   return (
-    <div className="card card-interactive p-4">
+    <div className={`card card-interactive p-4 md:p-5 ${featured ? "card-feature" : ""}`}>
       <div className="flex items-center justify-between">
-        <span className="stat-label">{label}</span>
-        <Icon className="h-4 w-4 text-faint" />
+        <span className={`stat-label ${featured ? "opacity-80" : ""}`}>{label}</span>
+        <span
+          className={`icon-tile h-8 w-8 rounded-lg ${featured ? "bg-white/15! text-white! ring-1 ring-white/20" : ""}`}
+        >
+          <Icon className="h-4 w-4" />
+        </span>
       </div>
-      <p className="stat-value mt-2">
+      <p className="stat-value mt-3">
         {value < 0 && "−"}
         <AnimatedNumber value={value} format={(n) => formatMoney(n)} />
       </p>
-      <p className="text-xs text-faint mt-1">{hint}</p>
+      <p className={`text-xs mt-1 ${featured ? "text-white/70" : "text-faint"}`}>{hint}</p>
     </div>
   );
 }
@@ -86,7 +93,7 @@ export default function DashboardClient({
 }: DashboardClientProps) {
   const { showToast } = useToast();
   const confirm = useConfirm();
-  const [, startTransition] = useTransition();
+  const [isPending, startTransition] = useTransition();
 
   const [isExpenseOpen, setIsExpenseOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<ExpenseItem | undefined>(
@@ -126,6 +133,7 @@ export default function DashboardClient({
   return (
     <>
       <PageHeader
+        icon={LayoutDashboard}
         title="Dashboard"
         description="Your balance and spending at a glance."
         actions={
@@ -143,6 +151,7 @@ export default function DashboardClient({
           value={stats.remainingBalance}
           hint="After all transactions"
           icon={Wallet}
+          featured
         />
         <StatCard
           label="Total expenses"
@@ -167,7 +176,7 @@ export default function DashboardClient({
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Recent transactions */}
         <section className="card lg:col-span-2 overflow-hidden">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-line">
+          <div className="card-head flex items-center justify-between px-5 py-4">
             <div>
               <h2 className="section-title">Recent transactions</h2>
               <p className="section-subtitle">Your latest five entries</p>
@@ -193,7 +202,7 @@ export default function DashboardClient({
               </button>
             </div>
           ) : (
-            <ul className="divide-y divide-line stagger-rows">
+            <ul className={`divide-y divide-line stagger-rows ${isPending ? "is-refreshing" : ""}`}>
               {recentExpenses.map((exp) => {
                 const Icon = getCategoryIcon(exp.category);
                 const isCredit = exp.category === "Income";
@@ -255,10 +264,13 @@ export default function DashboardClient({
         </section>
 
         {/* Month summary */}
-        <section className="card p-5 flex flex-col">
-          <h2 className="section-title">{monthName} summary</h2>
-          <p className="section-subtitle">Money in vs. money out</p>
+        <section className="card overflow-hidden flex flex-col">
+          <div className="card-head px-5 py-4">
+            <h2 className="section-title">{monthName} summary</h2>
+            <p className="section-subtitle">Money in vs. money out</p>
+          </div>
 
+          <div className="px-5 pb-5 flex-1 flex flex-col">
           <div className="mt-5 flex flex-col gap-4">
             <div className="flex items-center justify-between">
               <span className="flex items-center gap-2 text-[13px] text-muted">
@@ -268,7 +280,7 @@ export default function DashboardClient({
                 Money in
               </span>
               <span className="text-sm font-semibold tabular text-fg">
-                +{formatMoney(stats.monthlyCredit)}
+                +<AnimatedNumber value={stats.monthlyCredit} format={formatMoney} />
               </span>
             </div>
             <div className="flex items-center justify-between">
@@ -279,7 +291,7 @@ export default function DashboardClient({
                 Money out
               </span>
               <span className="text-sm font-semibold tabular text-fg">
-                −{formatMoney(stats.monthlyDebit)}
+                −<AnimatedNumber value={stats.monthlyDebit} format={formatMoney} />
               </span>
             </div>
           </div>
@@ -300,8 +312,9 @@ export default function DashboardClient({
               }`}
             >
               {stats.monthlyRemaining < 0 ? "−" : "+"}
-              {formatMoney(stats.monthlyRemaining)}
+              <AnimatedNumber value={stats.monthlyRemaining} format={formatMoney} />
             </span>
+          </div>
           </div>
         </section>
       </div>

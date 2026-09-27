@@ -118,7 +118,7 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
           <div className="modal-panel max-w-100">
             <div className="flex gap-4 p-5">
               <div
-                className={`h-10 w-10 shrink-0 rounded-full flex items-center justify-center [&_svg]:h-4.5 [&_svg]:w-4.5 ${cfg.icon}`}
+                className={`h-11 w-11 shrink-0 rounded-xl flex items-center justify-center animate-pop-in [&_svg]:h-5 [&_svg]:w-5 ${cfg.icon}`}
               >
                 {modal.icon ?? <HelpCircle />}
               </div>
@@ -133,7 +133,7 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
               </div>
             </div>
 
-            <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 px-5 py-3.5 border-t border-line bg-subtle/60 rounded-b-[14px]">
+            <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 px-5 py-3.5 border-t border-line bg-subtle/60 rounded-b-2xl">
               <button onClick={handleCancel} className="btn btn-secondary">
                 {modal.cancelText ?? 'Cancel'}
               </button>

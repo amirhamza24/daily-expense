@@ -3,7 +3,7 @@ import { getSession } from "@/lib/auth";
 import { getAdminOverview } from "@/actions/admin";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { ShieldAlert, Users, TrendingDown, ArrowRight } from "lucide-react";
+import { ShieldAlert, ShieldCheck, Users, TrendingDown, ArrowRight } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import ErrorState from "@/components/ErrorState";
 import { formatMoney } from "@/lib/format";
@@ -58,6 +58,7 @@ export default async function AdminDashboardPage() {
   return (
     <>
       <PageHeader
+        icon={ShieldCheck}
         title="Admin overview"
         description="Platform activity and registrations that need attention."
         actions={
@@ -69,28 +70,28 @@ export default async function AdminDashboardPage() {
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
-        <div className="card card-interactive p-4">
+        <div className="card card-interactive p-4 md:p-5">
           <div className="flex items-center justify-between">
             <span className="stat-label">Total users</span>
-            <Users className="h-4 w-4 text-faint" />
+            <span className="icon-tile h-8 w-8 rounded-lg"><Users className="h-4 w-4" /></span>
           </div>
           <p className="stat-value mt-2">{overview.totalUsers}</p>
           <p className="text-xs text-faint mt-1">Registered accounts</p>
         </div>
 
-        <div className="card card-interactive p-4">
+        <div className="card card-interactive p-4 md:p-5">
           <div className="flex items-center justify-between">
             <span className="stat-label">Expenses logged</span>
-            <TrendingDown className="h-4 w-4 text-faint" />
+            <span className="icon-tile h-8 w-8 rounded-lg"><TrendingDown className="h-4 w-4" /></span>
           </div>
           <p className="stat-value mt-2">{formatMoney(overview.totalSystemExpenses)}</p>
           <p className="text-xs text-faint mt-1">Across all users</p>
         </div>
 
-        <Link href="/admin/users" className="card card-interactive p-4 block">
+        <Link href="/admin/users" className="card card-interactive p-4 md:p-5 block">
           <div className="flex items-center justify-between">
             <span className="stat-label">Pending approval</span>
-            <ShieldAlert className="h-4 w-4 text-faint" />
+            <span className="icon-tile h-8 w-8 rounded-lg"><ShieldAlert className="h-4 w-4" /></span>
           </div>
           <p className="stat-value mt-2">{overview.pendingCount}</p>
           <p className="text-xs mt-1 text-faint">
@@ -103,12 +104,15 @@ export default async function AdminDashboardPage() {
         </Link>
       </div>
 
-      <section className="card p-5">
-        <h2 className="section-title">Accounts by status</h2>
-        <p className="section-subtitle">How every registered user is currently set</p>
+      <section className="card overflow-hidden">
+        <div className="card-head px-5 py-4">
+          <h2 className="section-title">Accounts by status</h2>
+          <p className="section-subtitle">How every registered user is currently set</p>
+        </div>
 
+        <div className="p-5 pt-0">
         {/* Proportional bar */}
-        <div className="mt-5 flex h-2 w-full overflow-hidden rounded-full bg-subtle">
+        <div className="mt-5 flex h-2.5 w-full overflow-hidden rounded-full bg-muted-bg origin-left animate-[fade-in_0.6s_ease_both]">
           {statusTotal > 0 &&
             statuses.map((s) =>
               s.value > 0 ? (
@@ -133,6 +137,7 @@ export default async function AdminDashboardPage() {
             </div>
           ))}
         </dl>
+        </div>
       </section>
     </>
   );

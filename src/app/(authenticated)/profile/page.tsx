@@ -74,11 +74,11 @@ export default async function ProfilePage() {
 
   return (
     <>
-      <PageHeader title="Profile" description="Your account details and security." />
+      <PageHeader icon={User} title="Profile" description="Your account details and security." />
 
       <section className="card overflow-hidden max-w-3xl">
-        <div className="flex flex-col sm:flex-row sm:items-center gap-4 p-5 border-b border-line">
-          <div className="h-14 w-14 rounded-full bg-accent-soft text-accent-fg flex items-center justify-center text-lg font-semibold shrink-0">
+        <div className="card-head flex flex-col sm:flex-row sm:items-center gap-4 p-5">
+          <div className="h-16 w-16 rounded-2xl bg-linear-to-br from-accent-2 to-accent text-white flex items-center justify-center text-xl font-semibold shrink-0 shadow-(--shadow-accent) animate-pop-in">
             {initials(fullUser.name)}
           </div>
           <div className="flex-1 min-w-0">
@@ -94,10 +94,15 @@ export default async function ProfilePage() {
           <ChangePasswordForm />
         </div>
 
-        <dl className="divide-y divide-line">
+        <dl className="divide-y divide-line stagger-rows">
           {details.map(({ icon: Icon, label, value }) => (
-            <div key={label} className="flex items-center gap-3 px-5 py-3.5">
-              <Icon className="h-4 w-4 text-faint shrink-0" />
+            <div
+              key={label}
+              className="flex items-center gap-3 px-5 py-3.5 transition-colors hover:bg-subtle/60 animate-fade-in"
+            >
+              <span className="icon-tile h-8 w-8 rounded-lg">
+                <Icon className="h-4 w-4" />
+              </span>
               <dt className="w-32 shrink-0 text-[13px] text-muted">{label}</dt>
               <dd className="flex-1 min-w-0 text-sm font-medium text-fg truncate">{value}</dd>
             </div>

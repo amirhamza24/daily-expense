@@ -14,6 +14,7 @@ import {
   Trash2,
   X,
   Plus,
+  Receipt,
 } from "lucide-react";
 import ExpenseModal from "./ExpenseModal";
 import ExpenseDetailsModal from "./ExpenseDetailsModal";
@@ -140,7 +141,7 @@ export default function ExpensesClient({
       }
     });
 
-    router.push(`/expenses?${params.toString()}`);
+    startTransition(() => router.push(`/expenses?${params.toString()}`));
   };
 
   const handleSearchSubmit = (e: React.FormEvent) => {
@@ -216,6 +217,7 @@ export default function ExpensesClient({
   return (
     <>
       <PageHeader
+        icon={Receipt}
         title="Expenses"
         description="Search, filter and manage every transaction."
         actions={
@@ -242,7 +244,7 @@ export default function ExpensesClient({
         {/* Filters */}
         <form
           onSubmit={handleSearchSubmit}
-          className="flex flex-col gap-3 p-3 md:p-4 border-b border-line"
+          className="card-head flex flex-col gap-3 p-3 md:p-4"
         >
           <div className="flex flex-col lg:flex-row gap-2.5">
             <div className="relative flex-1">
@@ -376,7 +378,7 @@ export default function ExpensesClient({
                     setStartDate("");
                     setEndDate("");
                     setSortBy("latest");
-                    router.push("/expenses");
+                    startTransition(() => router.push("/expenses"));
                   }}
                   className="btn btn-ghost btn-sm sm:ml-auto self-start"
                 >
@@ -401,7 +403,7 @@ export default function ExpensesClient({
           </div>
         ) : (
           <div
-            className={`overflow-x-auto transition-opacity ${isPending ? "opacity-60" : ""}`}
+            className={`overflow-x-auto transition-[opacity,filter] ${isPending ? "is-refreshing" : ""}`}
           >
             <table className="data-table">
               <thead>

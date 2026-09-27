@@ -131,7 +131,7 @@ export default function TransactionHistoryClient({
   return (
     <section className="card overflow-hidden">
       {/* Filters */}
-      <div className="flex flex-col gap-3 p-3 md:p-4 border-b border-line">
+      <div className="card-head flex flex-col gap-3 p-3 md:p-4">
         <div className="flex flex-col lg:flex-row gap-2.5">
           <div className="relative flex-1">
             <Search className="input-icon" />

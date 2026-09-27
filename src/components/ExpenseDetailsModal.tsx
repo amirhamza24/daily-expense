@@ -27,6 +27,7 @@ export default function ExpenseDetailsModal({ expense, onClose }: ExpenseDetails
     <Modal
       open
       onClose={onClose}
+      icon={React.createElement(getCategoryIcon(expense.category), { className: 'h-5 w-5' })}
       title={expense.title}
       footer={
         <button onClick={onClose} className="btn btn-secondary">

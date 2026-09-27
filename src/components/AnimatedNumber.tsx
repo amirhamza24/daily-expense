@@ -8,14 +8,28 @@ interface AnimatedNumberProps {
   duration?: number;
 }
 
-/** Counts from the currently shown value to the new one with an ease-out curve. */
+/**
+ * Counts from the currently shown value to the new one with an ease-out curve.
+ * After the first render, a change also plays a short highlight so updates are noticeable.
+ */
 export default function AnimatedNumber({ value, format, duration = 700 }: AnimatedNumberProps) {
   const [display, setDisplay] = useState(0);
   const currentRef = useRef(0);
+  const spanRef = useRef<HTMLSpanElement>(null);
+  const mountedRef = useRef(false);
 
   useEffect(() => {
     const from = currentRef.current;
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    // Restart the highlight animation on real updates (not the initial count-up)
+    const el = spanRef.current;
+    if (mountedRef.current && el && from !== value) {
+      el.classList.remove('value-flash');
+      void el.offsetWidth;
+      el.classList.add('value-flash');
+    }
+    mountedRef.current = true;
 
     let frame = 0;
     const start = performance.now();
@@ -31,5 +45,9 @@ export default function AnimatedNumber({ value, format, duration = 700 }: Animat
     return () => cancelAnimationFrame(frame);
   }, [value, duration]);
 
-  return <span className="tabular">{format(display)}</span>;
+  return (
+    <span ref={spanRef} className="tabular inline-block">
+      {format(display)}
+    </span>
+  );
 }

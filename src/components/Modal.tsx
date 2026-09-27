@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 
 interface ModalProps {
@@ -13,6 +14,8 @@ interface ModalProps {
   size?: 'sm' | 'md' | 'lg';
   /** Prevents closing via overlay / Escape (e.g. while saving). */
   locked?: boolean;
+  /** Icon shown in a tile beside the title. */
+  icon?: React.ReactNode;
 }
 
 const sizes = {
@@ -30,6 +33,7 @@ export default function Modal({
   footer,
   size = 'md',
   locked = false,
+  icon,
 }: ModalProps) {
   useEffect(() => {
     if (!open) return;
@@ -45,16 +49,23 @@ export default function Modal({
     };
   }, [open, locked, onClose]);
 
-  if (!open) return null;
+  if (!open || typeof document === 'undefined') return null;
 
-  return (
+  // Portal to <body>: page sections animate `transform`, which would otherwise
+  // make this fixed overlay position (and clip) relative to its parent card.
+  return createPortal(
     <div className="modal-root" role="dialog" aria-modal="true">
       <div className="modal-overlay" onClick={() => !locked && onClose()} />
       <div className={`modal-panel ${sizes[size]}`}>
-        <div className="flex items-start justify-between gap-4 px-5 pt-5">
-          <div className="min-w-0">
-            <h3 className="text-base font-semibold tracking-tight text-fg">{title}</h3>
-            {description && <p className="text-[13px] text-muted mt-1">{description}</p>}
+        <div className="modal-head flex items-start justify-between gap-4 px-5 py-4">
+          <div className="flex items-start gap-3 min-w-0">
+            {icon && (
+              <span className="icon-tile icon-tile-solid h-10 w-10 rounded-xl animate-pop-in">{icon}</span>
+            )}
+            <div className="min-w-0 pt-0.5">
+              <h3 className="text-base font-semibold tracking-tight text-fg">{title}</h3>
+              {description && <p className="text-[13px] text-muted mt-0.5">{description}</p>}
+            </div>
           </div>
           <button
             type="button"
@@ -66,13 +77,14 @@ export default function Modal({
             <X />
           </button>
         </div>
-        <div className="px-5 py-4">{children}</div>
+        <div className="px-5 py-5">{children}</div>
         {footer && (
-          <div className="flex items-center justify-end gap-2 px-5 py-3.5 border-t border-line bg-subtle/60 rounded-b-[14px]">
+          <div className="flex items-center justify-end gap-2 px-5 py-3.5 border-t border-line bg-subtle/60 rounded-b-2xl">
             {footer}
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

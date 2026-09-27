@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useTransition, useEffect } from "react";
-import { DollarSign, Loader2 } from "lucide-react";
+import { DollarSign, Loader2, Wallet } from "lucide-react";
 import Modal from "./Modal";
 import { setOrUpdateBalance } from "@/actions/balance";
 import { useToast } from "./Toast";
@@ -68,6 +68,7 @@ export default function BalanceModal({
       open={isOpen}
       onClose={onClose}
       locked={isPending}
+      icon={<Wallet className="h-5 w-5" />}
       title="Starting balance"
       description="Set the amount your wallet starts with."
       footer={

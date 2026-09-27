@@ -11,6 +11,7 @@ import {
   Plus,
   X,
   Check,
+  Pencil,
 } from "lucide-react";
 import { Collapse } from "./SplitBreakdown";
 import { formatMoney } from "@/lib/format";
@@ -209,6 +210,7 @@ export default function ExpenseModal({
       onClose={onClose}
       locked={isPending}
       size="lg"
+      icon={expense?.id ? <Pencil className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
       title={expense?.id ? "Edit transaction" : "New transaction"}
       description={
         expense?.id

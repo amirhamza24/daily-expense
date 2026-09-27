@@ -3,10 +3,10 @@
 import React, { useState, useTransition, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Mail, Loader2, AlertCircle } from "lucide-react";
+import { Mail, Loader2, AlertCircle, LogIn, ArrowRight } from "lucide-react";
 import { loginUser } from "@/actions/auth";
 import { useToast } from "@/components/Toast";
-import AuthShell from "@/components/AuthShell";
+import AuthShell, { AuthShellSkeleton } from "@/components/AuthShell";
 import PasswordInput from "@/components/PasswordInput";
 
 function LoginContent() {
@@ -55,6 +55,7 @@ function LoginContent() {
 
   return (
     <AuthShell
+      icon={LogIn}
       title="Welcome back"
       description="Sign in to continue tracking your expenses."
       footer={
@@ -97,7 +98,7 @@ function LoginContent() {
               required
               autoComplete="email"
               placeholder="you@example.com"
-              className="input pl-9"
+              className="input pl-9 h-11"
               disabled={isPending}
             />
           </div>
@@ -108,6 +109,7 @@ function LoginContent() {
             Password
           </label>
           <PasswordInput
+              className="h-11"
             id="password"
             name="password"
             required
@@ -117,14 +119,17 @@ function LoginContent() {
           />
         </div>
 
-        <button type="submit" disabled={isPending} className="btn btn-primary btn-lg w-full mt-2">
+        <button type="submit" disabled={isPending} className="btn btn-primary btn-lg w-full h-11 mt-2">
           {isPending ? (
             <>
               <Loader2 className="animate-spin" />
               Signing in…
             </>
           ) : (
-            "Sign in"
+            <>
+              Sign in
+              <ArrowRight />
+            </>
           )}
         </button>
       </form>
@@ -134,13 +139,7 @@ function LoginContent() {
 
 export default function LoginPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="flex-1 flex items-center justify-center min-h-screen">
-          <Loader2 className="h-6 w-6 animate-spin text-faint" />
-        </div>
-      }
-    >
+    <Suspense fallback={<AuthShellSkeleton />}>
       <LoginContent />
     </Suspense>
   );
