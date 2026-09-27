@@ -50,6 +50,22 @@ model Expense {
   
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId      String
+
+  // Optional breakdown of a single debit into several reasons.
+  // `amount` above stays the total; splits must not exceed it.
+  splits      ExpenseSplit[]
+}
+
+model ExpenseSplit {
+  id        String  @id @default(uuid())
+  title     String
+  amount    Float
+  position  Int     @default(0)
+
+  expense   Expense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  expenseId String
+
+  @@index([expenseId])
 }
 
 model Balance {

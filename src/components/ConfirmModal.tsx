@@ -19,7 +19,6 @@ import {
   RefreshCw,
   HelpCircle,
   Crown,
-  X,
 } from 'lucide-react';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -54,56 +53,12 @@ export function useConfirm(): ConfirmFn {
 
 // ─── Variant config ───────────────────────────────────────────────────────────
 
-const variantConfig: Record<
-  ConfirmVariant,
-  {
-    iconBg: string;
-    iconColor: string;
-    confirmBtn: string;
-    borderAccent: string;
-    glowClass: string;
-  }
-> = {
-  danger: {
-    iconBg: 'bg-rose-500/15',
-    iconColor: 'text-rose-400',
-    confirmBtn:
-      'bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 shadow-rose-950/30',
-    borderAccent: 'border-rose-500/20',
-    glowClass: 'shadow-rose-500/10',
-  },
-  warning: {
-    iconBg: 'bg-amber-500/15',
-    iconColor: 'text-amber-400',
-    confirmBtn:
-      'bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 shadow-amber-950/30',
-    borderAccent: 'border-amber-500/20',
-    glowClass: 'shadow-amber-500/10',
-  },
-  success: {
-    iconBg: 'bg-emerald-500/15',
-    iconColor: 'text-emerald-400',
-    confirmBtn:
-      'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-emerald-950/30',
-    borderAccent: 'border-emerald-500/20',
-    glowClass: 'shadow-emerald-500/10',
-  },
-  info: {
-    iconBg: 'bg-violet-500/15',
-    iconColor: 'text-violet-400',
-    confirmBtn:
-      'bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 shadow-violet-950/30',
-    borderAccent: 'border-violet-500/20',
-    glowClass: 'shadow-violet-500/10',
-  },
-  default: {
-    iconBg: 'bg-slate-500/15',
-    iconColor: 'text-slate-400',
-    confirmBtn:
-      'bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-500 hover:to-slate-600 shadow-slate-950/30',
-    borderAccent: 'border-slate-500/20',
-    glowClass: 'shadow-slate-500/10',
-  },
+const variantConfig: Record<ConfirmVariant, { icon: string; confirmBtn: string }> = {
+  danger: { icon: 'bg-danger-soft text-danger', confirmBtn: 'btn-danger' },
+  warning: { icon: 'bg-warning-soft text-warning', confirmBtn: 'btn-warning' },
+  success: { icon: 'bg-success-soft text-success', confirmBtn: 'btn-success' },
+  info: { icon: 'bg-accent-soft text-accent-fg', confirmBtn: 'btn-primary' },
+  default: { icon: 'bg-subtle text-muted', confirmBtn: 'btn-primary' },
 };
 
 // ─── Internal modal state ─────────────────────────────────────────────────────
@@ -150,131 +105,45 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
     <ConfirmContext.Provider value={confirm}>
       {children}
 
-      {/* ── Modal Overlay ── */}
       {modal.open && (
         <div
-          className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
-          role="dialog"
+          className="modal-root z-9999"
+          role="alertdialog"
           aria-modal="true"
           aria-labelledby="confirm-modal-title"
+          onKeyDown={(e) => e.key === 'Escape' && handleCancel()}
         >
-          {/* Backdrop */}
-          <div
-            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
-            onClick={handleCancel}
-          />
+          <div className="modal-overlay" onClick={handleCancel} />
 
-          {/* Modal Card */}
-          <div
-            className={`
-              relative w-full max-w-md rounded-2xl
-              bg-white/95 dark:bg-slate-950/95 backdrop-blur-2xl
-              border ${cfg.borderAccent}
-              shadow-2xl ${cfg.glowClass}
-              flex flex-col gap-0
-              animate-confirm-in
-            `}
-          >
-            {/* Top accent line */}
-            <div
-              className={`h-1 w-full rounded-t-2xl ${
-                modal.variant === 'danger'
-                  ? 'bg-gradient-to-r from-rose-600 to-red-500'
-                  : modal.variant === 'warning'
-                  ? 'bg-gradient-to-r from-amber-500 to-orange-500'
-                  : modal.variant === 'success'
-                  ? 'bg-gradient-to-r from-emerald-500 to-teal-500'
-                  : modal.variant === 'info'
-                  ? 'bg-gradient-to-r from-violet-600 to-indigo-500'
-                  : 'bg-gradient-to-r from-slate-600 to-slate-500'
-              }`}
-            />
-
-            {/* Header */}
-            <div className="flex items-start justify-between gap-4 px-6 pt-5 pb-0">
-              <div className="flex items-center gap-4">
-                {/* Icon badge */}
-                <div className={`p-3 rounded-xl ${cfg.iconBg} shrink-0`}>
-                  <div className={cfg.iconColor}>
-                    {modal.icon ?? <HelpCircle className="h-6 w-6" />}
-                  </div>
-                </div>
-                <div>
-                  <h3
-                    id="confirm-modal-title"
-                    className="text-base font-bold text-slate-900 dark:text-slate-100 leading-snug"
-                  >
-                    {modal.title}
-                  </h3>
-                  <p className="text-[11px] text-slate-500 font-medium mt-0.5 uppercase tracking-wider">
-                    Action Confirmation Required
-                  </p>
-                </div>
+          <div className="modal-panel max-w-100">
+            <div className="flex gap-4 p-5">
+              <div
+                className={`h-10 w-10 shrink-0 rounded-full flex items-center justify-center [&_svg]:h-4.5 [&_svg]:w-4.5 ${cfg.icon}`}
+              >
+                {modal.icon ?? <HelpCircle />}
               </div>
-
-              {/* Close X */}
-              <button
-                onClick={handleCancel}
-                className="p-1.5 rounded-lg hover:bg-white/5 text-slate-500 hover:text-slate-300 transition-colors shrink-0 cursor-pointer mt-0.5"
-                aria-label="Close"
-              >
-                <X className="h-4 w-4" />
-              </button>
+              <div className="min-w-0 pt-0.5">
+                <h3
+                  id="confirm-modal-title"
+                  className="text-[15px] font-semibold tracking-tight text-fg"
+                >
+                  {modal.title}
+                </h3>
+                <p className="text-[13px] text-muted leading-relaxed mt-1.5">{modal.message}</p>
+              </div>
             </div>
 
-            {/* Divider */}
-            <div className="mx-6 mt-4 border-t border-slate-200 dark:border-white/5" />
-
-            {/* Body message */}
-            <div className="px-6 py-4">
-              <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-                {modal.message}
-              </p>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="px-6 pb-6 flex flex-col-reverse sm:flex-row gap-3 sm:justify-end">
-              {/* Cancel */}
-              <button
-                onClick={handleCancel}
-                className="px-5 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 text-sm font-semibold transition-all duration-200 cursor-pointer active:scale-[0.98]"
-              >
+            <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 px-5 py-3.5 border-t border-line bg-subtle/60 rounded-b-[14px]">
+              <button onClick={handleCancel} className="btn btn-secondary">
                 {modal.cancelText ?? 'Cancel'}
               </button>
-
-              {/* Confirm */}
-              <button
-                onClick={handleConfirm}
-                className={`
-                  px-5 py-2.5 rounded-xl text-white text-sm font-bold
-                  transition-all duration-200 shadow-lg
-                  active:scale-[0.97] cursor-pointer
-                  ${cfg.confirmBtn}
-                `}
-              >
+              <button onClick={handleConfirm} autoFocus className={`btn ${cfg.confirmBtn}`}>
                 {modal.confirmText ?? 'Confirm'}
               </button>
             </div>
           </div>
         </div>
       )}
-
-      {/* Animation style */}
-      <style jsx global>{`
-        @keyframes confirm-in {
-          from {
-            opacity: 0;
-            transform: scale(0.92) translateY(8px);
-          }
-          to {
-            opacity: 1;
-            transform: scale(1) translateY(0);
-          }
-        }
-        .animate-confirm-in {
-          animation: confirm-in 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-        }
-      `}</style>
     </ConfirmContext.Provider>
   );
 }
@@ -333,7 +202,7 @@ export const confirmPresets = {
   clearHistory: (): ConfirmOptions => ({
     title: 'Reset Transaction Ledger',
     message:
-      '⚠️ All expense records and your wallet balance will be permanently erased. This is irreversible and cannot be recovered!',
+      'All expense records and your wallet balance will be permanently erased. This is irreversible and cannot be recovered!',
     confirmText: 'Yes, Wipe All',
     cancelText: 'Abort',
     variant: 'warning',

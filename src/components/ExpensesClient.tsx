@@ -1,26 +1,26 @@
 "use client";
 
-import React, { useState, useEffect, useTransition } from "react";
+import React, { Fragment, useState, useEffect, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Search,
-  Filter,
+  SearchX,
   Download,
   Calendar,
   ChevronLeft,
   ChevronRight,
   Eye,
-  Edit2,
+  Pencil,
   Trash2,
   X,
-  FileSpreadsheet,
-  Info,
-  ArrowUpDown,
   Plus,
 } from "lucide-react";
-import GlassCard from "./GlassCard";
 import ExpenseModal from "./ExpenseModal";
-import { getCategoryIcon, getCategoryGlow } from "./DashboardClient";
+import ExpenseDetailsModal from "./ExpenseDetailsModal";
+import PageHeader from "./PageHeader";
+import SplitBreakdown, { Collapse, type ExpenseSplitView } from "./SplitBreakdown";
+import { getCategoryIcon, getCategoryGlow } from "@/lib/categories";
+import { formatDate, formatMoney } from "@/lib/format";
 import { deleteExpense } from "@/actions/expenses";
 import { useToast } from "./Toast";
 import { useConfirm, confirmPresets } from "./ConfirmModal";
@@ -33,6 +33,7 @@ export interface ExpenseItem {
   category: string;
   note: string | null;
   expenseDate: Date;
+  splits: ExpenseSplitView[];
 }
 
 interface ExpensesClientProps {
@@ -43,6 +44,7 @@ interface ExpensesClientProps {
     category: string;
     note: string | null;
     expenseDate: Date;
+    splits: Array<{ title: string; amount: number }>;
   }>;
   pagination: {
     page: number;
@@ -98,6 +100,15 @@ export default function ExpensesClient({
   const [viewingExpense, setViewingExpense] = useState<ExpenseItem | undefined>(
     undefined,
   );
+  // Rows whose breakdown is currently shown
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const toggleExpanded = (id: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   // Sync state with URL search params when they change
   useEffect(() => {
@@ -163,14 +174,16 @@ export default function ExpensesClient({
     }
 
     try {
-      const headers = "Title,Amount,Category,Date,Note\n";
+      const headers = "Title,Amount,Category,Date,Note,Breakdown\n";
       const rows = allExpensesForCSV.map((exp) => {
         const escapedTitle = `"${exp.title.replace(/"/g, '""')}"`;
         const escapedNote = `"${(exp.note || "").replace(/"/g, '""')}"`;
+        const breakdown = exp.splits.map((s) => `${s.title}: ${s.amount}`).join("; ");
+        const escapedBreakdown = `"${breakdown.replace(/"/g, '""')}"`;
         const formattedDate = new Date(exp.expenseDate).toLocaleDateString(
           "en-US",
         );
-        return `${escapedTitle},${exp.amount},${exp.category},${formattedDate},${escapedNote}`;
+        return `${escapedTitle},${exp.amount},${exp.category},${formattedDate},${escapedNote},${escapedBreakdown}`;
       });
 
       const csvContent = headers + rows.join("\n");
@@ -192,54 +205,54 @@ export default function ExpensesClient({
     }
   };
 
+  const hasFilters =
+    !!search ||
+    category !== "All" ||
+    dateRange !== "all" ||
+    sortBy !== "latest";
+  const firstItem = (pagination.page - 1) * pagination.limit + 1;
+  const lastItem = Math.min(pagination.page * pagination.limit, pagination.total);
+
   return (
     <>
-      {/* Title Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-2xl md:text-3xl font-extrabold tracking-wide bg-gradient-to-r from-slate-900 via-slate-700 to-indigo-600 dark:from-white dark:via-slate-200 dark:to-violet-400 bg-clip-text text-transparent w-fit">
-            Transaction Ledger
-          </h2>
-          <p className="text-xs md:text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Search, sort, filter, and audit all your daily expense items.
-          </p>
-        </div>
+      <PageHeader
+        title="Expenses"
+        description="Search, filter and manage every transaction."
+        actions={
+          <>
+            <button onClick={handleExportCSV} className="btn btn-secondary">
+              <Download />
+              Export
+            </button>
+            <button
+              onClick={() => {
+                setEditingExpense(undefined);
+                setIsExpenseOpen(true);
+              }}
+              className="btn btn-primary"
+            >
+              <Plus />
+              New transaction
+            </button>
+          </>
+        }
+      />
 
-        {/* Global Action Buttons */}
-        <div className="flex items-center gap-3">
-          <button
-            onClick={handleExportCSV}
-            className="flex-1 md:flex-initial px-4 py-3 rounded-xl border border-emerald-500/10 hover:border-emerald-500/20 hover:bg-emerald-500/10 text-emerald-400 font-semibold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
-          >
-            <Download className="h-4 w-4" />
-            Export CSV
-          </button>
-          <button
-            onClick={() => {
-              setEditingExpense(undefined);
-              setIsExpenseOpen(true);
-            }}
-            className="flex-1 md:flex-initial px-4 py-3 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-semibold text-xs rounded-xl shadow-lg shadow-violet-950/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer"
-          >
-            <Plus className="h-4 w-4" />
-            <span className="tracking-wider">New Record</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Interactive Filters Glass Panel */}
-      <GlassCard className="border-white/5 shadow-xl">
-        <form onSubmit={handleSearchSubmit} className="flex flex-col gap-4">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            {/* Search Input */}
-            <div className="md:col-span-2 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4.5 w-4.5 text-slate-500" />
+      <section className="card overflow-hidden">
+        {/* Filters */}
+        <form
+          onSubmit={handleSearchSubmit}
+          className="flex flex-col gap-3 p-3 md:p-4 border-b border-line"
+        >
+          <div className="flex flex-col lg:flex-row gap-2.5">
+            <div className="relative flex-1">
+              <Search className="input-icon" />
               <input
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search transaction description..."
-                className="w-full pl-10 pr-4 py-2.5 rounded-xl glass-input text-xs"
+                placeholder="Search transactions…"
+                className="input pl-9 pr-8"
               />
               {search && (
                 <button
@@ -248,64 +261,31 @@ export default function ExpensesClient({
                     setSearch("");
                     applyFilters({ search: null });
                   }}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 rounded-md hover:bg-white/10 text-slate-500 hover:text-white"
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 icon-btn h-6 w-6"
+                  aria-label="Clear search"
                 >
-                  <X className="h-3.5 w-3.5" />
+                  <X className="h-3.5! w-3.5!" />
                 </button>
               )}
             </div>
 
-            {/* Category Dropdown */}
-            <div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:flex gap-2.5">
               <select
                 value={category}
                 onChange={(e) => {
                   setCategory(e.target.value);
                   applyFilters({ category: e.target.value });
                 }}
-                className="w-full px-4 py-2.5 rounded-xl glass-input text-xs appearance-none cursor-pointer"
+                className="input lg:w-40"
+                aria-label="Category"
               >
                 {CATEGORIES.map((cat) => (
-                  <option
-                    key={cat}
-                    value={cat}
-                    className="bg-white dark:bg-slate-900 text-slate-700 dark:text-white"
-                  >
-                    {cat === "All" ? "Filter by Category" : cat}
+                  <option key={cat} value={cat}>
+                    {cat === "All" ? "All categories" : cat}
                   </option>
                 ))}
               </select>
-            </div>
 
-            {/* Sort Dropdown */}
-            <div>
-              <select
-                value={sortBy}
-                onChange={(e) => {
-                  setSortBy(e.target.value);
-                  applyFilters({ sortBy: e.target.value });
-                }}
-                className="w-full px-4 py-2.5 rounded-xl glass-input text-xs appearance-none cursor-pointer"
-              >
-                <option
-                  value="latest"
-                  className="bg-white dark:bg-slate-900 text-slate-700 dark:text-white"
-                >
-                  Sort: Latest Date
-                </option>
-                <option
-                  value="highest"
-                  className="bg-white dark:bg-slate-900 text-slate-700 dark:text-white"
-                >
-                  Sort: Highest Amount
-                </option>
-              </select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end pt-1 border-t border-white/5">
-            {/* Quick Date Filters */}
-            <div>
               <select
                 value={dateRange}
                 onChange={(e) => {
@@ -316,236 +296,225 @@ export default function ExpensesClient({
                     endDate: null,
                   });
                 }}
-                className="w-full px-4 py-2.5 rounded-xl glass-input text-xs appearance-none cursor-pointer"
+                className="input lg:w-36"
+                aria-label="Date range"
               >
-                <option
-                  value="all"
-                  className="bg-white dark:bg-slate-900 text-slate-700 dark:text-white"
-                >
-                  Filter by Timeframe
-                </option>
-                <option
-                  value="today"
-                  className="bg-white dark:bg-slate-900 text-slate-700 dark:text-white"
-                >
-                  Today
-                </option>
-                <option
-                  value="yesterday"
-                  className="bg-white dark:bg-slate-900 text-slate-700 dark:text-white"
-                >
-                  Yesterday
-                </option>
-                <option
-                  value="week"
-                  className="bg-white dark:bg-slate-900 text-slate-700 dark:text-white"
-                >
-                  Last 7 Days
-                </option>
-                <option
-                  value="month"
-                  className="bg-white dark:bg-slate-900 text-slate-700 dark:text-white"
-                >
-                  This Month
-                </option>
-                <option
-                  value="custom"
-                  className="bg-white dark:bg-slate-900 text-slate-700 dark:text-white"
-                >
-                  Custom Date Range...
-                </option>
+                <option value="all">Any time</option>
+                <option value="today">Today</option>
+                <option value="yesterday">Yesterday</option>
+                <option value="week">Last 7 days</option>
+                <option value="month">This month</option>
+                <option value="custom">Custom range…</option>
+              </select>
+
+              <select
+                value={sortBy}
+                onChange={(e) => {
+                  setSortBy(e.target.value);
+                  applyFilters({ sortBy: e.target.value });
+                }}
+                className="input lg:w-40 col-span-2 sm:col-span-1"
+                aria-label="Sort"
+              >
+                <option value="latest">Newest first</option>
+                <option value="highest">Highest amount</option>
               </select>
             </div>
-
-            {/* Custom Dates (visible only if 'custom' is selected) */}
-            {dateRange === "custom" && (
-              <>
-                <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 z-10 pointer-events-none" />
-                  <DatePicker
-                    selected={startDate ? new Date(startDate) : null}
-                    onChange={(date: Date | null) => {
-                      // format date to YYYY-MM-DD
-                      const dateStr = date
-                        ? date.toISOString().split("T")[0]
-                        : "";
-                      setStartDate(dateStr);
-                      applyFilters({ startDate: dateStr });
-                    }}
-                    placeholderText="Start date"
-                    dateFormat="yyyy-MM-dd"
-                    fixedHeight
-                    className="w-full pl-9 pr-4 py-2.5 rounded-xl glass-input text-xs cursor-pointer"
-                    wrapperClassName="w-full"
-                  />
-                </div>
-                <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 z-10 pointer-events-none" />
-                  <DatePicker
-                    selected={endDate ? new Date(endDate) : null}
-                    onChange={(date: Date | null) => {
-                      const dateStr = date
-                        ? date.toISOString().split("T")[0]
-                        : "";
-                      setEndDate(dateStr);
-                      applyFilters({ endDate: dateStr });
-                    }}
-                    placeholderText="End date"
-                    dateFormat="yyyy-MM-dd"
-                    fixedHeight
-                    className="w-full pl-9 pr-4 py-2.5 rounded-xl glass-input text-xs cursor-pointer"
-                    wrapperClassName="w-full"
-                  />
-                </div>
-              </>
-            )}
-
-            {/* Reset Button */}
-            <div
-              className={`${dateRange === "custom" ? "" : "md:col-start-4"} flex justify-end`}
-            >
-              <button
-                type="button"
-                onClick={() => {
-                  setSearch("");
-                  setCategory("All");
-                  setDateRange("all");
-                  setStartDate("");
-                  setEndDate("");
-                  setSortBy("latest");
-                  router.push("/expenses");
-                }}
-                className="py-2.5 px-5 rounded-xl border border-white/5 hover:bg-white/5 text-xs font-semibold transition-colors cursor-pointer"
-              >
-                Clear Filters
-              </button>
-            </div>
           </div>
-        </form>
-      </GlassCard>
 
-      {/* Transaction Table */}
-      <GlassCard className="border-white/5 shadow-2xl relative overflow-hidden flex-1 flex flex-col p-4 md:p-6">
+          {(dateRange === "custom" || hasFilters) && (
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2.5 animate-fade-in">
+              {dateRange === "custom" && (
+                <div className="grid grid-cols-2 gap-2.5 sm:w-96">
+                  <div className="relative">
+                    <Calendar className="input-icon" />
+                    <DatePicker
+                      selected={startDate ? new Date(startDate) : null}
+                      onChange={(date: Date | null) => {
+                        // format date to YYYY-MM-DD
+                        const dateStr = date
+                          ? date.toISOString().split("T")[0]
+                          : "";
+                        setStartDate(dateStr);
+                        applyFilters({ startDate: dateStr });
+                      }}
+                      placeholderText="Start date"
+                      dateFormat="MMM d, yyyy"
+                      fixedHeight
+                      className="input pl-9 cursor-pointer"
+                      wrapperClassName="w-full"
+                    />
+                  </div>
+                  <div className="relative">
+                    <Calendar className="input-icon" />
+                    <DatePicker
+                      selected={endDate ? new Date(endDate) : null}
+                      onChange={(date: Date | null) => {
+                        const dateStr = date
+                          ? date.toISOString().split("T")[0]
+                          : "";
+                        setEndDate(dateStr);
+                        applyFilters({ endDate: dateStr });
+                      }}
+                      placeholderText="End date"
+                      dateFormat="MMM d, yyyy"
+                      fixedHeight
+                      className="input pl-9 cursor-pointer"
+                      wrapperClassName="w-full"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {hasFilters && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearch("");
+                    setCategory("All");
+                    setDateRange("all");
+                    setStartDate("");
+                    setEndDate("");
+                    setSortBy("latest");
+                    router.push("/expenses");
+                  }}
+                  className="btn btn-ghost btn-sm sm:ml-auto self-start"
+                >
+                  <X />
+                  Clear filters
+                </button>
+              )}
+            </div>
+          )}
+        </form>
+
+        {/* Table */}
         {expenses.length === 0 ? (
-          <div className="flex-1 flex flex-col items-center justify-center p-12 text-center">
-            <Info className="h-10 w-10 text-slate-500 mb-3" />
-            <h4 className="font-semibold text-slate-800 dark:text-slate-300">
-              No transactions match the filter criteria
-            </h4>
-            <p className="text-xs text-slate-500 mt-1 max-w-sm">
-              Adjust your search keywords, choose a wider timeframe or clear
-              your category tags to search again.
+          <div className="flex flex-col items-center justify-center text-center px-6 py-16">
+            <div className="h-10 w-10 rounded-full bg-subtle flex items-center justify-center mb-3">
+              <SearchX className="h-5 w-5 text-faint" />
+            </div>
+            <p className="text-sm font-medium text-fg">No transactions found</p>
+            <p className="text-[13px] text-muted mt-1 max-w-sm">
+              Try a different search term, a wider date range or another category.
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto flex-1">
-            <table className="glass-table w-full">
+          <div
+            className={`overflow-x-auto transition-opacity ${isPending ? "opacity-60" : ""}`}
+          >
+            <table className="data-table">
               <thead>
                 <tr>
-                  <th className="px-6 py-3 text-[11px] font-bold! text-slate-800! dark:text-slate-300! uppercase tracking-wider w-36">
-                    Description
-                  </th>
-                  <th className="px-6 py-3 text-[11px] font-bold! text-slate-800! dark:text-slate-300! uppercase tracking-wider w-36">
-                    Category
-                  </th>
-                  <th className="px-6 py-3 text-[11px] font-bold! text-slate-800! dark:text-slate-300! uppercase tracking-wider w-36">
-                    Log Date
-                  </th>
-                  <th className="px-6 py-3 text-[11px] font-bold! text-slate-800! dark:text-slate-300! uppercase tracking-wider w-36">
-                    Amount
-                  </th>
-                  <th className="px-6 py-3 text-[11px] font-bold! text-slate-800! dark:text-slate-300! uppercase tracking-wider w-36">
-                    Actions
+                  <th>Transaction</th>
+                  <th className="hidden md:table-cell">Category</th>
+                  <th className="hidden sm:table-cell">Date</th>
+                  <th className="text-right!">Amount</th>
+                  <th className="w-px">
+                    <span className="sr-only">Actions</span>
                   </th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="stagger-rows" key={searchParams.toString()}>
                 {expenses.map((exp) => {
                   const Icon = getCategoryIcon(exp.category);
                   const glowClass = getCategoryGlow(exp.category);
+                  const isCredit = exp.category === "Income";
+                  const hasSplits = exp.splits.length > 0;
+                  const isOpen = expanded.has(exp.id);
                   return (
-                    <tr key={exp.id} className="group">
-                      {/* Description / Title */}
-                      <td>
-                        <div className="flex items-center gap-3">
-                          {/* Small icon for mobile */}
-                          <div
-                            className={`md:hidden p-2 rounded-lg border shrink-0 ${glowClass}`}
-                          >
-                            <Icon className="h-4 w-4" />
-                          </div>
-                          <div>
-                            <span className="font-semibold text-xs text-slate-850 dark:text-slate-200 block truncate max-w-[150px] md:max-w-xs group-hover:text-violet-500 dark:group-hover:text-violet-400 transition-colors">
-                              {exp.title}
+                    <Fragment key={exp.id}>
+                      <tr
+                        onClick={hasSplits ? () => toggleExpanded(exp.id) : undefined}
+                        className={`${hasSplits ? "cursor-pointer" : ""} ${isOpen ? "row-expanded bg-subtle/60" : ""}`}
+                        aria-expanded={hasSplits ? isOpen : undefined}
+                      >
+                        <td>
+                          <div className="flex items-center gap-3 min-w-0">
+                            <span
+                              className={`h-8 w-8 shrink-0 rounded-lg flex items-center justify-center ${glowClass}`}
+                            >
+                              <Icon className="h-4 w-4" />
                             </span>
-                            {/* Subtitle indicators for mobile */}
-                            <span className="md:hidden text-[9px] text-slate-500 dark:text-slate-400 font-medium">
-                              {exp.category} •{" "}
-                              {new Date(exp.expenseDate).toLocaleDateString(
-                                "en-US",
-                                { month: "short", day: "numeric" },
+                            <div className="min-w-0">
+                              <p className="flex items-center gap-2 font-medium text-fg">
+                                <span className="truncate max-w-45 md:max-w-xs">{exp.title}</span>
+                                {hasSplits && (
+                                  <span className="badge h-5 px-1.5 gap-0.5 text-[11px] shrink-0">
+                                    <ChevronRight
+                                      className="chevron h-3 w-3"
+                                      data-open={isOpen}
+                                    />
+                                    {exp.splits.length} items
+                                  </span>
+                                )}
+                              </p>
+                              <p className="sm:hidden text-xs text-faint mt-0.5">
+                                {formatDate(exp.expenseDate, { month: "short", day: "numeric" })}
+                              </p>
+                              {exp.note && (
+                                <p className="hidden sm:block text-xs text-faint truncate max-w-xs mt-0.5">
+                                  {exp.note}
+                                </p>
                               )}
-                            </span>
+                            </div>
                           </div>
-                        </div>
-                      </td>
-
-                      {/* Category */}
-                      <td className="">
-                        <span
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[10px] font-semibold ${glowClass}`}
-                        >
-                          <Icon className="h-3 w-3" />
-                          {exp.category}
-                        </span>
-                      </td>
-
-                      {/* Date */}
-                      <td className="text-xs text-slate-600 dark:text-slate-400 font-semibold">
-                        {new Date(exp.expenseDate).toLocaleDateString("en-US", {
-                          year: "numeric",
-                          month: "long",
-                          day: "numeric",
-                        })}
-                      </td>
-
-                      {/* Amount */}
-                      <td>
-                        <span className="text-xs font-bold text-slate-850 dark:text-slate-100 block">
-                          -$
-                          {exp.amount.toLocaleString("en-US", {
-                            minimumFractionDigits: 2,
-                          })}
-                        </span>
-                      </td>
-
-                      {/* Actions */}
-                      <td>
-                        <div className="flex items-center justify-start gap-1">
-                          <button
-                            onClick={() => setViewingExpense(exp)}
-                            className="p-2 rounded-lg hover:bg-slate-200/50 dark:hover:bg-white/10 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors cursor-pointer"
-                            title="View details"
+                        </td>
+                        <td className="hidden md:table-cell">
+                          <span className={`badge ${glowClass}`}>{exp.category}</span>
+                        </td>
+                        <td className="hidden sm:table-cell text-muted whitespace-nowrap">
+                          {formatDate(exp.expenseDate)}
+                        </td>
+                        <td className="text-right whitespace-nowrap">
+                          <span
+                            className={`font-semibold tabular ${isCredit ? "text-success" : "text-fg"}`}
                           >
-                            <Eye className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => handleEdit(exp)}
-                            className="p-2 rounded-lg hover:bg-slate-200/50 dark:hover:bg-white/10 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors cursor-pointer"
-                            title="Edit"
-                          >
-                            <Edit2 className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(exp.id)}
-                            className="p-2 rounded-lg hover:bg-rose-500/10 dark:hover:bg-rose-500/20 text-slate-500 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-400 transition-colors cursor-pointer"
-                            title="Delete"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
+                            {isCredit ? "+" : "−"}
+                            {formatMoney(exp.amount)}
+                          </span>
+                        </td>
+                        <td onClick={(e) => e.stopPropagation()}>
+                          <div className="row-actions flex items-center justify-end">
+                            <button
+                              onClick={() => setViewingExpense(exp)}
+                              className="icon-btn"
+                              title="View details"
+                              aria-label="View details"
+                            >
+                              <Eye />
+                            </button>
+                            <button
+                              onClick={() => handleEdit(exp)}
+                              className="icon-btn"
+                              title="Edit"
+                              aria-label="Edit"
+                            >
+                              <Pencil />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(exp.id)}
+                              className="icon-btn icon-btn-danger"
+                              title="Delete"
+                              aria-label="Delete"
+                            >
+                              <Trash2 />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                      {hasSplits && (
+                        <tr className="expand-row">
+                          <td colSpan={5} className="expand-cell bg-subtle/60" data-open={isOpen}>
+                            <Collapse open={isOpen}>
+                              <div className="pl-7 pr-4 md:pr-28 pb-3">
+                                <SplitBreakdown splits={exp.splits} total={exp.amount} />
+                              </div>
+                            </Collapse>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
                   );
                 })}
               </tbody>
@@ -553,106 +522,44 @@ export default function ExpensesClient({
           </div>
         )}
 
-        {/* Pagination Section */}
-        {pagination.totalPages > 1 && (
-          <div className="flex items-center justify-between border-t border-white/5 pt-4 mt-4">
-            <span className="text-xs text-slate-500 font-semibold">
-              Showing Page {pagination.page} of {pagination.totalPages} (
-              {pagination.total} entries)
+        {/* Pagination */}
+        {pagination.total > 0 && (
+          <div className="flex items-center justify-between gap-3 px-4 py-3 border-t border-line">
+            <span className="text-[13px] text-muted">
+              <span className="tabular">
+                {firstItem}–{lastItem}
+              </span>{" "}
+              of <span className="tabular">{pagination.total}</span>
             </span>
-            <div className="flex items-center gap-2">
-              <button
-                disabled={pagination.page <= 1}
-                onClick={() => applyFilters({ page: pagination.page - 1 })}
-                className="p-2 rounded-lg border border-white/5 hover:bg-white/5 text-slate-400 hover:text-white transition-colors disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-              <button
-                disabled={pagination.page >= pagination.totalPages}
-                onClick={() => applyFilters({ page: pagination.page + 1 })}
-                className="p-2 rounded-lg border border-white/5 hover:bg-white/5 text-slate-400 hover:text-white transition-colors disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
-            </div>
+            {pagination.totalPages > 1 && (
+              <div className="flex items-center gap-1.5">
+                <button
+                  disabled={pagination.page <= 1}
+                  onClick={() => applyFilters({ page: pagination.page - 1 })}
+                  className="btn btn-secondary btn-sm"
+                >
+                  <ChevronLeft />
+                  Prev
+                </button>
+                <button
+                  disabled={pagination.page >= pagination.totalPages}
+                  onClick={() => applyFilters({ page: pagination.page + 1 })}
+                  className="btn btn-secondary btn-sm"
+                >
+                  Next
+                  <ChevronRight />
+                </button>
+              </div>
+            )}
           </div>
         )}
-      </GlassCard>
+      </section>
 
-      {/* Transaction Detail Notes View Modal */}
-      {viewingExpense && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            onClick={() => setViewingExpense(undefined)}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm"
-          />
-          <div className="relative w-full max-w-md rounded-2xl glass-panel-glow border border-violet-500/20 p-6 z-10 animate-scale-up text-slate-100">
-            <div className="flex items-center justify-between mb-4 pb-3 border-b border-white/5">
-              <div>
-                <h3 className="font-bold text-lg text-slate-100">
-                  {viewingExpense.title}
-                </h3>
-                <span className="text-[10px] uppercase font-bold text-violet-400 tracking-wider">
-                  {viewingExpense.category}
-                </span>
-              </div>
-              <button
-                onClick={() => setViewingExpense(undefined)}
-                className="p-1 rounded-lg hover:bg-white/5 text-slate-400 hover:text-white"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
+      <ExpenseDetailsModal
+        expense={viewingExpense}
+        onClose={() => setViewingExpense(undefined)}
+      />
 
-            <div className="flex flex-col gap-4 text-sm">
-              <div className="flex justify-between items-center py-1">
-                <span className="text-slate-400 font-medium">
-                  Spent Amount:
-                </span>
-                <span className="font-extrabold text-rose-400">
-                  -$
-                  {viewingExpense.amount.toLocaleString("en-US", {
-                    minimumFractionDigits: 2,
-                  })}
-                </span>
-              </div>
-              <div className="flex justify-between items-center py-1">
-                <span className="text-slate-400 font-medium">Date logged:</span>
-                <span className="font-semibold text-slate-300">
-                  {new Date(viewingExpense.expenseDate).toLocaleDateString(
-                    "en-US",
-                    {
-                      weekday: "long",
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                    },
-                  )}
-                </span>
-              </div>
-              <div className="flex flex-col gap-1.5 py-1">
-                <span className="text-slate-400 font-medium">
-                  Specific Note:
-                </span>
-                <div className="p-3 rounded-xl bg-white/2 border border-white/5 text-slate-300 text-xs italic leading-relaxed whitespace-pre-wrap">
-                  {viewingExpense.note ||
-                    "No description provided for this transaction."}
-                </div>
-              </div>
-            </div>
-
-            <button
-              onClick={() => setViewingExpense(undefined)}
-              className="mt-6 w-full py-2.5 bg-white/5 hover:bg-white/10 rounded-xl text-xs font-semibold text-slate-300 hover:text-white transition-colors cursor-pointer"
-            >
-              Close Details
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Reusable Expense Modal (Add/Edit) */}
       <ExpenseModal
         isOpen={isExpenseOpen}
         onClose={() => {

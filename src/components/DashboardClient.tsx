@@ -4,80 +4,30 @@ import React, { useState, useTransition } from "react";
 import Link from "next/link";
 import {
   Wallet,
-  TrendingUp,
   TrendingDown,
   Clock,
   Plus,
-  Edit2,
+  Pencil,
   Trash2,
-  ChevronRight,
-  Eye,
-  Utensils,
-  Car,
-  ShoppingBag,
-  FileText,
-  HeartPulse,
-  GraduationCap,
-  Tv,
-  DollarSign,
-  Info,
+  ArrowRight,
   CalendarDays,
-  Coins,
-  X,
+  Receipt,
+  ArrowUpRight,
+  ArrowDownRight,
 } from "lucide-react";
-import GlassCard from "./GlassCard";
 import ExpenseModal from "./ExpenseModal";
+import ExpenseDetailsModal from "./ExpenseDetailsModal";
+import PageHeader from "./PageHeader";
+import AnimatedNumber from "./AnimatedNumber";
 import { deleteExpense } from "@/actions/expenses";
 import { useToast } from "./Toast";
 import { useConfirm, confirmPresets } from "./ConfirmModal";
+import { getCategoryIcon, getCategoryGlow } from "@/lib/categories";
+import { formatDate, formatMoney } from "@/lib/format";
+import type { ExpenseSplitView } from "./SplitBreakdown";
 
-// Category Icons Mapping
-export const getCategoryIcon = (category: string) => {
-  switch (category) {
-    case "Food":
-      return Utensils;
-    case "Transport":
-      return Car;
-    case "Shopping":
-      return ShoppingBag;
-    case "Bills":
-      return FileText;
-    case "Medicine":
-      return HeartPulse;
-    case "Education":
-      return GraduationCap;
-    case "Entertainment":
-      return Tv;
-    case "Income":
-      return Coins;
-    default:
-      return DollarSign;
-  }
-};
-
-// Category Glow Border Mapping
-export const getCategoryGlow = (category: string) => {
-  switch (category) {
-    case "Food":
-      return "border-orange-500/20 text-orange-400 bg-orange-500/10";
-    case "Transport":
-      return "border-blue-500/20 text-blue-400 bg-blue-500/10";
-    case "Shopping":
-      return "border-pink-500/20 text-pink-400 bg-pink-500/10";
-    case "Bills":
-      return "border-amber-500/20 text-amber-400 bg-amber-500/10";
-    case "Medicine":
-      return "border-emerald-500/20 text-emerald-400 bg-emerald-500/10";
-    case "Education":
-      return "border-violet-500/20 text-violet-400 bg-violet-500/10";
-    case "Entertainment":
-      return "border-rose-500/20 text-rose-400 bg-rose-500/10";
-    case "Income":
-      return "border-emerald-500/20 text-emerald-400 bg-emerald-500/10";
-    default:
-      return "border-slate-500/20 text-slate-400 bg-slate-500/10";
-  }
-};
+// Re-exported for existing imports
+export { getCategoryIcon, getCategoryGlow };
 
 export interface ExpenseItem {
   id: string;
@@ -86,6 +36,7 @@ export interface ExpenseItem {
   category: string;
   note: string | null;
   expenseDate: Date;
+  splits: ExpenseSplitView[];
 }
 
 interface DashboardClientProps {
@@ -103,6 +54,32 @@ interface DashboardClientProps {
   recentExpenses: ExpenseItem[];
 }
 
+function StatCard({
+  label,
+  value,
+  hint,
+  icon: Icon,
+}: {
+  label: string;
+  value: number;
+  hint: string;
+  icon: React.ComponentType<{ className?: string }>;
+}) {
+  return (
+    <div className="card card-interactive p-4">
+      <div className="flex items-center justify-between">
+        <span className="stat-label">{label}</span>
+        <Icon className="h-4 w-4 text-faint" />
+      </div>
+      <p className="stat-value mt-2">
+        {value < 0 && "−"}
+        <AnimatedNumber value={value} format={(n) => formatMoney(n)} />
+      </p>
+      <p className="text-xs text-faint mt-1">{hint}</p>
+    </div>
+  );
+}
+
 export default function DashboardClient({
   stats,
   recentExpenses,
@@ -111,7 +88,6 @@ export default function DashboardClient({
   const confirm = useConfirm();
   const [, startTransition] = useTransition();
 
-  // Modal States
   const [isExpenseOpen, setIsExpenseOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<ExpenseItem | undefined>(
     undefined,
@@ -119,6 +95,11 @@ export default function DashboardClient({
   const [viewingExpense, setViewingExpense] = useState<ExpenseItem | undefined>(
     undefined,
   );
+
+  const openNew = () => {
+    setEditingExpense(undefined);
+    setIsExpenseOpen(true);
+  };
 
   const handleEdit = (expense: ExpenseItem) => {
     setEditingExpense(expense);
@@ -138,396 +119,198 @@ export default function DashboardClient({
     });
   };
 
+  const monthTotal = stats.monthlyCredit + stats.monthlyDebit;
+  const debitShare = monthTotal > 0 ? (stats.monthlyDebit / monthTotal) * 100 : 0;
+  const monthName = new Date().toLocaleDateString("en-US", { month: "long" });
+
   return (
     <>
-      {/* Title Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-2xl md:text-3xl font-extrabold tracking-wide bg-gradient-to-r from-slate-900 via-slate-700 to-indigo-600 dark:from-white dark:via-slate-200 dark:to-violet-400 bg-clip-text text-transparent w-fit">
-            Financial Dashboard
-          </h2>
-          <p className="text-xs md:text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Real-time tracking of balance limits and daily transactions.
-          </p>
-        </div>
-
-        {/* Global Action Buttons */}
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => {
-              setEditingExpense(undefined);
-              setIsExpenseOpen(true);
-            }}
-            className="flex-1 md:flex-initial px-4 py-3 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-semibold text-xs rounded-xl shadow-lg shadow-violet-950/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer"
-          >
-            <Plus className="h-4 w-4" />
-            <span className="tracking-wider">New Record</span>
+      <PageHeader
+        title="Dashboard"
+        description="Your balance and spending at a glance."
+        actions={
+          <button onClick={openNew} className="btn btn-primary">
+            <Plus />
+            New transaction
           </button>
-        </div>
+        }
+      />
+
+      {/* Key numbers */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+        <StatCard
+          label="Available balance"
+          value={stats.remainingBalance}
+          hint="After all transactions"
+          icon={Wallet}
+        />
+        <StatCard
+          label="Total expenses"
+          value={stats.totalExpenses}
+          hint="All time"
+          icon={TrendingDown}
+        />
+        <StatCard
+          label="This month"
+          value={stats.monthlyExpenses}
+          hint={`Spent in ${monthName}`}
+          icon={CalendarDays}
+        />
+        <StatCard
+          label="Today"
+          value={stats.todayExpenses}
+          hint="Spent today"
+          icon={Clock}
+        />
       </div>
 
-      {/* Statistics Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Card 1: Total Expenses */}
-        <GlassCard className="border-rose-500/10 shadow-rose-950/5 p-4">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
-              Total Expenses
-            </span>
-            <div className="p-1.5 bg-rose-500/15 rounded-lg border border-rose-500/25">
-              <TrendingDown className="h-4 w-4 text-rose-400" />
-            </div>
-          </div>
-          <h3 className="text-2xl font-extrabold text-slate-900 dark:text-white mt-3 tracking-wide">
-            $
-            {stats.totalExpenses.toLocaleString("en-US", {
-              minimumFractionDigits: 2,
-            })}
-          </h3>
-          <p className="text-[9px] text-rose-400 mt-1.5 font-medium">
-            Accumulated sum of logged items
-          </p>
-        </GlassCard>
-
-        {/* Card 2: Remaining Balance */}
-        <GlassCard className="border-emerald-500/10 shadow-emerald-950/5 p-4">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
-              Remaining Balance
-            </span>
-            <div className="p-1.5 bg-emerald-500/15 rounded-lg border border-emerald-500/25">
-              <TrendingUp className="h-4 w-4 text-emerald-400" />
-            </div>
-          </div>
-          <h3 className="text-2xl font-extrabold text-slate-900 dark:text-white mt-3 tracking-wide">
-            $
-            {stats.remainingBalance.toLocaleString("en-US", {
-              minimumFractionDigits: 2,
-            })}
-          </h3>
-          <p className="text-[9px] text-emerald-400 mt-1.5 font-medium flex items-center gap-1.5">
-            <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
-            Adjusted wallet limits
-          </p>
-        </GlassCard>
-      </div>
-
-      {/* Monthly Summary Section */}
-      <div className="mt-4">
-        <h3 className="text-base font-bold tracking-wide text-slate-800 dark:text-slate-200">
-          Monthly Summary (Current Month)
-        </h3>
-        <p className="text-[10px] text-slate-500 dark:text-slate-400">
-          A summary of your credits and debits logged during the current month.
-        </p>
-      </div>
-
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-        {/* Card 1: Total Credit (This Month) */}
-        <GlassCard className="border-emerald-500/10 shadow-emerald-950/5 relative overflow-hidden p-4">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
-              Monthly Credit
-            </span>
-            <div className="p-1.5 bg-emerald-500/15 rounded-lg border border-emerald-500/25">
-              <TrendingUp className="h-4 w-4 text-emerald-400" />
-            </div>
-          </div>
-          <h3 className="text-xl font-extrabold text-emerald-600 dark:text-emerald-400 mt-3 tracking-wide">
-            +$
-            {stats.monthlyCredit.toLocaleString("en-US", {
-              minimumFractionDigits: 2,
-            })}
-          </h3>
-          <p className="text-[9px] text-slate-400 mt-1.5 font-medium">
-            Total income this month
-          </p>
-        </GlassCard>
-
-        {/* Card 2: Total Debit (This Month) */}
-        <GlassCard className="border-rose-500/10 shadow-rose-950/5 relative overflow-hidden p-4">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
-              Monthly Debit
-            </span>
-            <div className="p-1.5 bg-rose-500/15 rounded-lg border border-rose-500/25">
-              <TrendingDown className="h-4 w-4 text-rose-400" />
-            </div>
-          </div>
-          <h3 className="text-xl font-extrabold text-rose-600 dark:text-rose-400 mt-3 tracking-wide">
-            -$
-            {stats.monthlyDebit.toLocaleString("en-US", {
-              minimumFractionDigits: 2,
-            })}
-          </h3>
-          <p className="text-[9px] text-slate-400 mt-1.5 font-medium">
-            Total expenses this month
-          </p>
-        </GlassCard>
-
-        {/* Card 3: Remaining Balance (This Month) */}
-        <GlassCard className="col-span-2 md:col-span-1 border-indigo-500/10 shadow-indigo-950/5 relative overflow-hidden p-4">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
-              Monthly Net
-            </span>
-            <div className="p-1.5 bg-indigo-500/15 rounded-lg border border-indigo-500/25">
-              <Wallet className="h-4 w-4 text-indigo-400" />
-            </div>
-          </div>
-          <h3
-            className={`text-xl font-extrabold mt-3 tracking-wide ${stats.monthlyRemaining >= 0 ? "text-indigo-600 dark:text-indigo-400" : "text-rose-600 dark:text-rose-400"}`}
-          >
-            {stats.monthlyRemaining < 0 ? "-" : ""}$
-            {Math.abs(stats.monthlyRemaining).toLocaleString("en-US", {
-              minimumFractionDigits: 2,
-            })}
-          </h3>
-          <p className="text-[9px] text-slate-400 mt-1.5 font-medium">
-            Net balance (Credit - Debit)
-          </p>
-        </GlassCard>
-      </div>
-
-      {/* Sub Grid for Monthly/Today and Recent Activity */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Left column: Quick Stats Overview */}
-        <div className="flex flex-row lg:flex-col gap-4 lg:col-span-1">
-          {/* Card: Monthly Spent */}
-          <GlassCard className="border-blue-500/10 shadow-blue-950/5 flex-1 p-3">
-            <div className="flex items-center gap-2.5">
-              <div className="p-2 bg-blue-500/10 border border-blue-500/20 rounded-xl text-blue-400">
-                <CalendarDays className="h-4 w-4" />
-              </div>
-              <div>
-                <p className="text-[9px] text-slate-500 font-semibold uppercase tracking-wider">
-                  Monthly Spent
-                </p>
-                <h4 className="text-lg font-bold text-slate-800 dark:text-slate-200">
-                  $
-                  {stats.monthlyExpenses.toLocaleString("en-US", {
-                    minimumFractionDigits: 2,
-                  })}
-                </h4>
-              </div>
+        {/* Recent transactions */}
+        <section className="card lg:col-span-2 overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-line">
+            <div>
+              <h2 className="section-title">Recent transactions</h2>
+              <p className="section-subtitle">Your latest five entries</p>
             </div>
-          </GlassCard>
+            <Link href="/expenses" className="btn btn-ghost btn-sm group">
+              View all
+              <ArrowRight className="transition-transform duration-200 group-hover:translate-x-0.5" />
+            </Link>
+          </div>
 
-          {/* Card: Today Spent */}
-          <GlassCard className="border-amber-500/10 shadow-amber-950/5 flex-1 p-3">
-            <div className="flex items-center gap-2.5">
-              <div className="p-2 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-400">
-                <Clock className="h-4 w-4" />
+          {recentExpenses.length === 0 ? (
+            <div className="flex flex-col items-center justify-center text-center px-6 py-14">
+              <div className="h-10 w-10 rounded-full bg-subtle flex items-center justify-center mb-3">
+                <Receipt className="h-5 w-5 text-faint" />
               </div>
-              <div>
-                <p className="text-[9px] text-slate-500 font-semibold uppercase tracking-wider">
-                  Today Spent
-                </p>
-                <h4 className="text-lg font-bold text-slate-800 dark:text-slate-200">
-                  $
-                  {stats.todayExpenses.toLocaleString("en-US", {
-                    minimumFractionDigits: 2,
-                  })}
-                </h4>
-              </div>
-            </div>
-          </GlassCard>
-        </div>
-
-        {/* Right column: Recent Transactions */}
-        <div className="lg:col-span-2">
-          <GlassCard className="h-full border-white/5 shadow-2xl">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h3 className="font-bold text-lg text-slate-900 dark:text-slate-100">
-                  Recent Transactions
-                </h3>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  Latest expense items logged in system
-                </p>
-              </div>
-              <Link
-                href="/expenses"
-                className="text-xs text-violet-400 hover:text-violet-300 font-semibold flex items-center gap-1 transition-colors"
-              >
-                View History
-                <ChevronRight className="h-4 w-4" />
-              </Link>
-            </div>
-
-            {/* Transaction List */}
-            {recentExpenses.length === 0 ? (
-              <div className="flex flex-col items-center justify-center p-8 rounded-xl bg-white/2 border border-white/5 text-center">
-                <Info className="h-8 w-8 text-slate-500 mb-2" />
-                <p className="text-xs text-slate-400">
-                  No expenses recorded yet.
-                </p>
-                <button
-                  onClick={() => setIsExpenseOpen(true)}
-                  className="mt-3 text-xs text-violet-400 hover:text-violet-300 font-bold"
-                >
-                  Create first expense item
-                </button>
-              </div>
-            ) : (
-              <div className="flex flex-col gap-3">
-                {recentExpenses.map((exp) => {
-                  const Icon = getCategoryIcon(exp.category);
-                  const glowClass = getCategoryGlow(exp.category);
-                  return (
-                    <div
-                      key={exp.id}
-                      className="group flex items-center justify-between p-3.5 rounded-xl bg-slate-100/50 dark:bg-white/2 border border-slate-200/50 dark:border-white/5 hover:bg-slate-200/50 dark:hover:bg-white/5 transition-all duration-200"
-                    >
-                      {/* Icon & Details */}
-                      <div className="flex items-center gap-3.5 min-w-0">
-                        {/* Icon */}
-                        <div
-                          className={`p-2.5 rounded-xl border shrink-0 ${glowClass}`}
-                        >
-                          <Icon className="h-5 w-5" />
-                        </div>
-                        {/* Title & Category */}
-                        <div className="min-w-0">
-                          <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors">
-                            {exp.title}
-                          </h4>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
-                              {exp.category}
-                            </span>
-                            <span className="text-[9px] text-slate-400 dark:text-slate-600 font-extrabold">
-                              •
-                            </span>
-                            <span className="text-[10px] text-slate-500 font-medium">
-                              {new Date(exp.expenseDate).toLocaleDateString(
-                                "en-US",
-                                {
-                                  month: "short",
-                                  day: "numeric",
-                                },
-                              )}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Actions & Price */}
-                      <div className="flex items-center gap-4 shrink-0">
-                        <span className="text-sm font-bold text-slate-800 dark:text-slate-100">
-                          -$
-                          {exp.amount.toLocaleString("en-US", {
-                            minimumFractionDigits: 2,
-                          })}
-                        </span>
-
-                        {/* Interactive Buttons */}
-                        <div className="flex items-center gap-1.5">
-                          <button
-                            onClick={() => setViewingExpense(exp)}
-                            className="p-1.5 rounded-lg hover:bg-slate-200/50 dark:hover:bg-white/10 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors cursor-pointer"
-                            title="View notes"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => handleEdit(exp)}
-                            className="p-1.5 rounded-lg hover:bg-slate-200/50 dark:hover:bg-white/10 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors cursor-pointer"
-                            title="Edit"
-                          >
-                            <Edit2 className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(exp.id)}
-                            className="p-1.5 rounded-lg hover:bg-rose-500/10 dark:hover:bg-rose-500/20 text-slate-500 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-400 transition-colors cursor-pointer"
-                            title="Delete"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </GlassCard>
-        </div>
-      </div>
-
-      {/* Transaction Detail Notes View Modal */}
-      {viewingExpense && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            onClick={() => setViewingExpense(undefined)}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm"
-          />
-          <div className="relative w-full max-w-md rounded-2xl glass-panel-glow border border-violet-500/20 p-6 z-10 animate-scale-up text-slate-100">
-            <div className="flex items-center justify-between mb-4 pb-3 border-b border-white/5">
-              <div>
-                <h3 className="font-bold text-lg text-slate-100">
-                  {viewingExpense.title}
-                </h3>
-                <span className="text-[10px] uppercase font-bold text-violet-400 tracking-wider">
-                  {viewingExpense.category}
-                </span>
-              </div>
-              <button
-                onClick={() => setViewingExpense(undefined)}
-                className="p-1 rounded-lg hover:bg-white/5 text-slate-400 hover:text-white"
-              >
-                <X className="h-5 w-5" />
+              <p className="text-sm font-medium text-fg">No transactions yet</p>
+              <p className="text-[13px] text-muted mt-1">
+                Record your first expense to see it here.
+              </p>
+              <button onClick={openNew} className="btn btn-secondary btn-sm mt-4">
+                <Plus />
+                Add transaction
               </button>
             </div>
+          ) : (
+            <ul className="divide-y divide-line stagger-rows">
+              {recentExpenses.map((exp) => {
+                const Icon = getCategoryIcon(exp.category);
+                const isCredit = exp.category === "Income";
+                return (
+                  <li
+                    key={exp.id}
+                    className="group flex items-center gap-3 px-5 py-3 hover:bg-subtle/60 transition-colors"
+                  >
+                    <button
+                      onClick={() => setViewingExpense(exp)}
+                      className="flex items-center gap-3 min-w-0 flex-1 text-left cursor-pointer"
+                    >
+                      <span
+                        className={`h-9 w-9 shrink-0 rounded-lg flex items-center justify-center ${getCategoryGlow(exp.category)}`}
+                      >
+                        <Icon className="h-4 w-4" />
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block text-sm font-medium text-fg truncate">
+                          {exp.title}
+                        </span>
+                        <span className="block text-xs text-faint mt-0.5">
+                          {exp.category} · {formatDate(exp.expenseDate, { month: "short", day: "numeric" })}
+                          {exp.splits.length > 0 && ` · ${exp.splits.length} items`}
+                        </span>
+                      </span>
+                    </button>
 
-            <div className="flex flex-col gap-4 text-sm">
-              <div className="flex justify-between items-center py-1">
-                <span className="text-slate-400 font-medium">
-                  Spent Amount:
+                    <span
+                      className={`text-sm font-semibold tabular shrink-0 ${isCredit ? "text-success" : "text-fg"}`}
+                    >
+                      {isCredit ? "+" : "−"}
+                      {formatMoney(exp.amount)}
+                    </span>
+
+                    <div className="flex items-center shrink-0 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100 transition-opacity">
+                      <button
+                        onClick={() => handleEdit(exp)}
+                        className="icon-btn"
+                        title="Edit"
+                        aria-label="Edit"
+                      >
+                        <Pencil />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(exp.id)}
+                        className="icon-btn icon-btn-danger"
+                        title="Delete"
+                        aria-label="Delete"
+                      >
+                        <Trash2 />
+                      </button>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
+
+        {/* Month summary */}
+        <section className="card p-5 flex flex-col">
+          <h2 className="section-title">{monthName} summary</h2>
+          <p className="section-subtitle">Money in vs. money out</p>
+
+          <div className="mt-5 flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-2 text-[13px] text-muted">
+                <span className="h-6 w-6 rounded-md bg-success-soft text-success flex items-center justify-center">
+                  <ArrowDownRight className="h-3.5 w-3.5" />
                 </span>
-                <span className="font-extrabold text-rose-400">
-                  -$
-                  {viewingExpense.amount.toLocaleString("en-US", {
-                    minimumFractionDigits: 2,
-                  })}
-                </span>
-              </div>
-              <div className="flex justify-between items-center py-1">
-                <span className="text-slate-400 font-medium">Date logged:</span>
-                <span className="font-semibold text-slate-300">
-                  {new Date(viewingExpense.expenseDate).toLocaleDateString(
-                    "en-US",
-                    {
-                      weekday: "long",
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                    },
-                  )}
-                </span>
-              </div>
-              <div className="flex flex-col gap-1.5 py-1">
-                <span className="text-slate-400 font-medium">
-                  Specific Note:
-                </span>
-                <div className="p-3 rounded-xl bg-white/2 border border-white/5 text-slate-300 text-xs italic leading-relaxed whitespace-pre-wrap">
-                  {viewingExpense.note ||
-                    "No description provided for this transaction."}
-                </div>
-              </div>
+                Money in
+              </span>
+              <span className="text-sm font-semibold tabular text-fg">
+                +{formatMoney(stats.monthlyCredit)}
+              </span>
             </div>
-
-            <button
-              onClick={() => setViewingExpense(undefined)}
-              className="mt-6 w-full py-2.5 bg-white/5 hover:bg-white/10 rounded-xl text-xs font-semibold text-slate-300 hover:text-white transition-colors cursor-pointer"
-            >
-              Close Details
-            </button>
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-2 text-[13px] text-muted">
+                <span className="h-6 w-6 rounded-md bg-danger-soft text-danger flex items-center justify-center">
+                  <ArrowUpRight className="h-3.5 w-3.5" />
+                </span>
+                Money out
+              </span>
+              <span className="text-sm font-semibold tabular text-fg">
+                −{formatMoney(stats.monthlyDebit)}
+              </span>
+            </div>
           </div>
-        </div>
-      )}
 
-      {/* Unified Transaction Modal (Credit / Debit) */}
+          {/* In / out ratio */}
+          <div className="mt-5 mb-5 h-1.5 w-full rounded-full bg-success/25 overflow-hidden">
+            <div
+              className="h-full rounded-full bg-danger transition-[width] duration-700 ease-out"
+              style={{ width: `${debitShare}%` }}
+            />
+          </div>
+
+          <div className="mt-auto pt-4 border-t border-line flex items-center justify-between">
+            <span className="text-[13px] text-muted">Net this month</span>
+            <span
+              className={`text-lg font-semibold tabular tracking-tight ${
+                stats.monthlyRemaining >= 0 ? "text-success" : "text-danger"
+              }`}
+            >
+              {stats.monthlyRemaining < 0 ? "−" : "+"}
+              {formatMoney(stats.monthlyRemaining)}
+            </span>
+          </div>
+        </section>
+      </div>
+
+      <ExpenseDetailsModal
+        expense={viewingExpense}
+        onClose={() => setViewingExpense(undefined)}
+      />
+
       <ExpenseModal
         isOpen={isExpenseOpen}
         onClose={() => {

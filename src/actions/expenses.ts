@@ -16,13 +16,50 @@ export type ExpenseFilterOptions = {
   limit?: number;
 };
 
+export type ExpenseSplitInput = {
+  title: string;
+  amount: number;
+};
+
 export type ExpenseInput = {
   title: string;
   amount: number;
   category: string;
   note?: string;
   expenseDate: string; // ISO string
+  /** Optional breakdown of a debit into several reasons. Ignored for Income. */
+  splits?: ExpenseSplitInput[];
 };
+
+const splitsInclude = {
+  splits: {
+    select: { id: true, title: true, amount: true },
+    orderBy: { position: "asc" },
+  },
+} satisfies Prisma.ExpenseInclude;
+
+// Validates the breakdown and returns rows ready for a nested create.
+// The parent amount remains the source of truth for balances; splits may
+// cover it fully or partially, but never exceed it.
+function normalizeSplits(data: ExpenseInput) {
+  if (data.category === "Income" || !data.splits?.length) return [];
+
+  const splits = data.splits.map((s, i) => {
+    const title = s.title.trim();
+    const amount = Math.round(Number(s.amount) * 100) / 100;
+    if (!title) throw new Error(`Breakdown item ${i + 1} needs a reason.`);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      throw new Error(`Breakdown item "${title}" must have an amount greater than zero.`);
+    }
+    return { title: title.slice(0, 80), amount, position: i };
+  });
+
+  const sum = splits.reduce((acc, s) => acc + s.amount, 0);
+  if (sum - data.amount > 0.005) {
+    throw new Error("Breakdown total cannot be more than the transaction amount.");
+  }
+  return splits;
+}
 
 // Helper to check user session and throw error if not approved
 async function getAuthenticatedUser() {
@@ -54,12 +91,12 @@ export async function getExpenses(options: ExpenseFilterOptions = {}) {
     userId: user.id,
   };
 
-  // Search filter
+  // Search filter (matches the transaction title or any breakdown reason)
   if (search) {
-    where.title = {
-      contains: search,
-      mode: "insensitive",
-    };
+    where.OR = [
+      { title: { contains: search, mode: "insensitive" } },
+      { splits: { some: { title: { contains: search, mode: "insensitive" } } } },
+    ];
   }
 
   // Category filter
@@ -117,6 +154,7 @@ export async function getExpenses(options: ExpenseFilterOptions = {}) {
         orderBy,
         skip,
         take: limit,
+        include: splitsInclude,
       }),
       db.expense.count({ where }),
     ]);
@@ -139,6 +177,7 @@ export async function createExpense(data: ExpenseInput) {
 
   try {
     const expenseDate = new Date(data.expenseDate);
+    const splits = normalizeSplits(data);
 
     // Transaction to create expense and subtract remaining balance
     const result = await db.$transaction(async (tx) => {
@@ -183,7 +222,9 @@ export async function createExpense(data: ExpenseInput) {
           note: data.note,
           expenseDate,
           userId: user.id,
+          splits: splits.length ? { create: splits } : undefined,
         },
+        include: splitsInclude,
       });
 
       return expense;
@@ -209,6 +250,7 @@ export async function updateExpense(id: string, data: ExpenseInput) {
 
   try {
     const expenseDate = new Date(data.expenseDate);
+    const splits = normalizeSplits(data);
 
     const result = await db.$transaction(async (tx) => {
       // 1. Fetch old expense
@@ -261,7 +303,7 @@ export async function updateExpense(id: string, data: ExpenseInput) {
         data: { remainingBalance: newRemainingBalance },
       });
 
-      // 4. Update Expense
+      // 4. Update Expense and replace its breakdown
       const updated = await tx.expense.update({
         where: { id },
         data: {
@@ -270,7 +312,9 @@ export async function updateExpense(id: string, data: ExpenseInput) {
           category: data.category,
           note: data.note,
           expenseDate,
+          splits: { deleteMany: {}, create: splits },
         },
+        include: splitsInclude,
       });
 
       return updated;

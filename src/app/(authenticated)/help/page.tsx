@@ -884,10 +884,8 @@ export default function HelpPage() {
     <>
       {/* Header */}
       <div>
-        <h2 className="text-2xl md:text-3xl font-extrabold tracking-wide bg-gradient-to-r from-slate-900 via-slate-700 to-indigo-600 dark:from-white dark:via-slate-200 dark:to-violet-400 bg-clip-text text-transparent w-fit">
-          Help Center
-        </h2>
-        <p className="text-xs md:text-sm text-slate-500 dark:text-slate-400 mt-1">
+        <h1 className="page-title">Help Center</h1>
+        <p className="page-subtitle">
           Complete guide to using Expensify — from account creation to advanced
           features.
         </p>

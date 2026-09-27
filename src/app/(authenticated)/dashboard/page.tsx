@@ -3,6 +3,7 @@ import { getSession } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { redirect } from 'next/navigation';
 import DashboardClient from '@/components/DashboardClient';
+import ErrorState from '@/components/ErrorState';
 
 export const revalidate = 0; // Disable server caching for real-time changes
 
@@ -49,6 +50,12 @@ async function fetchDashboardData(userId: string) {
         where: { userId },
         orderBy: { expenseDate: 'desc' },
         take: 5,
+        include: {
+          splits: {
+            select: { id: true, title: true, amount: true },
+            orderBy: { position: 'asc' },
+          },
+        },
       }),
       db.expense.aggregate({
         where: {
@@ -115,12 +122,10 @@ export default async function DashboardPage() {
 
   if (!result.success || !result.stats || !result.recentExpenses) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center p-12 text-center rounded-2xl glass-panel border border-rose-500/10">
-        <h3 className="text-xl font-bold text-rose-400">Database Connection Interrupted</h3>
-        <p className="text-xs text-slate-400 mt-2 max-w-md">
-          Unable to synchronize with the server database. Please refresh the page or contact support if the issue persists.
-        </p>
-      </div>
+      <ErrorState
+        title="Couldn't load your dashboard"
+        message="The database didn't respond. Please refresh the page or try again shortly."
+      />
     );
   }
 

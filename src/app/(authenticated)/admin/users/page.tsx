@@ -3,6 +3,7 @@ import { getSession } from '@/lib/auth';
 import { getAllUsers } from '@/actions/admin';
 import { redirect } from 'next/navigation';
 import UsersRegistryClient from '@/components/UsersRegistryClient';
+import ErrorState from '@/components/ErrorState';
 
 export const revalidate = 0; // Disable caching
 
@@ -25,12 +26,10 @@ export default async function AdminUsersPage() {
   } catch (error) {
     console.error('Admin users registry server page error:', error);
     return (
-      <div className="flex-1 flex flex-col items-center justify-center p-12 text-center rounded-2xl glass-panel border border-rose-500/10">
-        <h3 className="text-xl font-bold text-rose-400">Moderation Index Failure</h3>
-        <p className="text-xs text-slate-400 mt-2 max-w-md">
-          Failed to retrieve platform registrations. Please verify your connection pooler status.
-        </p>
-      </div>
+      <ErrorState
+        title="Couldn't load users"
+        message="The user list couldn't be retrieved. Please refresh or try again shortly."
+      />
     );
   }
 }

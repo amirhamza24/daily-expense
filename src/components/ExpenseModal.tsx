@@ -2,21 +2,23 @@
 
 import React, { useState, useEffect, useTransition } from "react";
 import {
-  X,
-  Heading,
   DollarSign,
   Calendar,
-  FileText,
   Loader2,
-  Tag,
   TrendingUp,
   TrendingDown,
   Coins,
+  Plus,
+  X,
+  Check,
 } from "lucide-react";
+import { Collapse } from "./SplitBreakdown";
+import { formatMoney } from "@/lib/format";
 import { createExpense, updateExpense } from "@/actions/expenses";
 import DatePicker from "react-datepicker";
 import { useToast } from "./Toast";
 import { useConfirm } from "./ConfirmModal";
+import Modal from "./Modal";
 
 interface ExpenseModalProps {
   isOpen: boolean;
@@ -28,8 +30,18 @@ interface ExpenseModalProps {
     category: string;
     note?: string | null;
     expenseDate: Date | string;
+    splits?: Array<{ title: string; amount: number }>;
   };
 }
+
+type SplitRow = { key: number; title: string; amount: string };
+
+let splitKey = 0;
+const newSplitRow = (title = "", amount = ""): SplitRow => ({
+  key: ++splitKey,
+  title,
+  amount,
+});
 
 const CATEGORIES = [
   "Food",
@@ -60,6 +72,7 @@ export default function ExpenseModal({
   const [category, setCategory] = useState("Food");
   const [expenseDate, setExpenseDate] = useState<Date>(new Date());
   const [note, setNote] = useState("");
+  const [splits, setSplits] = useState<SplitRow[]>([]);
 
   useEffect(() => {
     if (isOpen) {
@@ -70,6 +83,9 @@ export default function ExpenseModal({
         setNote(expense.note || "");
         setTransactionType(expense.category === "Income" ? "credit" : "debit");
         setExpenseDate(new Date(expense.expenseDate));
+        setSplits(
+          (expense.splits ?? []).map((s) => newSplitRow(s.title, s.amount.toString())),
+        );
       } else {
         // Reset fields
         setTitle("");
@@ -78,11 +94,27 @@ export default function ExpenseModal({
         setNote("");
         setTransactionType("debit");
         setExpenseDate(new Date());
+        setSplits([]);
       }
     }
   }, [isOpen, expense]);
 
   if (!isOpen) return null;
+
+  const isCredit = transactionType === "credit";
+
+  // Breakdown bookkeeping (debits only)
+  const hasSplits = !isCredit && splits.length > 0;
+  const totalAmount = parseFloat(amount) || 0;
+  const allocated = splits.reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0);
+  const remaining = Math.round((totalAmount - allocated) * 100) / 100;
+  const overAllocated = hasSplits && remaining < 0;
+
+  const updateSplit = (key: number, patch: Partial<SplitRow>) =>
+    setSplits((rows) => rows.map((r) => (r.key === key ? { ...r, ...patch } : r)));
+  const removeSplit = (key: number) =>
+    setSplits((rows) => rows.filter((r) => r.key !== key));
+  const addSplit = () => setSplits((rows) => [...rows, newSplitRow()]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -98,22 +130,40 @@ export default function ExpenseModal({
       return;
     }
 
+    // Drop completely empty breakdown rows; validate the rest
+    const filledSplits = hasSplits
+      ? splits.filter((s) => s.title.trim() || s.amount.trim())
+      : [];
+    for (const s of filledSplits) {
+      const value = parseFloat(s.amount);
+      if (!s.title.trim() || isNaN(value) || value <= 0) {
+        showToast("Each breakdown item needs a reason and an amount.", "error");
+        return;
+      }
+    }
+    if (overAllocated) {
+      showToast("Breakdown total is more than the transaction amount.", "error");
+      return;
+    }
+
     // Determine final category string
-    const finalCategory = transactionType === "credit" ? "Income" : category;
+    const finalCategory = isCredit ? "Income" : category;
 
     const ok = await confirm({
       title: expense?.id
-        ? "Update Transaction"
-        : transactionType === "credit"
-          ? "Add Wallet Balance (Credit)"
-          : "Record Expense (Debit)",
+        ? "Update transaction"
+        : isCredit
+          ? "Add balance"
+          : "Record expense",
       message: expense?.id
-        ? "Are you sure you want to update this transaction? Your balance will be recalculated accordingly."
-        : transactionType === "credit"
-          ? `Are you sure you want to add $${parsedAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })} as a credit to your wallet?`
-          : `Are you sure you want to record this expense of $${parsedAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}?`,
+        ? "Your balance will be recalculated with the updated values."
+        : isCredit
+          ? `Add $${parsedAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })} to your wallet?`
+          : `Record an expense of $${parsedAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}${
+              filledSplits.length ? ` split into ${filledSplits.length} items` : ""
+            }?`,
       confirmText: expense?.id ? "Update" : "Confirm",
-      variant: transactionType === "credit" ? "success" : "default",
+      variant: isCredit ? "success" : "default",
     });
     if (!ok) return;
 
@@ -123,6 +173,10 @@ export default function ExpenseModal({
       category: finalCategory,
       note: note.trim() || undefined,
       expenseDate: expenseDate.toISOString(),
+      splits: filledSplits.map((s) => ({
+        title: s.title.trim(),
+        amount: parseFloat(s.amount),
+      })),
     };
 
     startTransition(async () => {
@@ -137,7 +191,7 @@ export default function ExpenseModal({
         showToast(
           expense?.id
             ? "Transaction details updated."
-            : transactionType === "credit"
+            : isCredit
               ? "Balance added (credited) successfully."
               : "Expense logged successfully.",
           "success",
@@ -150,258 +204,276 @@ export default function ExpenseModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* Backdrop */}
-      <div
-        onClick={onClose}
-        className="fixed inset-0 bg-black/60 backdrop-blur-sm"
-      />
-
-      {/* Modal Card */}
-      <div className="relative w-full max-w-lg rounded-2xl glass-panel-glow border border-violet-500/20 p-6 z-10 animate-scale-up text-slate-800 dark:text-slate-100 max-h-[90vh] overflow-y-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h3 className="font-bold text-lg text-slate-900 dark:text-slate-100">
-              {expense?.id
-                ? "Edit Transaction Record"
-                : transactionType === "credit"
-                  ? "Add Wallet Balance (Credit)"
-                  : "Record New Expense (Debit)"}
-            </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              {expense?.id
-                ? "Update registered transaction parameters"
-                : transactionType === "credit"
-                  ? "Deposit funds or add credit amount directly to your wallet"
-                  : "Create a new expense entry item to deduct from your wallet"}
-            </p>
-          </div>
+    <Modal
+      open={isOpen}
+      onClose={onClose}
+      locked={isPending}
+      size="lg"
+      title={expense?.id ? "Edit transaction" : "New transaction"}
+      description={
+        expense?.id
+          ? "Update the details of this entry."
+          : isCredit
+            ? "Add money to your wallet balance."
+            : "Record money you spent."
+      }
+      footer={
+        <>
           <button
+            type="button"
             onClick={onClose}
-            className="p-1 rounded-lg hover:bg-slate-200 dark:hover:bg-white/5 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
+            className="btn btn-secondary"
+            disabled={isPending}
           >
-            <X className="h-5 w-5" />
+            Cancel
+          </button>
+          <button
+            type="submit"
+            form="expense-form"
+            disabled={isPending}
+            className={`btn ${isCredit ? "btn-success" : "btn-primary"} min-w-32`}
+          >
+            {isPending ? (
+              <>
+                <Loader2 className="animate-spin" />
+                Saving…
+              </>
+            ) : expense?.id ? (
+              "Save changes"
+            ) : isCredit ? (
+              "Add balance"
+            ) : (
+              "Record expense"
+            )}
+          </button>
+        </>
+      }
+    >
+      <form id="expense-form" onSubmit={handleSubmit} className="flex flex-col gap-4">
+        {/* Type toggle */}
+        <div className="segmented">
+          <button
+            type="button"
+            data-active={!isCredit}
+            disabled={!!expense?.id}
+            onClick={() => {
+              setTransactionType("debit");
+              setCategory("Food");
+            }}
+          >
+            <TrendingDown className={!isCredit ? "text-danger" : ""} />
+            Expense
+          </button>
+          <button
+            type="button"
+            data-active={isCredit}
+            disabled={!!expense?.id}
+            onClick={() => setTransactionType("credit")}
+          >
+            <TrendingUp className={isCredit ? "text-success" : ""} />
+            Income
           </button>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          {/* Segmented Type Toggle */}
-          <div className="flex rounded-xl bg-slate-100 dark:bg-slate-950/40 p-1 border border-slate-200 dark:border-white/5 gap-1">
-            <button
-              type="button"
-              disabled={!!expense?.id}
-              onClick={() => {
-                setTransactionType("debit");
-                setCategory("Food");
-              }}
-              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
-                transactionType === "debit"
-                  ? "bg-rose-500/10 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/30"
-                  : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
-              }`}
-            >
-              <TrendingDown className="h-4 w-4" />
-              Debit (Expense)
-            </button>
-            <button
-              type="button"
-              disabled={!!expense?.id}
-              onClick={() => {
-                setTransactionType("credit");
-              }}
-              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
-                transactionType === "credit"
-                  ? "bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
-                  : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
-              }`}
-            >
-              <TrendingUp className="h-4 w-4" />
-              Credit (Add Balance)
-            </button>
-          </div>
+        <div>
+          <label className="label" htmlFor="tx-title">
+            {isCredit ? "Source" : "Title"}
+          </label>
+          <input
+            id="tx-title"
+            type="text"
+            required
+            maxLength={80}
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder={isCredit ? "e.g. Monthly salary" : "e.g. Weekly groceries"}
+            className="input"
+            disabled={isPending}
+            autoFocus
+          />
+        </div>
 
-          {/* Title field */}
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider px-1">
-              {transactionType === "credit"
-                ? "Credit Source / Title"
-                : "Expense Title"}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="label" htmlFor="tx-amount">
+              Amount
             </label>
             <div className="relative">
-              <Heading className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+              <DollarSign className="input-icon" />
               <input
-                type="text"
+                id="tx-amount"
+                type="number"
+                step="0.01"
                 required
-                maxLength={80}
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder={
-                  transactionType === "credit"
-                    ? "e.g. Monthly salary, Refund, Savings deposit"
-                    : "e.g. Weekly Groceries, Gas Refill, Cafe"
-                }
-                className="w-full pl-10 pr-4 py-3 rounded-xl glass-input text-sm"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                placeholder="0.00"
+                className="input pl-9 tabular"
                 disabled={isPending}
               />
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Amount field */}
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider px-1">
-                {transactionType === "credit"
-                  ? "Credit Amount ($)"
-                  : "Amount Spent ($)"}
-              </label>
-              <div className="relative">
-                <DollarSign className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
-                <input
-                  type="number"
-                  step="0.01"
-                  required
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  placeholder="0.00"
-                  className="w-full pl-10 pr-4 py-3 rounded-xl glass-input text-sm font-bold"
-                  disabled={isPending}
-                />
-              </div>
-            </div>
-
-            {/* Category selection */}
-            {transactionType === "debit" ? (
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider px-1">
-                  Category
-                </label>
-                <div className="relative">
-                  <Tag className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
-                  <select
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 rounded-xl glass-input text-sm appearance-none cursor-pointer"
-                    disabled={isPending}
-                  >
-                    {CATEGORIES.map((cat) => (
-                      <option
-                        key={cat}
-                        value={cat}
-                        className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white"
-                      >
-                        {cat}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+          <div>
+            <label className="label" htmlFor="tx-category">
+              Category
+            </label>
+            {isCredit ? (
+              <div className="input flex items-center gap-2 bg-subtle text-muted shadow-none">
+                <Coins className="h-4 w-4 text-success" />
+                Income
               </div>
             ) : (
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider px-1">
-                  Category
-                </label>
-                <div className="w-full pl-4 pr-4 py-3 rounded-xl glass-input text-sm text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-2 h-[46px] border border-emerald-500/20">
-                  <Coins className="h-4.5 w-4.5 text-emerald-600 dark:text-emerald-400" />
-                  Income / Credit Deposit
-                </div>
-              </div>
+              <select
+                id="tx-category"
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className="input"
+                disabled={isPending}
+              >
+                {CATEGORIES.map((cat) => (
+                  <option key={cat} value={cat}>
+                    {cat}
+                  </option>
+                ))}
+              </select>
             )}
           </div>
+        </div>
 
-          {/* Date Picker */}
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider px-1">
-              Transaction Date
-            </label>
-            <div className="relative">
-              <Calendar className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 z-10 pointer-events-none" />
-              <DatePicker
-                selected={expenseDate}
-                onChange={(date: Date | null) => setExpenseDate(date || new Date())}
-                dateFormat="MMMM d, yyyy"
-                fixedHeight
-                portalId="root-portal"
-                popperPlacement="bottom-start"
-                className="w-full pl-10 pr-4 py-3 rounded-xl glass-input text-sm cursor-pointer"
+        {/* Optional breakdown: one debit, several reasons */}
+        {!isCredit && (
+          <div className="rounded-lg border border-line bg-subtle/50">
+            <div className="flex items-center justify-between gap-3 px-3 py-2.5">
+              <div className="min-w-0">
+                <p className="text-[13px] font-medium text-fg">Breakdown</p>
+                <p className="text-xs text-faint">
+                  Optional — split this amount into separate reasons.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={addSplit}
+                className="btn btn-secondary btn-sm shrink-0"
                 disabled={isPending}
-                wrapperClassName="w-full"
-              />
+              >
+                <Plus />
+                Add item
+              </button>
             </div>
-          </div>
 
-          {/* Note field */}
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider px-1">
-              Add Note (Optional)
-            </label>
-            <div className="relative">
-              <FileText className="absolute left-3.5 top-3.5 h-4 w-4 text-slate-500" />
-              <textarea
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                maxLength={300}
-                placeholder={
-                  transactionType === "credit"
-                    ? "e.g. Salary description, Freelance client info..."
-                    : "Details or specific notes on this purchase..."
-                }
-                className="w-full pl-10 pr-4 py-3 rounded-xl glass-input text-sm h-24 resize-none"
-                disabled={isPending}
-              />
-            </div>
-          </div>
+            <Collapse open={hasSplits}>
+              <div className="border-t border-line px-3 pt-3 pb-3 flex flex-col gap-2">
+                {splits.map((s, i) => (
+                  <div key={s.key} className="flex items-center gap-2 animate-fade-up">
+                    <span className="w-5 shrink-0 text-center text-xs text-faint tabular">
+                      {i + 1}
+                    </span>
+                    <input
+                      type="text"
+                      value={s.title}
+                      maxLength={80}
+                      onChange={(e) => updateSplit(s.key, { title: e.target.value })}
+                      placeholder="Reason, e.g. Rent"
+                      aria-label={`Item ${i + 1} reason`}
+                      className="input h-8 flex-1 min-w-0 text-[13px]"
+                      disabled={isPending}
+                      autoFocus={i === splits.length - 1 && !s.title}
+                    />
+                    <div className="relative w-28 shrink-0">
+                      <DollarSign className="input-icon h-3.5! w-3.5! left-2.5!" />
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={s.amount}
+                        onChange={(e) => updateSplit(s.key, { amount: e.target.value })}
+                        placeholder="0.00"
+                        aria-label={`Item ${i + 1} amount`}
+                        className="input h-8 pl-7 text-[13px] tabular"
+                        disabled={isPending}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeSplit(s.key)}
+                      className="icon-btn icon-btn-danger h-8 w-8 shrink-0"
+                      aria-label={`Remove item ${i + 1}`}
+                      disabled={isPending}
+                    >
+                      <X />
+                    </button>
+                  </div>
+                ))}
 
-          {/* Actions */}
-          <div className="flex items-center gap-3 mt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 py-3 border border-slate-300 dark:border-white/10 rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-2 mt-1 border-t border-dashed border-line text-xs">
+                  <span className="text-muted">
+                    Allocated{" "}
+                    <span className="tabular font-medium text-fg">{formatMoney(allocated)}</span>
+                    {" of "}
+                    <span className="tabular font-medium text-fg">{formatMoney(totalAmount)}</span>
+                  </span>
+                  {overAllocated ? (
+                    <span className="flex items-center gap-2 text-danger font-medium">
+                      Over by <span className="tabular">{formatMoney(-remaining)}</span>
+                      <button
+                        type="button"
+                        onClick={() => setAmount(allocated.toFixed(2))}
+                        className="underline underline-offset-2 cursor-pointer"
+                      >
+                        Use {formatMoney(allocated)} as total
+                      </button>
+                    </span>
+                  ) : remaining > 0 ? (
+                    <span className="text-faint">
+                      <span className="tabular">{formatMoney(remaining)}</span> unassigned
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1 text-success font-medium">
+                      <Check className="h-3.5 w-3.5" />
+                      Fully allocated
+                    </span>
+                  )}
+                </div>
+              </div>
+            </Collapse>
+          </div>
+        )}
+
+        <div>
+          <label className="label">Date</label>
+          <div className="relative">
+            <Calendar className="input-icon" />
+            <DatePicker
+              selected={expenseDate}
+              onChange={(date: Date | null) => setExpenseDate(date || new Date())}
+              dateFormat="MMMM d, yyyy"
+              fixedHeight
+              portalId="root-portal"
+              popperPlacement="bottom-start"
+              className="input pl-9 cursor-pointer"
               disabled={isPending}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isPending}
-              className={`flex-1 py-3 rounded-xl text-sm font-semibold text-white transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg ${
-                transactionType === "credit"
-                  ? "bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-emerald-950/20 hover:shadow-emerald-900/45"
-                  : "bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 shadow-violet-950/20 hover:shadow-violet-900/45"
-              }`}
-            >
-              {isPending ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Saving...
-                </>
-              ) : transactionType === "credit" ? (
-                "Add Balance"
-              ) : (
-                "Record Expense"
-              )}
-            </button>
+              wrapperClassName="w-full"
+            />
           </div>
-        </form>
-      </div>
+        </div>
 
-      <style jsx global>{`
-        @keyframes scale-up {
-          from {
-            transform: scale(0.95);
-            opacity: 0;
-          }
-          to {
-            transform: scale(1);
-            opacity: 1;
-          }
-        }
-        .animate-scale-up {
-          animation: scale-up 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-        }
-      `}</style>
-    </div>
+        <div>
+          <label className="label" htmlFor="tx-note">
+            Note <span className="text-faint font-normal">(optional)</span>
+          </label>
+          <textarea
+            id="tx-note"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            maxLength={300}
+            rows={3}
+            placeholder="Add any details…"
+            className="input resize-none"
+            disabled={isPending}
+          />
+        </div>
+      </form>
+    </Modal>
   );
 }

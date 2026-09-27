@@ -3,6 +3,7 @@ import { getSession } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { redirect } from 'next/navigation';
 import AnalyticsClient from '@/components/AnalyticsClient';
+import ErrorState from '@/components/ErrorState';
 
 export const revalidate = 0; // Disable caching
 
@@ -160,12 +161,10 @@ export default async function AnalyticsPage() {
 
   if (!data) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center p-12 text-center rounded-2xl glass-panel border border-rose-500/10">
-        <h3 className="text-xl font-bold text-rose-400">Analytics Compiler Interrupted</h3>
-        <p className="text-xs text-slate-400 mt-2 max-w-md">
-          Failed to process and aggregate expense statistics. Please try again later.
-        </p>
-      </div>
+      <ErrorState
+        title="Couldn't load analytics"
+        message="We couldn't aggregate your spending right now. Please try again later."
+      />
     );
   }
 

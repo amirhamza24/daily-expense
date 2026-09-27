@@ -2,6 +2,7 @@ import { getSession } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import TransactionHistoryClient from "@/components/TransactionHistoryClient";
+import PageHeader from "@/components/PageHeader";
 
 export const metadata = {
   title: "Transaction History Ledger | Wallet Tracker",
@@ -27,6 +28,12 @@ export default async function TransactionHistoryPage() {
   const transactions = await db.expense.findMany({
     where: { userId: user.id },
     orderBy: { expenseDate: "asc" },
+    include: {
+      splits: {
+        select: { id: true, title: true, amount: true },
+        orderBy: { position: "asc" },
+      },
+    },
   });
 
   // 3. Serialize date fields to avoid Next.js Client Component props serialization warnings
@@ -38,24 +45,20 @@ export default async function TransactionHistoryPage() {
     note: t.note || "",
     expenseDate: t.expenseDate.toISOString(),
     createdAt: t.createdAt.toISOString(),
+    splits: t.splits,
   }));
 
   return (
-    <div className="flex flex-col gap-6 md:gap-8 w-full">
-      <div>
-        <h1 className="text-2xl md:text-3xl font-extrabold tracking-wide bg-gradient-to-r from-slate-900 via-slate-700 to-indigo-600 dark:from-white dark:via-slate-200 dark:to-violet-400 bg-clip-text text-transparent w-fit">
-          Transaction History
-        </h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-          Explore your complete account ledger with chronological running
-          balances, filters, and transaction types.
-        </p>
-      </div>
+    <>
+      <PageHeader
+        title="Transaction history"
+        description="Your complete ledger with a running balance after every entry."
+      />
 
       <TransactionHistoryClient
         transactions={serializedTransactions}
         startingBalance={startingBalance}
       />
-    </div>
+    </>
   );
 }

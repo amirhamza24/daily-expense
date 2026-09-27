@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import ExpensesClient, { ExpenseItem } from '@/components/ExpensesClient';
 import { getExpenses, ExpenseFilterOptions } from '@/actions/expenses';
 import { Prisma } from '@prisma/client';
+import ErrorState from '@/components/ErrorState';
 
 export const revalidate = 0; // Disable caching
 
@@ -52,6 +53,7 @@ export default async function ExpensesPage({ searchParams }: ExpensesPageProps) 
       category: string;
       note: string | null;
       expenseDate: Date;
+      splits: Array<{ title: string; amount: number }>;
     }>;
     pagination: {
       page: number;
@@ -70,7 +72,14 @@ export default async function ExpensesPage({ searchParams }: ExpensesPageProps) 
     const where: Prisma.ExpenseWhereInput = { userId: sessionUser.id };
 
     if (resolvedParams.search) {
-      where.title = { contains: resolvedParams.search, mode: 'insensitive' };
+      where.OR = [
+        { title: { contains: resolvedParams.search, mode: 'insensitive' } },
+        {
+          splits: {
+            some: { title: { contains: resolvedParams.search, mode: 'insensitive' } },
+          },
+        },
+      ];
     }
 
     if (resolvedParams.category && resolvedParams.category !== 'All') {
@@ -124,6 +133,10 @@ export default async function ExpensesPage({ searchParams }: ExpensesPageProps) 
         category: true,
         note: true,
         expenseDate: true,
+        splits: {
+          select: { title: true, amount: true },
+          orderBy: { position: 'asc' },
+        },
       },
     });
 
@@ -145,12 +158,10 @@ export default async function ExpensesPage({ searchParams }: ExpensesPageProps) 
 
   if (!data) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center p-12 text-center rounded-2xl glass-panel border border-rose-500/10">
-        <h3 className="text-xl font-bold text-rose-400">Ledger Compilation Interrupted</h3>
-        <p className="text-xs text-slate-400 mt-2 max-w-md">
-          Unable to pull data logs from the database server. Please verify your connection or try again.
-        </p>
-      </div>
+      <ErrorState
+        title="Couldn't load your expenses"
+        message="The database didn't respond. Please check your connection and try again."
+      />
     );
   }
 

@@ -46,59 +46,32 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     <ToastContext.Provider value={{ showToast }}>
       {children}
       
-      {/* Toast Portal Container */}
-      <div className="fixed top-4 right-4 z-50 flex flex-col gap-3 w-full max-w-sm pointer-events-none">
+      {/* Toast stack */}
+      <div className="fixed top-4 right-4 left-4 sm:left-auto z-10000 flex flex-col items-end gap-2 pointer-events-none">
         {toasts.map((toast) => (
           <div
             key={toast.id}
-            className={`
-              pointer-events-auto flex items-start gap-3 p-4 rounded-xl backdrop-blur-xl border shadow-lg
-              animate-slide-in transition-all duration-300
-              ${toast.type === 'success' 
-                ? 'bg-emerald-950/70 border-emerald-500/30 text-emerald-100' 
-                : toast.type === 'error' 
-                ? 'bg-rose-950/70 border-rose-500/30 text-rose-100' 
-                : 'bg-blue-950/70 border-blue-500/30 text-blue-100'}
-            `}
+            role="status"
+            className="pointer-events-auto w-full sm:w-90 flex items-start gap-3 p-3.5 rounded-xl card shadow-(--shadow-lg) animate-toast-in"
           >
-            {/* Status Icon */}
-            <div className="shrink-0 mt-0.5">
-              {toast.type === 'success' && <CheckCircle className="h-5 w-5 text-emerald-400" />}
-              {toast.type === 'error' && <AlertTriangle className="h-5 w-5 text-rose-400" />}
-              {toast.type === 'info' && <Info className="h-5 w-5 text-blue-400" />}
+            <div className="shrink-0 mt-px">
+              {toast.type === 'success' && <CheckCircle className="h-4.5 w-4.5 text-success" />}
+              {toast.type === 'error' && <AlertTriangle className="h-4.5 w-4.5 text-danger" />}
+              {toast.type === 'info' && <Info className="h-4.5 w-4.5 text-accent" />}
             </div>
 
-            {/* Content Text */}
-            <div className="flex-1 text-sm font-medium leading-relaxed">
-              {toast.message}
-            </div>
+            <p className="flex-1 text-[13px] leading-snug text-fg">{toast.message}</p>
 
-            {/* Close Button */}
             <button
               onClick={() => removeToast(toast.id)}
-              className="shrink-0 p-0.5 rounded-lg hover:bg-white/10 text-white/50 hover:text-white transition-colors"
+              className="shrink-0 -m-1 p-1 rounded-md text-faint hover:text-fg hover:bg-subtle transition-colors cursor-pointer"
+              aria-label="Dismiss"
             >
-              <X className="h-4 w-4" />
+              <X className="h-3.5 w-3.5" />
             </button>
           </div>
         ))}
       </div>
-      
-      <style jsx global>{`
-        @keyframes slide-in {
-          from {
-            transform: translateX(100%) translateY(-10px);
-            opacity: 0;
-          }
-          to {
-            transform: translateX(0) translateY(0);
-            opacity: 1;
-          }
-        }
-        .animate-slide-in {
-          animation: slide-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-        }
-      `}</style>
     </ToastContext.Provider>
   );
 }

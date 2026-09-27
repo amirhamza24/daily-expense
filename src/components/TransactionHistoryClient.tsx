@@ -1,16 +1,16 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { Fragment, useState } from "react";
 import {
   Search,
   ChevronLeft,
   ChevronRight,
   FilterX,
-  DollarSign,
-  ArrowRightLeft,
+  Calendar,
 } from "lucide-react";
-import GlassCard from "./GlassCard";
-import { getCategoryIcon, getCategoryGlow } from "./DashboardClient";
+import { getCategoryIcon, getCategoryGlow } from "@/lib/categories";
+import { formatMoney } from "@/lib/format";
+import SplitBreakdown, { Collapse, type ExpenseSplitView } from "./SplitBreakdown";
 import DatePicker from "react-datepicker";
 
 interface SerializedExpense {
@@ -21,6 +21,7 @@ interface SerializedExpense {
   note: string;
   expenseDate: string;
   createdAt: string;
+  splits: ExpenseSplitView[];
 }
 
 interface TransactionHistoryClientProps {
@@ -44,6 +45,16 @@ export default function TransactionHistoryClient({
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
 
+  // Rows whose breakdown is currently shown
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const toggleExpanded = (id: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
   // 1. Calculate sequential Running Balance chronologically (oldest-to-newest)
   const enrichedTransactions = transactions.reduce((acc, t) => {
     const isCredit = t.category === "Income";
@@ -66,7 +77,8 @@ export default function TransactionHistoryClient({
     // A. Search Filter (Title or Note)
     const matchesSearch =
       t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      t.note.toLowerCase().includes(searchQuery.toLowerCase());
+      t.note.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      t.splits.some((s) => s.title.toLowerCase().includes(searchQuery.toLowerCase()));
 
     // B. Transaction Type Filter
     const matchesType =
@@ -113,425 +125,297 @@ export default function TransactionHistoryClient({
     });
   };
 
+  const hasFilters = !!(searchQuery || typeFilter !== "All" || startDate || endDate);
+  const pageKey = `${currentPage}-${searchQuery}-${typeFilter}-${startDate}-${endDate}`;
+
   return (
-    <div className="flex flex-col gap-6 w-full">
-      {/* 1. Header Filter Controls Panel */}
-      <GlassCard className="border-slate-200 dark:border-slate-500/10 shadow-lg p-6">
-        <div className="grid grid-cols-1 xl:grid-cols-4 gap-4 items-end">
-          {/* Search Box */}
-          <div className="flex flex-col gap-2 xl:col-span-2">
-            <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-              Search Transactions
-            </label>
-            <div className="relative">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
+    <section className="card overflow-hidden">
+      {/* Filters */}
+      <div className="flex flex-col gap-3 p-3 md:p-4 border-b border-line">
+        <div className="flex flex-col lg:flex-row gap-2.5">
+          <div className="relative flex-1">
+            <Search className="input-icon" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setCurrentPage(1);
+              }}
+              placeholder="Search by title or note…"
+              className="input pl-9"
+            />
+          </div>
+
+          <div className="segmented lg:w-60 shrink-0">
+            {(["All", "Credit", "Debit"] as const).map((type) => (
+              <button
+                key={type}
+                type="button"
+                data-active={typeFilter === type}
+                onClick={() => {
+                  setTypeFilter(type);
                   setCurrentPage(1);
                 }}
-                placeholder="Search by title, category, notes..."
-                className="w-full glass-input rounded-xl py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:border-violet-500/50 transition placeholder-slate-400 dark:placeholder-slate-500"
+              >
+                {type}
+              </button>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-2 gap-2.5 lg:w-72 shrink-0">
+            <div className="relative">
+              <Calendar className="input-icon" />
+              <DatePicker
+                selected={startDate ? new Date(startDate) : null}
+                onChange={(date: Date | null) => {
+                  const dateStr = date ? date.toISOString().split("T")[0] : "";
+                  setStartDate(dateStr);
+                  setCurrentPage(1);
+                }}
+                dateFormat="MMM d, yyyy"
+                placeholderText="From"
+                fixedHeight
+                className="input pl-9 cursor-pointer"
+                wrapperClassName="w-full"
+              />
+            </div>
+            <div className="relative">
+              <Calendar className="input-icon" />
+              <DatePicker
+                selected={endDate ? new Date(endDate) : null}
+                onChange={(date: Date | null) => {
+                  const dateStr = date ? date.toISOString().split("T")[0] : "";
+                  setEndDate(dateStr);
+                  setCurrentPage(1);
+                }}
+                dateFormat="MMM d, yyyy"
+                placeholderText="To"
+                fixedHeight
+                className="input pl-9 cursor-pointer"
+                wrapperClassName="w-full"
               />
             </div>
           </div>
-
-          {/* Type Filter */}
-          <div className="flex flex-col gap-2">
-            <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-              Transaction Type
-            </label>
-            <div className="grid grid-cols-3 gap-1 bg-slate-100/50 dark:bg-slate-950/45 p-1 rounded-xl border border-slate-200 dark:border-slate-500/10">
-              {(["All", "Credit", "Debit"] as const).map((type) => (
-                <button
-                  key={type}
-                  onClick={() => {
-                    setTypeFilter(type);
-                    setCurrentPage(1);
-                  }}
-                  className={`py-1.5 px-3 rounded-lg text-xs font-bold transition-all text-center cursor-pointer ${
-                    typeFilter === type
-                      ? type === "Credit"
-                        ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
-                        : type === "Debit"
-                          ? "bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/30"
-                          : "bg-violet-500/20 text-violet-600 dark:text-violet-400 border border-violet-500/30"
-                      : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 border border-transparent"
-                  }`}
-                >
-                  {type}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Start & End Dates Filter */}
-          <div className="grid grid-cols-2 gap-2 xl:col-span-1">
-            <div className="flex flex-col gap-2">
-              <label className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                Start Date
-              </label>
-              <div className="relative">
-                <DatePicker
-                  selected={startDate ? new Date(startDate) : null}
-                  onChange={(date: Date | null) => {
-                    const dateStr = date
-                      ? date.toISOString().split("T")[0]
-                      : "";
-                    setStartDate(dateStr);
-                    setCurrentPage(1);
-                  }}
-                  dateFormat="yyyy-MM-dd"
-                  placeholderText="Select date..."
-                  fixedHeight
-                  className="w-full glass-input rounded-xl py-2 px-3 text-xs focus:outline-none focus:border-violet-500/50 transition [color-scheme:light] dark:[color-scheme:dark] cursor-pointer"
-                  wrapperClassName="w-full"
-                />
-              </div>
-            </div>
-            <div className="flex flex-col gap-2">
-              <label className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                End Date
-              </label>
-              <div className="relative">
-                <DatePicker
-                  selected={endDate ? new Date(endDate) : null}
-                  onChange={(date: Date | null) => {
-                    const dateStr = date
-                      ? date.toISOString().split("T")[0]
-                      : "";
-                    setEndDate(dateStr);
-                    setCurrentPage(1);
-                  }}
-                  dateFormat="yyyy-MM-dd"
-                  placeholderText="Select date..."
-                  fixedHeight
-                  className="w-full glass-input rounded-xl py-2 px-3 text-xs focus:outline-none focus:border-violet-500/50 transition [color-scheme:light] dark:[color-scheme:dark] cursor-pointer"
-                  wrapperClassName="w-full"
-                />
-              </div>
-            </div>
-          </div>
         </div>
 
-        {/* Info panel + Reset Button */}
-        <div className="flex items-center justify-between border-t border-slate-200 dark:border-slate-500/10 mt-5 pt-4">
-          <div className="flex flex-wrap gap-4 text-xs font-semibold text-slate-500 dark:text-slate-400">
-            <div className="flex items-center gap-1.5 bg-slate-100/50 dark:bg-slate-950/20 py-1 px-2.5 rounded-lg border border-slate-200 dark:border-slate-500/5">
-              <ArrowRightLeft className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500" />
-              <span>{totalItems} matched ledger entries</span>
-            </div>
-            <div className="flex items-center gap-1.5 bg-slate-100/50 dark:bg-slate-950/20 py-1 px-2.5 rounded-lg border border-slate-200 dark:border-slate-500/5">
-              <DollarSign className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500" />
-              <span>
-                Starting balance:{" "}
-                <strong className="text-slate-700 dark:text-slate-300">
-                  $
-                  {startingBalance.toLocaleString("en-US", {
-                    minimumFractionDigits: 2,
-                  })}
-                </strong>
+        <div className="flex flex-wrap items-center justify-between gap-2 text-[13px] text-muted">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+            <span>
+              <span className="tabular font-medium text-fg">{totalItems}</span>{" "}
+              {totalItems === 1 ? "entry" : "entries"}
+            </span>
+            <span className="text-line-strong">·</span>
+            <span>
+              Starting balance{" "}
+              <span className="tabular font-medium text-fg">
+                {formatMoney(startingBalance)}
               </span>
-            </div>
+            </span>
           </div>
-
-          {(searchQuery || typeFilter !== "All" || startDate || endDate) && (
-            <button
-              onClick={handleResetFilters}
-              className="flex items-center gap-1.5 py-1 px-3 bg-rose-500/15 border border-rose-500/25 hover:bg-rose-500/25 text-rose-600 dark:text-rose-400 text-xs font-bold rounded-lg transition cursor-pointer"
-            >
-              <FilterX className="h-3.5 w-3.5" />
-              Reset Filters
+          {hasFilters && (
+            <button onClick={handleResetFilters} className="btn btn-ghost btn-sm animate-fade-in">
+              <FilterX />
+              Reset filters
             </button>
           )}
         </div>
-      </GlassCard>
+      </div>
 
-      {/* 2. Ledger Results Table */}
       {paginatedTransactions.length > 0 ? (
-        <div className="flex flex-col gap-4 w-full">
-          {/* Table Container - Hidden on small mobile, beautiful premium table on medium+ screens */}
-          <div className="hidden md:block overflow-hidden border border-slate-200 dark:border-slate-500/10 rounded-2xl glass-panel shadow-xl">
-            <table className="w-full text-left border-collapse">
+        <>
+          {/* Desktop table */}
+          <div className="hidden md:block overflow-x-auto">
+            <table className="data-table">
               <thead>
-                <tr className="bg-slate-100 dark:bg-slate-900/35 border-b border-slate-200 dark:border-slate-500/15">
-                  <th className="px-6 py-3 text-[11px] font-bold text-slate-505 dark:text-slate-400 uppercase tracking-wider w-36">
-                    Date
-                  </th>
-                  <th className="px-6 py-3 text-[11px] font-bold text-slate-505 dark:text-slate-400 uppercase tracking-wider w-28">
-                    Type
-                  </th>
-                  <th className="px-6 py-3 text-[11px] font-bold text-slate-505 dark:text-slate-400 uppercase tracking-wider w-32">
-                    Amount
-                  </th>
-                  <th className="px-6 py-3 text-[11px] font-bold text-slate-505 dark:text-slate-400 uppercase tracking-wider w-40">
-                    Category
-                  </th>
-                  <th className="px-6 py-3 text-[11px] font-bold text-slate-505 dark:text-slate-400 uppercase tracking-wider">
-                    Transaction Details
-                  </th>
-                  <th className="px-6 py-3 text-[11px] font-bold text-slate-505 dark:text-slate-400 uppercase tracking-wider w-44 text-right">
-                    Running Balance
-                  </th>
+                <tr>
+                  <th>Date</th>
+                  <th>Transaction</th>
+                  <th>Category</th>
+                  <th>Type</th>
+                  <th className="text-right!">Amount</th>
+                  <th className="text-right!">Balance</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-200 dark:divide-slate-500/5">
+              <tbody className="stagger-rows" key={pageKey}>
                 {paginatedTransactions.map((t) => {
                   const CategoryIcon = getCategoryIcon(t.category);
                   const isCredit = t.type === "Credit";
+                  const hasSplits = t.splits.length > 0;
+                  const isOpen = expanded.has(t.id);
 
                   return (
-                    <tr
-                      key={t.id}
-                      className="hover:bg-slate-950/5 dark:hover:bg-white/5 transition-all duration-150 group"
-                    >
-                      {/* Date */}
-                      <td className="px-6 py-3.5 whitespace-nowrap text-xs font-semibold text-slate-700 dark:text-slate-300">
-                        {formatTransactionDate(t.expenseDate)}
-                      </td>
-
-                      {/* Type Badge */}
-                      <td className="px-6 py-4.5 whitespace-nowrap">
-                        <span
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wide uppercase border ${
-                            isCredit
-                              ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400 shadow-sm"
-                              : "bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400 shadow-sm"
-                          }`}
-                        >
-                          <span
-                            className={`h-1.5 w-1.5 rounded-full ${
-                              isCredit
-                                ? "bg-emerald-500 dark:bg-emerald-400 animate-pulse"
-                                : "bg-rose-500 dark:bg-rose-400"
-                            }`}
-                          ></span>
-                          {t.type}
-                        </span>
-                      </td>
-
-                      {/* Amount */}
-                      <td className="px-6 py-3.5 whitespace-nowrap text-xs font-extrabold">
-                        <span
-                          className={
-                            isCredit
-                              ? "text-emerald-600 dark:text-emerald-400"
-                              : "text-rose-600 dark:text-rose-400"
-                          }
-                        >
-                          {isCredit ? "+" : "-"}$
-                          {t.amount.toLocaleString("en-US", {
-                            minimumFractionDigits: 2,
-                          })}
-                        </span>
-                      </td>
-
-                      {/* Category */}
-                      <td className="px-6 py-4.5 whitespace-nowrap">
-                        <div className="flex items-center gap-2">
-                          <div
-                            className={`p-1.5 rounded-lg border ${getCategoryGlow(
-                              t.category,
-                            )}`}
-                          >
-                            <CategoryIcon className="h-3.5 w-3.5" />
-                          </div>
-                          <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                    <Fragment key={t.id}>
+                      <tr
+                        onClick={hasSplits ? () => toggleExpanded(t.id) : undefined}
+                        className={`${hasSplits ? "cursor-pointer" : ""} ${isOpen ? "row-expanded bg-subtle/60" : ""}`}
+                        aria-expanded={hasSplits ? isOpen : undefined}
+                      >
+                        <td className="text-muted whitespace-nowrap">
+                          {formatTransactionDate(t.expenseDate)}
+                        </td>
+                        <td>
+                          <p className="flex items-center gap-2 font-medium text-fg">
+                            <span className="truncate max-w-xs">{t.title}</span>
+                            {hasSplits && (
+                              <span className="badge h-5 px-1.5 gap-0.5 text-[11px] shrink-0">
+                                <ChevronRight className="chevron h-3 w-3" data-open={isOpen} />
+                                {t.splits.length} items
+                              </span>
+                            )}
+                          </p>
+                          {t.note && (
+                            <p className="text-xs text-faint truncate max-w-xs mt-0.5">{t.note}</p>
+                          )}
+                        </td>
+                        <td>
+                          <span className={`badge ${getCategoryGlow(t.category)}`}>
+                            <CategoryIcon className="h-3 w-3" />
                             {t.category}
                           </span>
-                        </div>
-                      </td>
-
-                      {/* Title & Notes */}
-                      <td className="px-6 py-3.5">
-                        <div className="flex flex-col">
-                          <span className="text-xs font-bold text-slate-800 dark:text-slate-200 group-hover:text-slate-950 dark:group-hover:text-white transition">
-                            {t.title}
+                        </td>
+                        <td>
+                          <span className={`badge badge-dot ${isCredit ? "badge-success" : "badge-danger"}`}>
+                            {t.type}
                           </span>
-                          {t.note && (
-                            <span className="text-[10px] text-slate-400 dark:text-slate-500 italic mt-0.5 max-w-sm truncate">
-                              {t.note}
-                            </span>
-                          )}
-                        </div>
-                      </td>
-
-                      {/* Running Balance */}
-                      <td className="px-6 py-3.5 whitespace-nowrap">
-                        <span className="inline-block px-3 py-1 bg-slate-100/50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-500/10 rounded-xl text-xs font-extrabold text-slate-700 dark:text-slate-200 tracking-wide">
-                          $
-                          {t.runningBalance.toLocaleString("en-US", {
-                            minimumFractionDigits: 2,
-                          })}
-                        </span>
-                      </td>
-                    </tr>
+                        </td>
+                        <td className="text-right whitespace-nowrap">
+                          <span className={`font-semibold tabular ${isCredit ? "text-success" : "text-fg"}`}>
+                            {isCredit ? "+" : "−"}
+                            {formatMoney(t.amount)}
+                          </span>
+                        </td>
+                        <td className="text-right whitespace-nowrap tabular text-muted">
+                          {t.runningBalance < 0 && "−"}
+                          {formatMoney(t.runningBalance)}
+                        </td>
+                      </tr>
+                      {hasSplits && (
+                        <tr className="expand-row">
+                          <td colSpan={6} className="expand-cell bg-subtle/60" data-open={isOpen}>
+                            <Collapse open={isOpen}>
+                              {/* Indent under the "Transaction" column, amounts line up with Amount */}
+                              <div className="pl-32 pr-44 pb-3">
+                                <SplitBreakdown splits={t.splits} total={t.amount} />
+                              </div>
+                            </Collapse>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
                   );
                 })}
               </tbody>
             </table>
           </div>
 
-          {/* Mobile Card Layout - Shows only on small mobile screens (< md) */}
-          <div className="flex flex-col gap-4 md:hidden">
+          {/* Mobile list */}
+          <ul className="md:hidden divide-y divide-line stagger-rows" key={`m-${pageKey}`}>
             {paginatedTransactions.map((t) => {
               const CategoryIcon = getCategoryIcon(t.category);
               const isCredit = t.type === "Credit";
+              const hasSplits = t.splits.length > 0;
+              const isOpen = expanded.has(t.id);
 
               return (
-                <GlassCard
-                  key={t.id}
-                  className={`border ${
-                    isCredit
-                      ? "border-emerald-500/15"
-                      : "border-slate-200 dark:border-slate-500/10"
-                  } p-4.5 relative`}
-                >
-                  <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-500/10 pb-3 mb-3">
-                    <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-                      {formatTransactionDate(t.expenseDate)}
-                    </span>
+                <li key={t.id} className={isOpen ? "bg-subtle/60" : ""}>
+                  <div
+                    onClick={hasSplits ? () => toggleExpanded(t.id) : undefined}
+                    className={`flex items-start gap-3 px-4 py-3 ${hasSplits ? "cursor-pointer" : ""}`}
+                    aria-expanded={hasSplits ? isOpen : undefined}
+                  >
                     <span
-                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold tracking-wide uppercase border ${
-                        isCredit
-                          ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400"
-                          : "bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400"
-                      }`}
+                      className={`h-9 w-9 shrink-0 rounded-lg flex items-center justify-center ${getCategoryGlow(t.category)}`}
                     >
-                      {t.type}
+                      <CategoryIcon className="h-4 w-4" />
                     </span>
-                  </div>
-
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex flex-col gap-1.5">
-                      <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200 leading-tight">
-                        {t.title}
-                      </h4>
-                      <div className="flex items-center gap-2">
-                        <div
-                          className={`p-1 rounded-md border ${getCategoryGlow(
-                            t.category,
-                          )}`}
-                        >
-                          <CategoryIcon className="h-3 w-3" />
-                        </div>
-                        <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
-                          {t.category}
-                        </span>
-                      </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-fg truncate">{t.title}</p>
+                      <p className="flex items-center gap-1 text-xs text-faint mt-0.5">
+                        {t.category} · {formatTransactionDate(t.expenseDate)}
+                        {hasSplits && (
+                          <>
+                            {" · "}
+                            <span className="inline-flex items-center gap-0.5 text-muted">
+                              {t.splits.length} items
+                              <ChevronRight className="chevron h-3 w-3" data-open={isOpen} />
+                            </span>
+                          </>
+                        )}
+                      </p>
                       {t.note && (
-                        <p className="text-xs text-slate-400 dark:text-slate-500 italic mt-1 leading-normal">
-                          {t.note}
-                        </p>
+                        <p className="text-xs text-muted mt-1 line-clamp-2">{t.note}</p>
                       )}
                     </div>
-
-                    <div className="flex flex-col items-end gap-2 shrink-0">
-                      <span
-                        className={`text-base font-extrabold ${isCredit ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}
-                      >
-                        {isCredit ? "+" : "-"}$
-                        {t.amount.toLocaleString("en-US", {
-                          minimumFractionDigits: 2,
-                        })}
-                      </span>
-
-                      <div className="flex flex-col items-end">
-                        <span className="text-[9px] uppercase font-bold text-slate-400 dark:text-slate-500 tracking-wide">
-                          Running Bal
-                        </span>
-                        <span className="text-xs font-extrabold text-slate-700 dark:text-slate-300 mt-0.5">
-                          $
-                          {t.runningBalance.toLocaleString("en-US", {
-                            minimumFractionDigits: 2,
-                          })}
-                        </span>
-                      </div>
+                    <div className="text-right shrink-0">
+                      <p className={`text-sm font-semibold tabular ${isCredit ? "text-success" : "text-fg"}`}>
+                        {isCredit ? "+" : "−"}
+                        {formatMoney(t.amount)}
+                      </p>
+                      <p className="text-xs text-faint tabular mt-0.5">
+                        {t.runningBalance < 0 && "−"}
+                        {formatMoney(t.runningBalance)}
+                      </p>
                     </div>
                   </div>
-                </GlassCard>
+                  {hasSplits && (
+                    <Collapse open={isOpen}>
+                      <div className="pl-12 pr-4 pb-3">
+                        <SplitBreakdown splits={t.splits} total={t.amount} />
+                      </div>
+                    </Collapse>
+                  )}
+                </li>
               );
             })}
-          </div>
+          </ul>
 
-          {/* 3. Pagination Footer Controls */}
+          {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-between bg-slate-100/30 dark:bg-slate-900/10 border border-slate-200 dark:border-slate-500/10 p-4 rounded-2xl mt-2 shadow-md">
-              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-                Page{" "}
-                <strong className="text-slate-700 dark:text-slate-300">
-                  {currentPage}
-                </strong>{" "}
-                of{" "}
-                <strong className="text-slate-700 dark:text-slate-300">
-                  {totalPages}
-                </strong>
+            <div className="flex items-center justify-between gap-3 px-4 py-3 border-t border-line">
+              <span className="text-[13px] text-muted">
+                Page <span className="tabular font-medium text-fg">{currentPage}</span> of{" "}
+                <span className="tabular font-medium text-fg">{totalPages}</span>
               </span>
-
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
                 <button
                   onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
                   disabled={currentPage === 1}
-                  className="p-2 border border-slate-200 dark:border-slate-500/20 rounded-xl bg-white dark:bg-slate-900/50 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                  className="btn btn-secondary btn-sm"
                 >
-                  <ChevronLeft className="h-4 w-4" />
+                  <ChevronLeft />
+                  Prev
                 </button>
-                <div className="flex items-center gap-1">
-                  {Array.from({ length: totalPages }).map((_, idx) => {
-                    const pageNum = idx + 1;
-                    return (
-                      <button
-                        key={pageNum}
-                        onClick={() => setCurrentPage(pageNum)}
-                        className={`h-8 w-8 text-xs font-bold rounded-xl border transition cursor-pointer ${
-                          currentPage === pageNum
-                            ? "bg-violet-500 border-violet-500 text-white shadow-lg shadow-violet-500/25"
-                            : "bg-white dark:bg-slate-900/50 border-slate-200 dark:border-slate-500/20 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:border-slate-400 dark:hover:border-slate-500/40"
-                        }`}
-                      >
-                        {pageNum}
-                      </button>
-                    );
-                  })}
-                </div>
                 <button
-                  onClick={() =>
-                    setCurrentPage((p) => Math.min(p + 1, totalPages))
-                  }
+                  onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
                   disabled={currentPage === totalPages}
-                  className="p-2 border border-slate-200 dark:border-slate-500/20 rounded-xl bg-white dark:bg-slate-900/50 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                  className="btn btn-secondary btn-sm"
                 >
-                  <ChevronRight className="h-4 w-4" />
+                  Next
+                  <ChevronRight />
                 </button>
               </div>
             </div>
           )}
-        </div>
+        </>
       ) : (
-        /* Empty State */
-        <GlassCard className="border-slate-200 dark:border-slate-500/10 py-16 flex flex-col items-center justify-center text-center">
-          <div className="p-4 bg-slate-100 dark:bg-slate-950/40 rounded-full border border-slate-200 dark:border-slate-500/15 mb-4 animate-bounce">
-            <FilterX className="h-10 w-10 text-slate-400" />
+        <div className="flex flex-col items-center justify-center text-center px-6 py-16">
+          <div className="h-10 w-10 rounded-full bg-subtle flex items-center justify-center mb-3">
+            <FilterX className="h-5 w-5 text-faint" />
           </div>
-          <h3 className="text-lg font-bold text-slate-700 dark:text-slate-300">
-            No Transactions Found
-          </h3>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-sm">
-            We couldn&apos;t find any transaction history matches. Try clearing some
-            search queries or adjusting date/type filters.
+          <p className="text-sm font-medium text-fg">No transactions found</p>
+          <p className="text-[13px] text-muted mt-1 max-w-sm">
+            {hasFilters
+              ? "Nothing matches these filters. Try widening the date range or clearing the search."
+              : "Once you record transactions they will show up here."}
           </p>
-          {(searchQuery || typeFilter !== "All" || startDate || endDate) && (
-            <button
-              onClick={handleResetFilters}
-              className="mt-6 py-2 px-5 bg-violet-600 hover:bg-violet-500 border border-violet-500/20 text-white text-xs font-bold rounded-xl transition shadow-lg shadow-violet-600/25 cursor-pointer"
-            >
-              Clear All Filters
+          {hasFilters && (
+            <button onClick={handleResetFilters} className="btn btn-secondary btn-sm mt-4">
+              Clear all filters
             </button>
           )}
-        </GlassCard>
+        </div>
       )}
-    </div>
+    </section>
   );
 }

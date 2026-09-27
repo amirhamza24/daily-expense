@@ -14,13 +14,16 @@ import {
   LogOut,
   Menu,
   X,
-  TrendingUp,
   History,
-  HelpCircle,
+  Sun,
+  Moon,
+  Wallet,
 } from "lucide-react";
 import { logoutUser } from "@/actions/auth";
 import { useToast } from "./Toast";
 import { useConfirm, confirmPresets } from "./ConfirmModal";
+import { useTheme } from "./ThemeProvider";
+import { initials } from "@/lib/format";
 
 interface SidebarProps {
   user: {
@@ -32,11 +35,19 @@ interface SidebarProps {
   pendingUserCount?: number;
 }
 
+interface NavItem {
+  label: string;
+  path: string;
+  icon: React.ComponentType<{ className?: string }>;
+  badge?: number;
+}
+
 export default function Sidebar({ user, pendingUserCount = 0 }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { showToast } = useToast();
   const confirm = useConfirm();
+  const { theme, setTheme } = useTheme();
   const [isOpen, setIsOpen] = useState(false);
 
   const handleLogout = async () => {
@@ -52,196 +63,154 @@ export default function Sidebar({ user, pendingUserCount = 0 }: SidebarProps) {
     }
   };
 
-  const navItems = [
+  const navItems: NavItem[] = [
     { label: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
     { label: "Expenses", path: "/expenses", icon: Receipt },
-    { label: "Transaction History", path: "/transaction-history", icon: History },
+    { label: "History", path: "/transaction-history", icon: History },
     { label: "Analytics", path: "/analytics", icon: BarChart3 },
-    { label: "Profile", path: "/profile", icon: User },
-    { label: "Settings", path: "/settings", icon: Settings },
-    // { label: "Help Center", path: "/help", icon: HelpCircle },
   ];
 
-  const adminItems = [
-    { label: "Admin Dashboard", path: "/admin/dashboard", icon: ShieldCheck },
-    { 
-      label: "User Registry", 
-      path: "/admin/users", 
+  const accountItems: NavItem[] = [
+    { label: "Profile", path: "/profile", icon: User },
+    { label: "Settings", path: "/settings", icon: Settings },
+  ];
+
+  const adminItems: NavItem[] = [
+    { label: "Overview", path: "/admin/dashboard", icon: ShieldCheck },
+    {
+      label: "Users",
+      path: "/admin/users",
       icon: Users,
-      badge: pendingUserCount > 0 ? pendingUserCount : undefined
+      badge: pendingUserCount > 0 ? pendingUserCount : undefined,
     },
   ];
 
-  const isActive = (path: string) => pathname === path;
+  const renderGroup = (title: string, items: NavItem[]) => (
+    <div>
+      <p className="px-2.5 mb-1.5 text-[11px] font-medium text-faint">{title}</p>
+      <nav className="flex flex-col gap-0.5">
+        {items.map((item) => {
+          const Icon = item.icon;
+          const active = pathname === item.path;
+          return (
+            <Link
+              key={item.path}
+              href={item.path}
+              onClick={() => setIsOpen(false)}
+              className={`group relative flex items-center gap-2.5 h-8 px-2.5 rounded-md text-[13px] font-medium transition-colors duration-150 ${
+                active
+                  ? "bg-subtle text-fg"
+                  : "text-muted hover:text-fg hover:bg-subtle/70"
+              }`}
+            >
+              <span
+                className={`absolute left-0 top-1/2 -translate-y-1/2 w-[3px] rounded-r-full bg-accent transition-all duration-300 ${
+                  active ? "h-4 opacity-100" : "h-0 opacity-0"
+                }`}
+              />
+              <Icon
+                className={`h-4 w-4 shrink-0 transition-colors ${
+                  active ? "text-accent" : "text-faint group-hover:text-muted"
+                }`}
+              />
+              <span className="flex-1 truncate">{item.label}</span>
+              {item.badge !== undefined && (
+                <span className="min-w-5 h-5 px-1.5 inline-flex items-center justify-center rounded-full bg-danger text-[11px] font-semibold text-white tabular">
+                  {item.badge}
+                </span>
+              )}
+            </Link>
+          );
+        })}
+      </nav>
+    </div>
+  );
+
+  const brand = (
+    <Link href="/dashboard" onClick={() => setIsOpen(false)} className="flex items-center gap-2.5">
+      <span className="h-7 w-7 rounded-lg bg-accent text-white flex items-center justify-center shadow-sm">
+        <Wallet className="h-4 w-4" />
+      </span>
+      <span className="font-semibold text-[15px] tracking-tight text-fg">Expensify</span>
+    </Link>
+  );
 
   const sidebarContent = (
-    <div className="flex flex-col h-full bg-slate-50/80 dark:bg-[#09090e] backdrop-blur-2xl border-r border-slate-200/50 dark:border-white/5 text-slate-800 dark:text-slate-100 overflow-hidden">
-      {/* App Logo — always visible at top */}
-      <div className="flex items-center gap-3 px-6 pt-6 pb-4 shrink-0">
-        <div className="p-2.5 bg-violet-100 dark:bg-violet-600/30 rounded-xl border border-violet-200 dark:border-violet-500/40 shadow-lg shadow-violet-500/10 dark:shadow-violet-500/20">
-          <TrendingUp className="h-6 w-6 text-violet-600 dark:text-violet-400" />
-        </div>
-        <div>
-          <h1 className="font-bold text-lg tracking-wide text-slate-900 dark:text-white bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-600 dark:from-white dark:via-slate-200 dark:to-violet-400 bg-clip-text dark:text-transparent">
-            Expensify
-          </h1>
-          <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium uppercase tracking-widest">
-            Daily Tracker
-          </p>
-        </div>
+    <div className="flex flex-col h-full bg-surface border-r border-line">
+      <div className="h-14 flex items-center px-4 shrink-0">{brand}</div>
+
+      <div className="flex-1 overflow-y-auto px-2.5 py-3 flex flex-col gap-5 scrollbar-hide">
+        {renderGroup("Workspace", navItems)}
+        {renderGroup("Account", accountItems)}
+        {user.role === "ADMIN" && renderGroup("Admin", adminItems)}
       </div>
 
-      {/* Navigation Links — scrollable */}
-      <div className="flex-1 overflow-y-auto px-6 flex flex-col gap-6 pb-4 scrollbar-hide">
-        {/* General section */}
-        <div>
-          <h2 className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold uppercase tracking-wider mb-3 px-3">
-            WORKSPACE
-          </h2>
-          <nav className="flex flex-col gap-1.5">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const active = isActive(item.path);
-              return (
-                <Link
-                  key={item.path}
-                  href={item.path}
-                  onClick={() => setIsOpen(false)}
-                  className={`
-                    flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 group
-                    ${
-                      active
-                        ? "bg-gradient-to-r from-indigo-500/10 to-violet-500/5 border-l-4 border-indigo-500 text-indigo-600 dark:from-violet-500/15 dark:to-indigo-500/10 dark:border-violet-500 dark:text-violet-400 shadow-sm dark:shadow-md dark:shadow-violet-950/10"
-                        : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-white/5"
-                    }
-                  `}
-                >
-                  <Icon
-                    className={`h-4.5 w-4.5 transition-transform duration-200 group-hover:scale-105 ${active ? "text-indigo-600 dark:text-violet-400" : "text-slate-500 dark:text-slate-400 group-hover:text-slate-800 dark:group-hover:text-slate-200"}`}
-                  />
-                  {item.label}
-                </Link>
-              );
-            })}
-          </nav>
-        </div>
+      <div className="shrink-0 border-t border-line p-2.5 flex flex-col gap-1">
+        <button
+          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+          className="flex items-center gap-2.5 h-8 px-2.5 rounded-md text-[13px] font-medium text-muted hover:text-fg hover:bg-subtle/70 transition-colors cursor-pointer"
+        >
+          {theme === "dark" ? (
+            <Sun className="h-4 w-4 text-faint" />
+          ) : (
+            <Moon className="h-4 w-4 text-faint" />
+          )}
+          {theme === "dark" ? "Light mode" : "Dark mode"}
+        </button>
 
-        {/* Administration section (Admins only) */}
-        {user.role === "ADMIN" && (
-          <div>
-            <h2 className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold uppercase tracking-wider mb-3 px-3">
-              ADMIN CONTROL PANEL
-            </h2>
-            <nav className="flex flex-col gap-1.5">
-              {adminItems.map((item) => {
-                const Icon = item.icon;
-                const active = isActive(item.path);
-                return (
-                  <Link
-                    key={item.path}
-                    href={item.path}
-                    onClick={() => setIsOpen(false)}
-                    className={`
-                      flex items-center justify-between px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 group
-                      ${
-                        active
-                          ? "bg-gradient-to-r from-pink-500/10 to-rose-500/5 border-l-4 border-pink-500 text-pink-600 dark:from-pink-500/15 dark:to-rose-500/10 dark:border-pink-500 dark:text-pink-400 shadow-sm dark:shadow-md dark:shadow-pink-950/10"
-                          : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-white/5"
-                      }
-                    `}
-                  >
-                    <div className="flex items-center gap-3">
-                      <Icon
-                        className={`h-4.5 w-4.5 transition-transform duration-200 group-hover:scale-105 ${active ? "text-pink-600 dark:text-pink-400" : "text-slate-500 dark:text-slate-400 group-hover:text-slate-800 dark:group-hover:text-slate-200"}`}
-                      />
-                      <span>{item.label}</span>
-                    </div>
-                    {item.badge !== undefined && (
-                      <span className="flex h-5 min-w-5 px-1.5 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white shadow-sm ring-2 ring-white dark:ring-[#09090e] animate-pulse">
-                        {item.badge}
-                      </span>
-                    )}
-                  </Link>
-                );
-              })}
-            </nav>
-          </div>
-        )}
-      </div>
-
-      {/* User Footer Profile & Logout — always pinned at bottom */}
-      <div className="shrink-0 border-t border-slate-200/50 dark:border-white/5 px-6 pt-4 pb-5 flex flex-col gap-4">
-        <div className="flex items-center gap-3 px-2">
-          {/* Avatar Initials */}
-          <div className="h-10 w-10 shrink-0 rounded-xl bg-violet-100 dark:bg-violet-600/20 border border-violet-200 dark:border-violet-500/30 flex items-center justify-center font-bold text-violet-600 dark:text-violet-300">
-            {user.name
-              .split(" ")
-              .map((n) => n[0])
-              .join("")
-              .substring(0, 2)
-              .toUpperCase()}
+        <div className="flex items-center gap-2.5 px-2 py-2 mt-1 rounded-lg">
+          <div className="h-8 w-8 shrink-0 rounded-full bg-accent-soft text-accent-fg flex items-center justify-center text-xs font-semibold">
+            {initials(user.name)}
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">
+            <p className="text-[13px] font-medium text-fg truncate leading-tight">
               {user.name}
-            </h3>
-            <div className="flex items-center gap-1.5">
-              <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-              <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium truncate uppercase tracking-wide">
-                {user.role} • {user.status}
-              </p>
-            </div>
+            </p>
+            <p className="text-xs text-faint truncate leading-tight mt-0.5">{user.email}</p>
           </div>
+          <button
+            onClick={handleLogout}
+            className="icon-btn icon-btn-danger"
+            title="Log out"
+            aria-label="Log out"
+          >
+            <LogOut />
+          </button>
         </div>
-
-        <button
-          onClick={handleLogout}
-          className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition-colors w-full cursor-pointer"
-        >
-          <LogOut className="h-4.5 w-4.5" />
-          Logout
-        </button>
       </div>
     </div>
   );
 
   return (
     <>
-      {/* Mobile Header Bar */}
-      <header className="md:hidden fixed top-0 left-0 w-full z-40 bg-white/95 dark:bg-[#09090e]/95 backdrop-blur-md border-b border-slate-200/50 dark:border-white/5 px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <TrendingUp className="h-5 w-5 text-violet-600 dark:text-violet-400" />
-          <span className="font-bold text-sm tracking-wide text-slate-900 dark:text-white">
-            Expensify
-          </span>
-        </div>
+      {/* Mobile top bar */}
+      <header className="md:hidden fixed top-0 inset-x-0 z-40 h-14 bg-surface/90 backdrop-blur-md border-b border-line px-4 flex items-center justify-between">
+        {brand}
         <button
-          onClick={() => setIsOpen(!isOpen)}
-          className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white"
+          onClick={() => setIsOpen((v) => !v)}
+          className="icon-btn"
+          aria-label={isOpen ? "Close menu" : "Open menu"}
         >
-          {isOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+          {isOpen ? <X /> : <Menu />}
         </button>
       </header>
 
-      {/* Desktop Sidebar */}
-      <aside className="hidden md:block w-64 h-screen sticky top-0 shrink-0">
+      {/* Desktop sidebar */}
+      <aside className="hidden md:block w-60 h-screen sticky top-0 shrink-0">
         {sidebarContent}
       </aside>
 
-      {/* Mobile Drawer Backdrop */}
-      {isOpen && (
-        <div
-          onClick={() => setIsOpen(false)}
-          className="md:hidden fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
-        />
-      )}
-
-      {/* Mobile Off-canvas Drawer */}
+      {/* Mobile drawer */}
+      <div
+        onClick={() => setIsOpen(false)}
+        className={`md:hidden fixed inset-0 z-40 bg-black/40 backdrop-blur-[2px] transition-opacity duration-300 ${
+          isOpen ? "opacity-100" : "opacity-0 pointer-events-none"
+        }`}
+      />
       <aside
-        className={`
-          md:hidden fixed inset-y-0 left-0 z-50 w-64 transform transition-transform duration-300 ease-in-out
-          ${isOpen ? "translate-x-0" : "-translate-x-full"}
-        `}
+        className={`md:hidden fixed inset-y-0 left-0 z-50 w-64 shadow-xl transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+          isOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
       >
         {sidebarContent}
       </aside>
