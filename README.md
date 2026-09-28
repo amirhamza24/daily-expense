@@ -2,246 +2,153 @@
 
 # 💸 Expensify
 
-### Premium Daily Expense Tracker
+### Daily Expense & Lend/Borrow Tracker
 
-A full-stack, production-grade personal finance management application built with modern web technologies. Track your spending, manage your balance, visualize analytics, and stay in control of your finances — all in one beautifully crafted dashboard.
+Track spending, income, balance, and money lent or borrowed, all in one dashboard.
 
+![Version](https://img.shields.io/badge/version-0.3.0-166534?style=for-the-badge)
 [![Next.js](https://img.shields.io/badge/Next.js-16.2.6-black?style=for-the-badge&logo=next.js)](https://nextjs.org/)
+[![React](https://img.shields.io/badge/React-19.2-61DAFB?style=for-the-badge&logo=react)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org/)
 [![Prisma](https://img.shields.io/badge/Prisma-7.x-2D3748?style=for-the-badge&logo=prisma)](https://www.prisma.io/)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Latest-336791?style=for-the-badge&logo=postgresql)](https://www.postgresql.org/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Supabase-336791?style=for-the-badge&logo=postgresql)](https://supabase.com/)
 [![TailwindCSS](https://img.shields.io/badge/TailwindCSS-4.x-06B6D4?style=for-the-badge&logo=tailwindcss)](https://tailwindcss.com/)
+
+**Live:** [daily-expense-tracker-zeta-one.vercel.app](https://daily-expense-tracker-zeta-one.vercel.app)
 
 </div>
 
 ---
 
-## 🚀 Live Demo
+## ✨ Features
 
-The application is deployed and live! You can access the production version here:  
-**[https://daily-expense-tracker-zeta-one.vercel.app](https://daily-expense-tracker-zeta-one.vercel.app)**
+### 💰 Expenses & Balance
 
----
+- Add, edit and delete transactions (**Expense** or **Income**)
+- Split one expense into multiple items (breakdown)
+- Starting balance plus a live **available balance**
+- Search, filter by category and date, sort, paginate
+- CSV export
+- Transaction history with running balance, including a **Lend & Borrow** tab
 
-## 🎯 Project Goal
+### 🤝 Lend & Borrow
 
-**Expensify** is designed to give individuals a clear, secure, and beautiful way to manage their day-to-day finances. The core goals are:
+- Separate **Lent** (receivable) and **Borrowed** (payable) records
+- Partial repayments/payments, with each amount capped at what's left
+- Automatic status: **Pending, Partially paid, Paid, Overdue**
+- Due dates and notes
+- Tabs (All / Lent / Borrowed) and filters: status, person, date range, amount range, sort
+- Summary cards: Total lent, Receivable, Total borrowed, Payable
+- Lend, borrow, get repaid or pay back from **New transaction**, including splitting between several people at once
+- Updates the available balance, but never counted as income or expense
 
-- 📊 **Visualize** spending trends with interactive monthly and category-based charts
-- 🔐 **Secure** all data behind JWT-based authentication with email verification
-- 🧾 **Record** transactions with rich metadata (title, amount, category, date, notes)
-- 💰 **Track** total and remaining balance in real time
-- 👑 **Administer** users via a dedicated Admin panel with approval workflows
-- 🌙 **Delight** users with a premium glassmorphism UI with full dark/light mode support
+### 📊 Dashboard & Analytics
+
+- Stat cards: available balance, total, monthly and today's expenses (income excluded)
+- Lend & Borrow overview: money owed to you, money you owe, and active/overdue counts
+- Monthly summary: money in vs. money out
+- Charts for monthly trend, weekly pattern and categories
+
+### 📈 Advanced Analytics
+
+- Period filter: today, this week, this month, last month, last 3/6 months, this year, custom
+- Overview: available balance, income, expenses, net cash flow, lent, receivable, borrowed, payable
+- Income vs expenses, comparison with the previous period (safe when previous is zero)
+- Category donut, comparison bars and summary table (click through to transactions)
+- Daily / weekly / monthly trends for expenses, income and net cash flow
+- Spending statistics and separate lend & borrow analytics
+
+### 💡 Financial Insights
+
+- Rule-based observations with configurable thresholds (no external AI)
+- Cash flow, spending and category changes, unusual days, income changes, overdue/outstanding lend & borrow
+- Top 4 on the dashboard, more on Analytics
+
+### 🧾 Financial Reports (`/reports`)
+
+- Monthly report for any month and year (month/year pickers, previous/next arrows)
+- **Financial overview:** opening balance, income, expenses, net cash flow, lend & borrow movement, closing balance
+- **Monthly highlights:** top category, highest spending day, largest expense, daily average, totals
+- **Charts:** expenses by category, income vs expenses, daily spending, 6-month trend
+- **Expense summary:** total, count, average, highest expense, highest day, top category, category breakdown
+- **Income summary:** total, count, average, highest income
+- **Lending (Receivable)** and **Borrowing (Payable)** summaries: amounts, repayments, outstanding, paid/partial/pending/overdue counts
+- Closing balance of the current month matches the dashboard's available balance
+- Printable white "paper" layout, including in dark mode
+- Download as **PDF** (A4, multi-page), **PNG** or **JPG**, always on a white background
+- Includes app name, month, generated date; no IDs or login data
+
+### 🖼️ Details & Export
+
+- Details view for every expense and lend/borrow record
+- **Download details as PNG / JPG** image
+
+### 🔐 Auth & Admin
+
+- Registration with email OTP verification
+- Admin approval (`PENDING → APPROVED / REJECTED / SUSPENDED`)
+- JWT session in an httpOnly cookie, access checked again on every request
+- Admin panel: user registry, approve/reject/suspend, role management
+- Profile and password change
+
+### 🎨 UI
+
+- Light / dark mode with no flash on load
+- Responsive, with card layouts on mobile
+- Gradient stat cards, skeleton loaders, toasts, confirm dialogs
+- Respects the system **reduced-motion** setting
 
 ---
 
 ## 🛠️ Tech Stack
 
-### Languages
-
-| Language | Usage |
-|---|---|
-| **TypeScript** | Primary language for all source code (React components, server actions, types) |
-| **JavaScript** | Utility scripts (e.g., `test_prisma.js`) |
-| **SQL** (via Prisma) | Database schema definition and query building |
-| **CSS** | Global styles, glassmorphism design, animations |
-
-### Frameworks & Libraries
-
-| Category | Technology | Version |
-|---|---|---|
-| **Framework** | [Next.js](https://nextjs.org/) (App Router) | 16.2.6 |
-| **UI Library** | [React](https://react.dev/) | 19.2.4 |
-| **Styling** | [Tailwind CSS](https://tailwindcss.com/) | 4.x |
-| **ORM** | [Prisma](https://www.prisma.io/) | 7.x |
-| **Database Driver** | [node-postgres (pg)](https://node-postgres.com/) + `@prisma/adapter-pg` | 8.x |
-| **Charts** | [Recharts](https://recharts.org/) | 3.x |
-| **Forms** | [React Hook Form](https://react-hook-form.com/) | 7.x |
-| **Validation** | [Zod](https://zod.dev/) | 4.x |
-| **Date Handling** | [date-fns](https://date-fns.org/) & [React DatePicker](https://reactdatepicker.com/) | Latest |
-| **Authentication** | [jose](https://github.com/panva/jose) (JWT) + [bcryptjs](https://github.com/dcodeIO/bcrypt.js) | Latest |
-| **Email** | [Resend](https://resend.com/) | 6.x |
-| **Icons** | [Lucide React](https://lucide.dev/) | 1.x |
-| **Fonts** | Google Fonts — **Outfit** & **Inter** | — |
+| Category           | Technology                                              |
+| ------------------ | ------------------------------------------------------- |
+| Framework          | Next.js 16 (App Router, Turbopack), React 19            |
+| Language           | TypeScript                                              |
+| Styling            | Tailwind CSS 4                                          |
+| Database           | PostgreSQL (Supabase) + Prisma 7 (`@prisma/adapter-pg`) |
+| Auth               | jose (JWT), bcryptjs                                    |
+| Email              | Resend                                                  |
+| Charts             | Recharts                                                |
+| Dates              | date-fns, react-datepicker                              |
+| Image / PDF export | html-to-image, jsPDF                                    |
+| Icons              | lucide-react                                            |
+| Hosting            | Vercel                                                  |
 
 ---
 
-## ✨ Features
+## 📝 Changelog
 
-### 👤 User Features
-- **Email Registration & Verification** — secure signup with a one-time verification code sent via email
-- **JWT Session Management** — stateless, cookie-based authentication with server-side middleware guards
-- **Expense CRUD** — create, read, update, and delete expenses with title, amount, category, date, and optional notes
-- **Transaction Ledger** — view a chronological history of your expenses with a calculated **running balance**
-- **CSV Data Export** — securely download your expense reports directly from the client side
-- **Balance Management** — set total balance and track remaining balance in real time
-- **Analytics Dashboard** — interactive bar & pie charts for monthly spending breakdowns and category analysis
-- **Profile Management** — update personal details and change password securely
-- **Settings** — configure application preferences
-- **Dark / Light Mode** — persistent theme switching with no flash on page load (SSR-safe inline script)
+### v0.3.0
 
-### 👑 Admin Features
-- **User Registry** — view all registered users with their status, role, and metadata
-- **Approval Workflow** — approve, reject, or suspend user accounts (`PENDING → APPROVED / REJECTED / SUSPENDED`)
-- **Admin Dashboard** — high-level overview of platform activity
+- Advanced Analytics page with period filters and previous-period comparison
+- Rule-based Financial Insights (dashboard + analytics)
+- Financial Reports page (`/reports`): monthly overview, summaries, highlights, charts
+- Report export as PDF/PNG/JPG on a white background
+- Lend & Borrow history tab in Transaction history; running balance now matches available balance
+- Custom dropdowns, sliding tab indicator, smoother animations
+- Time-zone-aware daily/monthly grouping
 
-### 🔒 Security
-- Passwords hashed with **bcryptjs**
-- JWT tokens signed with **HS256** (via `jose`)
-- Route-level protection via **Next.js Middleware**
-- Admin routes additionally guarded at the **Server Component** level
-- Email verification required before account activation
-- Secure, interactive credential visibility toggles (Show/Hide password)
+### v0.2.0
 
----
+- Lend & Borrow module: records, partial payments, auto status, filters, summary cards
+- Lend/borrow/repay/pay back from **New transaction**, including splits between several people
+- Dashboard Lend & Borrow overview
+- Dashboard expense cards now exclude income
+- Download details as PNG/JPG
+- Gradient stat cards
+- Loader fixes: calmer skeleton shimmer, login spinner stays until redirect, reduced-motion support
 
-## 🗄️ Database Schema
+### v0.1.0
 
-```
-User
- ├── id (UUID)
- ├── name, email (unique), password (hashed)
- ├── role: ADMIN | USER
- ├── status: PENDING | APPROVED | REJECTED | SUSPENDED
- ├── emailVerified, verificationCode, verificationCodeExpiry
- ├── approvedAt, approvedBy
- └── createdAt
-
-Expense
- ├── id (UUID)
- ├── title, amount, category, note
- ├── expenseDate, createdAt
- └── userId → User (cascade delete)
-
-Balance
- ├── id (UUID)
- ├── totalBalance, remainingBalance
- ├── note
- └── userId → User (unique, cascade delete)
-```
-
----
-
-## 📁 Project Structure
-
-```
-daily-expense-track/
-├── prisma/
-│   ├── schema.prisma          # Database models & enums
-│   └── seed.ts                # Database seeding script
-├── src/
-│   ├── app/
-│   │   ├── (authenticated)/   # Protected routes (App Router group)
-│   │   │   ├── admin/         # Admin dashboard & user management
-│   │   │   ├── analytics/     # Spending analytics page
-│   │   │   ├── dashboard/     # Main user dashboard
-│   │   │   ├── expenses/      # Expense list & management
-│   │   │   ├── profile/       # User profile
-│   │   │   └── settings/      # App settings
-│   │   ├── login/             # Login page
-│   │   ├── register/          # Registration page
-│   │   ├── verify/            # Email verification page
-│   │   ├── layout.tsx         # Root layout (fonts, providers, glow blobs)
-│   │   └── globals.css        # Global styles & design tokens
-│   ├── components/
-│   │   ├── AnalyticsClient.tsx      # Charts (Recharts)
-│   │   ├── BalanceModal.tsx         # Set/edit balance modal
-│   │   ├── ChangePasswordForm.tsx   # Password update form
-│   │   ├── ConfirmModal.tsx         # Reusable confirm dialog
-│   │   ├── DashboardClient.tsx      # Main dashboard UI
-│   │   ├── ExpenseModal.tsx         # Add/edit expense modal
-│   │   ├── ExpensesClient.tsx       # Full expense list with filters
-│   │   ├── GlassCard.tsx            # Glassmorphism card primitive
-│   │   ├── Sidebar.tsx              # Navigation sidebar
-│   │   ├── ThemeProvider.tsx        # Dark/light mode context
-│   │   ├── Toast.tsx                # Global toast notification system
-│   │   └── UsersRegistryClient.tsx  # Admin user management table
-│   ├── actions/               # Next.js Server Actions
-│   ├── lib/                   # Utilities (auth, prisma client, etc.)
-│   └── middleware.ts          # JWT-based route protection
-├── .env                       # Environment variables (not committed)
-├── next.config.ts             # Next.js configuration
-├── tailwind.config.ts         # Tailwind CSS configuration
-├── tsconfig.json              # TypeScript configuration
-└── package.json
-```
-
----
-
-## 🚀 Getting Started
-
-### Prerequisites
-
-- **Node.js** v20+
-- **PostgreSQL** database instance
-- **Resend** account (for email verification)
-
-### 1. Clone the Repository
-
-```bash
-git clone https://github.com/your-username/daily-expense-track.git
-cd daily-expense-track
-```
-
-### 2. Install Dependencies
-
-```bash
-npm install
-```
-
-### 3. Set Up the Database
-
-```bash
-# Push the Prisma schema to your database
-npx prisma db push
-
-# (Optional) Seed the database with an admin account
-npx prisma db seed
-```
-
-### 4. Run the Development Server
-
-```bash
-npm run dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) in your browser.
-
----
-
-## 📜 Available Scripts
-
-| Script | Description |
-|---|---|
-| `npm run dev` | Start the development server |
-| `npm run build` | Build for production |
-| `npm run start` | Start the production server |
-| `npm run lint` | Run ESLint |
-| `npx prisma studio` | Open Prisma Studio (database GUI) |
-| `npx prisma db seed` | Seed the database |
-
----
-
-## 🎨 Design System
-
-The UI is built around a **premium glassmorphism** aesthetic:
-
-- **Fonts**: `Outfit` (headings) and `Inter` (body) from Google Fonts
-- **Glow Blobs**: Ambient purple, blue, and pink background elements for depth
-- **Glass Cards**: Frosted-glass effect with `backdrop-blur` and translucent backgrounds
-- **Theme**: Full dark/light mode support with SSR-safe flash-free initialization
-- **Animations**: Smooth transitions and micro-interactions throughout
-- **Premium Components**: Custom-styled calendar interfaces (`react-datepicker`) overriding standard native HTML inputs for a consistent aesthetic
-
----
-
-## 👨‍💻 Author
-
-Built with ❤️ using Next.js, TypeScript, Prisma, and PostgreSQL.
+- Expenses, income, breakdowns, balance, CSV export
+- Transaction history, analytics
+- Auth with email verification, admin approval panel
+- Light/dark theme
 
 ---
 
 ## 📄 License
 
-This project is private and for personal/educational use.
+Private project, for personal/educational use.

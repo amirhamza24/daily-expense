@@ -5,6 +5,8 @@ import Modal from './Modal';
 import { getCategoryIcon, getCategoryGlow } from '@/lib/categories';
 import { formatDate, formatMoney } from '@/lib/format';
 import SplitBreakdown, { type ExpenseSplitView } from './SplitBreakdown';
+import { toFileSlug } from '@/lib/export-image';
+import { fileDate } from '@/lib/format';
 
 interface ExpenseDetailsModalProps {
   expense?: {
@@ -29,6 +31,9 @@ export default function ExpenseDetailsModal({ expense, onClose }: ExpenseDetails
       onClose={onClose}
       icon={React.createElement(getCategoryIcon(expense.category), { className: 'h-5 w-5' })}
       title={expense.title}
+      download={{
+        fileName: `${isCredit ? 'income' : 'expense'}-${toFileSlug(expense.title)}-${fileDate(expense.expenseDate)}`,
+      }}
       footer={
         <button onClick={onClose} className="btn btn-secondary">
           Close

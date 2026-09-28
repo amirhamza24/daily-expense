@@ -1,13 +1,18 @@
 import React from 'react';
 import { getSession } from '@/lib/auth';
-import { db } from '@/lib/db';
 import { redirect } from 'next/navigation';
 import AnalyticsClient from '@/components/AnalyticsClient';
 import ErrorState from '@/components/ErrorState';
+import { getAnalytics, getUserTimeZone } from '@/lib/finance';
+import { RANGE_PRESETS, type RangePreset } from '@/lib/dates';
 
 export const revalidate = 0; // Disable caching
 
-export default async function AnalyticsPage() {
+interface AnalyticsPageProps {
+  searchParams: Promise<{ range?: string; from?: string; to?: string }>;
+}
+
+export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps) {
   const sessionUser = await getSession();
 
   // Guard: if user is not authenticated or not approved
@@ -15,146 +20,12 @@ export default async function AnalyticsPage() {
     redirect('/login');
   }
 
-  let data: {
-    categoryDistribution: Array<{ name: string; value: number }>;
-    monthlyTrend: Array<{ name: string; spent: number }>;
-    weeklyPattern: Array<{ name: string; spent: number }>;
-    aggregates: {
-      highest: { title: string; amount: number } | null;
-      lowest: { title: string; amount: number } | null;
-      average: number;
-      topCategory: string;
-    };
-  } | null = null;
+  const { range, from, to } = await searchParams;
+  const preset: RangePreset = RANGE_PRESETS.some((p) => p.value === range) ? (range as RangePreset) : 'month';
 
+  let data;
   try {
-    // 1. Fetch ALL user expenses in parallel to compute programmatic aggregates
-    const [expenses, highestExpenseRecord, lowestExpenseRecord, averageAgg] = await Promise.all([
-      db.expense.findMany({
-        where: { userId: sessionUser.id },
-        orderBy: { expenseDate: 'asc' },
-      }),
-      db.expense.findFirst({
-        where: { userId: sessionUser.id },
-        orderBy: { amount: 'desc' },
-      }),
-      db.expense.findFirst({
-        where: { userId: sessionUser.id },
-        orderBy: { amount: 'asc' },
-      }),
-      db.expense.aggregate({
-        where: { userId: sessionUser.id },
-        _avg: { amount: true },
-      }),
-    ]);
-
-    // ----------------------------------------------------
-    // Category Wise Distribution Calculation
-    // ----------------------------------------------------
-    const categoryMap: Record<string, number> = {};
-    expenses.forEach((exp) => {
-      categoryMap[exp.category] = (categoryMap[exp.category] || 0) + exp.amount;
-    });
-
-    const categoryDistribution = Object.entries(categoryMap).map(([name, value]) => ({
-      name,
-      value,
-    }));
-
-    // Most frequent category
-    const categoryCountMap: Record<string, number> = {};
-    expenses.forEach((exp) => {
-      categoryCountMap[exp.category] = (categoryCountMap[exp.category] || 0) + 1;
-    });
-
-    let topCategory = 'None';
-    let maxCount = 0;
-    Object.entries(categoryCountMap).forEach(([cat, count]) => {
-      if (count > maxCount) {
-        maxCount = count;
-        topCategory = cat;
-      }
-    });
-
-    // ----------------------------------------------------
-    // Monthly Trend Calculation (Last 6 Months)
-    // ----------------------------------------------------
-    const monthlyMap: Record<string, number> = {};
-    const now = new Date();
-
-    // Initialize last 6 months with zero values
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const label = d.toLocaleString('en-US', { month: 'short', year: '2-digit' });
-      monthlyMap[label] = 0;
-    }
-
-    expenses.forEach((exp) => {
-      const date = new Date(exp.expenseDate);
-      const label = date.toLocaleString('en-US', { month: 'short', year: '2-digit' });
-      // Only add to map if the month falls within our last 6 months list
-      if (monthlyMap.hasOwnProperty(label)) {
-        monthlyMap[label] += exp.amount;
-      }
-    });
-
-    const monthlyTrend = Object.entries(monthlyMap).map(([name, spent]) => ({
-      name,
-      spent,
-    }));
-
-    // ----------------------------------------------------
-    // Weekly Pattern Calculation (Last 7 Days)
-    // ----------------------------------------------------
-    const weeklyMap: Record<string, number> = {};
-    // Initialize last 7 days with zero values
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(now.getDate() - i);
-      const label = d.toLocaleString('en-US', { weekday: 'short' });
-      weeklyMap[label] = 0;
-    }
-
-    // Filter and aggregate last 7 days of expenses
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(now.getDate() - 7);
-    sevenDaysAgo.setHours(0, 0, 0, 0);
-
-    expenses.forEach((exp) => {
-      const date = new Date(exp.expenseDate);
-      if (date >= sevenDaysAgo) {
-        const label = date.toLocaleString('en-US', { weekday: 'short' });
-        if (weeklyMap.hasOwnProperty(label)) {
-          weeklyMap[label] += exp.amount;
-        }
-      }
-    });
-
-    const weeklyPattern = Object.entries(weeklyMap).map(([name, spent]) => ({
-      name,
-      spent,
-    }));
-
-    // ----------------------------------------------------
-    // Package and Assemble all parameters
-    // ----------------------------------------------------
-    const aggregates = {
-      highest: highestExpenseRecord
-        ? { title: highestExpenseRecord.title, amount: highestExpenseRecord.amount }
-        : null,
-      lowest: lowestExpenseRecord
-        ? { title: lowestExpenseRecord.title, amount: lowestExpenseRecord.amount }
-        : null,
-      average: averageAgg._avg.amount || 0,
-      topCategory,
-    };
-
-    data = {
-      categoryDistribution,
-      monthlyTrend,
-      weeklyPattern,
-      aggregates,
-    };
+    data = await getAnalytics(sessionUser.id, await getUserTimeZone(), preset, from, to);
   } catch (error) {
     console.error('Analytics server page error:', error);
   }
@@ -163,17 +34,10 @@ export default async function AnalyticsPage() {
     return (
       <ErrorState
         title="Couldn't load analytics"
-        message="We couldn't aggregate your spending right now. Please try again later."
+        message="We couldn't aggregate your data right now. Please try again later."
       />
     );
   }
 
-  return (
-    <AnalyticsClient
-      categoryDistribution={data.categoryDistribution}
-      monthlyTrend={data.monthlyTrend}
-      weeklyPattern={data.weeklyPattern}
-      aggregates={data.aggregates}
-    />
-  );
+  return <AnalyticsClient data={data} />;
 }

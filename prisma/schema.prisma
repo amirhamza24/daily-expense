@@ -37,6 +37,7 @@ model User {
   
   expenses               Expense[]
   balance                Balance?
+  moneyRecords           MoneyRecord[]
 }
 
 model Expense {
@@ -76,4 +77,60 @@ model Balance {
   
   user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId           String   @unique
+}
+
+// ─── Lending & borrowing ─────────────────────────────────────────────────────
+// Kept apart from Expense: neither side is income or spending.
+//   LENT     — I gave money; it comes back as repayments (receivable).
+//   BORROWED — I received money; it goes back as payments (payable).
+// Both move Balance.remainingBalance (see src/actions/money.ts).
+
+enum MoneyRecordType {
+  LENT
+  BORROWED
+}
+
+// Settlement progress only. "Overdue" depends on today's date, so it is
+// derived at read time from dueDate + status and never stored.
+enum MoneyRecordStatus {
+  PENDING
+  PARTIALLY_PAID
+  PAID
+}
+
+model MoneyRecord {
+  id         String            @id @default(uuid())
+  type       MoneyRecordType
+  personName String
+  amount     Float
+  // Sum of payments, kept in sync with `payments` inside a transaction
+  paidAmount Float             @default(0)
+  date       DateTime
+  dueDate    DateTime?
+  note       String?
+  status     MoneyRecordStatus @default(PENDING)
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+
+  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId     String
+
+  payments   MoneyPayment[]
+
+  @@index([userId, type, status])
+  @@index([userId, date])
+  @@index([userId, dueDate])
+}
+
+model MoneyPayment {
+  id            String      @id @default(uuid())
+  amount        Float
+  paymentDate   DateTime
+  note          String?
+  createdAt     DateTime    @default(now())
+
+  moneyRecord   MoneyRecord @relation(fields: [moneyRecordId], references: [id], onDelete: Cascade)
+  moneyRecordId String
+
+  @@index([moneyRecordId, paymentDate])
 }

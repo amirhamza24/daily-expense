@@ -18,6 +18,8 @@ import {
   Sun,
   Moon,
   Wallet,
+  HandCoins,
+  FileChartColumn,
 } from "lucide-react";
 import { logoutUser } from "@/actions/auth";
 import { useToast } from "./Toast";
@@ -66,8 +68,10 @@ export default function Sidebar({ user, pendingUserCount = 0 }: SidebarProps) {
   const navItems: NavItem[] = [
     { label: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
     { label: "Expenses", path: "/expenses", icon: Receipt },
+    { label: "Lend & Borrow", path: "/lend-borrow", icon: HandCoins },
     { label: "History", path: "/transaction-history", icon: History },
     { label: "Analytics", path: "/analytics", icon: BarChart3 },
+    { label: "Reports", path: "/reports", icon: FileChartColumn },
   ];
 
   const accountItems: NavItem[] = [

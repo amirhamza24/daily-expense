@@ -36,6 +36,8 @@ export async function proxy(request: NextRequest) {
     path.startsWith("/analytics") ||
     path.startsWith("/profile") ||
     path.startsWith("/settings") ||
+    path.startsWith("/lend-borrow") ||
+    path.startsWith("/reports") ||
     path.startsWith("/transaction-history");
   const isAdminPath = path.startsWith("/admin");
 
@@ -97,6 +99,9 @@ export const config = {
     "/analytics/:path*",
     "/profile/:path*",
     "/settings/:path*",
+    "/lend-borrow/:path*",
+    "/reports/:path*",
+    "/transaction-history/:path*",
     "/admin/:path*",
   ],
 };

@@ -7,12 +7,20 @@ import {
   Ban,
   Users,
   Search,
+  User,
+  Crown,
 } from "lucide-react";
 import PageHeader from "./PageHeader";
 import { formatDate, initials } from "@/lib/format";
 import { updateUserStatus, updateUserRole } from "@/actions/admin";
 import { useToast } from "./Toast";
 import { useConfirm, confirmPresets } from "./ConfirmModal";
+import { Select, type SelectOption } from "./Select";
+
+const ROLE_OPTIONS: SelectOption<"USER" | "ADMIN">[] = [
+  { value: "USER", label: "User", icon: User, iconClassName: "bg-subtle text-muted" },
+  { value: "ADMIN", label: "Admin", icon: Crown, iconClassName: "bg-warning-soft text-warning" },
+];
 
 interface UserRecord {
   id: string;
@@ -203,27 +211,20 @@ export default function UsersRegistryClient({
 
                     {/* Role — editable for APPROVED users only */}
                     <td className="hidden md:table-cell">
-                      <select
+                      <Select<"USER" | "ADMIN">
                         value={user.role}
                         disabled={user.status !== "APPROVED" || isPending}
-                        onChange={(e) =>
-                          handleRoleChange(
-                            user.id,
-                            user.name,
-                            e.target.value as "USER" | "ADMIN",
-                            user.role,
-                          )
-                        }
+                        onChange={(role) => handleRoleChange(user.id, user.name, role, user.role)}
+                        options={ROLE_OPTIONS}
                         title={
                           user.status !== "APPROVED"
                             ? "Role can only be changed for approved users"
                             : "Change user role"
                         }
-                        className="input h-8 w-28 text-[13px]"
-                      >
-                        <option value="USER">User</option>
-                        <option value="ADMIN">Admin</option>
-                      </select>
+                        aria-label={`Role for ${user.name}`}
+                        size="sm"
+                        className="w-32"
+                      />
                     </td>
 
                     <td>

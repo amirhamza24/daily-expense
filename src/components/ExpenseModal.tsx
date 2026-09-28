@@ -12,8 +12,15 @@ import {
   X,
   Check,
   Pencil,
+  HandCoins,
+  ArrowRight,
 } from "lucide-react";
+import Link from "next/link";
 import { Collapse } from "./SplitBreakdown";
+import MoneyEntryForm, { MONEY_ENTRY_KINDS, type MoneyEntryKind } from "./MoneyEntryForm";
+import { Select, type SelectOption } from "./Select";
+import SegmentIndicator from "./SegmentIndicator";
+import { getCategoryIcon, getCategoryGlow } from "@/lib/categories";
 import { formatMoney } from "@/lib/format";
 import { createExpense, updateExpense } from "@/actions/expenses";
 import DatePicker from "react-datepicker";
@@ -55,6 +62,13 @@ const CATEGORIES = [
   "Others",
 ];
 
+const CATEGORY_OPTIONS: SelectOption[] = CATEGORIES.map((cat) => ({
+  value: cat,
+  label: cat,
+  icon: getCategoryIcon(cat),
+  iconClassName: getCategoryGlow(cat),
+}));
+
 export default function ExpenseModal({
   isOpen,
   onClose,
@@ -65,9 +79,11 @@ export default function ExpenseModal({
   const [isPending, startTransition] = useTransition();
 
   // Form states
-  const [transactionType, setTransactionType] = useState<"debit" | "credit">(
+  // "money" = lend / borrow / repayment / payment, handled by MoneyEntryForm
+  const [transactionType, setTransactionType] = useState<"debit" | "credit" | "money">(
     "debit",
   );
+  const [moneyKind, setMoneyKind] = useState<MoneyEntryKind>("lend");
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState("Food");
@@ -94,6 +110,7 @@ export default function ExpenseModal({
         setCategory("Food");
         setNote("");
         setTransactionType("debit");
+        setMoneyKind("lend");
         setExpenseDate(new Date());
         setSplits([]);
       }
@@ -103,6 +120,8 @@ export default function ExpenseModal({
   if (!isOpen) return null;
 
   const isCredit = transactionType === "credit";
+  const isMoney = transactionType === "money";
+  const moneyConfig = MONEY_ENTRY_KINDS[moneyKind];
 
   // Breakdown bookkeeping (debits only)
   const hasSplits = !isCredit && splits.length > 0;
@@ -215,9 +234,11 @@ export default function ExpenseModal({
       description={
         expense?.id
           ? "Update the details of this entry."
-          : isCredit
-            ? "Add money to your wallet balance."
-            : "Record money you spent."
+          : isMoney
+            ? "Money lent, borrowed or paid back — tracked in Lend & Borrow."
+            : isCredit
+              ? "Add money to your wallet balance."
+              : "Record money you spent."
       }
       footer={
         <>
@@ -231,15 +252,17 @@ export default function ExpenseModal({
           </button>
           <button
             type="submit"
-            form="expense-form"
+            form={isMoney ? "money-entry-form" : "expense-form"}
             disabled={isPending}
-            className={`btn ${isCredit ? "btn-success" : "btn-primary"} min-w-32`}
+            className={`btn ${isCredit || (isMoney && moneyKind === "repaid") ? "btn-success" : "btn-primary"} min-w-32`}
           >
             {isPending ? (
               <>
                 <Loader2 className="animate-spin" />
                 Saving…
               </>
+            ) : isMoney ? (
+              moneyConfig.submit
             ) : expense?.id ? (
               "Save changes"
             ) : isCredit ? (
@@ -251,19 +274,20 @@ export default function ExpenseModal({
         </>
       }
     >
-      <form id="expense-form" onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <div className="flex flex-col gap-4">
         {/* Type toggle */}
         <div className="segmented">
+          <SegmentIndicator />
           <button
             type="button"
-            data-active={!isCredit}
+            data-active={transactionType === "debit"}
             disabled={!!expense?.id}
             onClick={() => {
               setTransactionType("debit");
               setCategory("Food");
             }}
           >
-            <TrendingDown className={!isCredit ? "text-danger" : ""} />
+            <TrendingDown className={transactionType === "debit" ? "text-danger" : ""} />
             Expense
           </button>
           <button
@@ -275,7 +299,77 @@ export default function ExpenseModal({
             <TrendingUp className={isCredit ? "text-success" : ""} />
             Income
           </button>
+          {/* Lend & borrow entries can't be created by editing an expense */}
+          {!expense?.id && (
+            <button
+              type="button"
+              data-active={isMoney}
+              onClick={() => setTransactionType("money")}
+            >
+              <HandCoins className={isMoney ? "text-accent-fg" : ""} />
+              <span className="sm:hidden">Lend/Borrow</span>
+              <span className="hidden sm:inline">Lend &amp; Borrow</span>
+            </button>
+          )}
         </div>
+
+        {isMoney ? (
+          <>
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="label mb-0!">What are you doing?</span>
+                <Link
+                  href="/lend-borrow"
+                  onClick={onClose}
+                  className="text-xs font-medium text-accent-fg hover:underline underline-offset-2 inline-flex items-center gap-1"
+                >
+                  Open Lend &amp; Borrow
+                  <ArrowRight className="h-3 w-3" />
+                </Link>
+              </div>
+              <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Lend or borrow type">
+                {(Object.keys(MONEY_ENTRY_KINDS) as MoneyEntryKind[]).map((k) => {
+                  const cfg = MONEY_ENTRY_KINDS[k];
+                  const Icon = cfg.icon;
+                  const active = moneyKind === k;
+                  const tint = cfg.type === "LENT" ? "bg-success-soft text-success" : "bg-warning-soft text-warning";
+                  return (
+                    <button
+                      key={k}
+                      type="button"
+                      role="radio"
+                      aria-checked={active}
+                      onClick={() => setMoneyKind(k)}
+                      disabled={isPending}
+                      className={`flex items-start gap-2.5 rounded-lg border p-2.5 text-left transition-colors cursor-pointer ${
+                        active
+                          ? "border-accent bg-accent-soft/50 ring-1 ring-accent/30"
+                          : "border-line hover:bg-subtle hover:border-line-strong"
+                      }`}
+                    >
+                      <span className={`h-7 w-7 shrink-0 rounded-md flex items-center justify-center ${tint}`}>
+                        <Icon className="h-3.5 w-3.5" />
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block text-[13px] font-medium text-fg leading-tight">{cfg.title}</span>
+                        <span className="block text-[11.5px] text-faint leading-snug mt-0.5">{cfg.hint}</span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <MoneyEntryForm
+              formId="money-entry-form"
+              kind={moneyKind}
+              isPending={isPending}
+              startTransition={startTransition}
+              onDone={onClose}
+            />
+          </>
+        ) : (
+      <form id="expense-form" onSubmit={handleSubmit} className="flex flex-col gap-4">
 
         <div>
           <label className="label" htmlFor="tx-title">
@@ -326,19 +420,13 @@ export default function ExpenseModal({
                 Income
               </div>
             ) : (
-              <select
+              <Select
                 id="tx-category"
                 value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                className="input"
+                onChange={setCategory}
+                options={CATEGORY_OPTIONS}
                 disabled={isPending}
-              >
-                {CATEGORIES.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat}
-                  </option>
-                ))}
-              </select>
+              />
             )}
           </div>
         </div>
@@ -476,6 +564,8 @@ export default function ExpenseModal({
           />
         </div>
       </form>
+        )}
+      </div>
     </Modal>
   );
 }

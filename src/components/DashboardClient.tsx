@@ -15,7 +15,11 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   LayoutDashboard,
+  ArrowDownLeft,
 } from "lucide-react";
+import type { MoneySummary } from "@/lib/money";
+import type { Insight } from "@/lib/insights";
+import InsightsCard from "./InsightsCard";
 import ExpenseModal from "./ExpenseModal";
 import ExpenseDetailsModal from "./ExpenseDetailsModal";
 import PageHeader from "./PageHeader";
@@ -53,6 +57,10 @@ interface DashboardClientProps {
     monthlyRemaining: number;
   };
   recentExpenses: ExpenseItem[];
+  /** Null when the lending summary couldn't be loaded; the panel is then hidden. */
+  moneySummary: MoneySummary | null;
+  /** Null when insights couldn't be computed; the card is then hidden. */
+  insights: Insight[] | null;
 }
 
 function StatCard({
@@ -61,15 +69,18 @@ function StatCard({
   hint,
   icon: Icon,
   featured = false,
+  deco = "",
 }: {
   label: string;
   value: number;
   hint: string;
   icon: React.ComponentType<{ className?: string }>;
   featured?: boolean;
+  /** Gradient tint for non-featured cards, e.g. "deco-blue". */
+  deco?: string;
 }) {
   return (
-    <div className={`card card-interactive p-4 md:p-5 ${featured ? "card-feature" : ""}`}>
+    <div className={`card card-interactive p-4 md:p-5 ${featured ? "card-feature" : `card-deco ${deco}`}`}>
       <div className="flex items-center justify-between">
         <span className={`stat-label ${featured ? "opacity-80" : ""}`}>{label}</span>
         <span
@@ -87,9 +98,86 @@ function StatCard({
   );
 }
 
+function LendBorrowOverview({ summary }: { summary: MoneySummary }) {
+  const counts = [
+    { label: "Active lending", deco: "deco-teal", value: summary.activeLending, href: "/lend-borrow?type=LENT&status=OPEN" },
+    { label: "Active borrowing", deco: "deco-orange", value: summary.activeBorrowing, href: "/lend-borrow?type=BORROWED&status=OPEN" },
+    { label: "Overdue", deco: "deco-rose", value: summary.overdue, href: "/lend-borrow?status=OVERDUE", danger: summary.overdue > 0 },
+  ];
+
+  return (
+    <section className="card overflow-hidden">
+      <div className="card-head flex items-center justify-between px-5 py-4">
+        <div>
+          <h2 className="section-title">Lend &amp; borrow</h2>
+          <p className="section-subtitle">Money owed to you and by you</p>
+        </div>
+        <Link href="/lend-borrow" className="btn btn-ghost btn-sm group">
+          Manage
+          <ArrowRight className="transition-transform duration-200 group-hover:translate-x-0.5" />
+        </Link>
+      </div>
+
+      <div className="p-4 md:p-5 grid grid-cols-1 lg:grid-cols-[1fr_1fr_1.2fr] gap-3">
+        <Link
+          href="/lend-borrow?type=LENT&status=OPEN"
+          className="card-deco deco-green rounded-xl border border-line p-4 flex items-center gap-3 hover:border-line-strong hover:shadow-(--shadow-md) transition-[border-color,box-shadow]"
+        >
+          <span className="h-10 w-10 shrink-0 rounded-lg bg-success-soft text-success flex items-center justify-center">
+            <ArrowUpRight className="h-4 w-4" />
+          </span>
+          <span className="min-w-0">
+            <span className="block text-[13px] text-muted">Money others owe you</span>
+            <span className="block text-lg font-semibold tabular tracking-tight text-success">
+              <AnimatedNumber value={summary.receivable} format={formatMoney} />
+            </span>
+          </span>
+        </Link>
+        <Link
+          href="/lend-borrow?type=BORROWED&status=OPEN"
+          className="card-deco deco-amber rounded-xl border border-line p-4 flex items-center gap-3 hover:border-line-strong hover:shadow-(--shadow-md) transition-[border-color,box-shadow]"
+        >
+          <span className="h-10 w-10 shrink-0 rounded-lg bg-warning-soft text-warning flex items-center justify-center">
+            <ArrowDownLeft className="h-4 w-4" />
+          </span>
+          <span className="min-w-0">
+            <span className="block text-[13px] text-muted">Money you owe</span>
+            <span className="block text-lg font-semibold tabular tracking-tight text-warning">
+              <AnimatedNumber value={summary.payable} format={formatMoney} />
+            </span>
+          </span>
+        </Link>
+
+        <div className="grid grid-cols-3 gap-2">
+          {counts.map((c) => (
+            <Link
+              key={c.label}
+              href={c.href}
+              className={`card-deco card-deco-sm ${c.deco} rounded-xl border p-3 flex flex-col justify-center transition-[border-color,box-shadow,filter] ${
+                c.danger
+                  ? "border-transparent bg-danger-soft hover:brightness-[0.97]"
+                  : "border-line hover:border-line-strong hover:shadow-(--shadow-md)"
+              }`}
+            >
+              <span className={`text-xl font-semibold tabular ${c.danger ? "text-danger" : "text-fg"}`}>
+                {c.value}
+              </span>
+              <span className={`text-xs leading-tight mt-0.5 ${c.danger ? "text-danger" : "text-faint"}`}>
+                {c.label}
+              </span>
+            </Link>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export default function DashboardClient({
   stats,
   recentExpenses,
+  moneySummary,
+  insights,
 }: DashboardClientProps) {
   const { showToast } = useToast();
   const confirm = useConfirm();
@@ -156,22 +244,41 @@ export default function DashboardClient({
         <StatCard
           label="Total expenses"
           value={stats.totalExpenses}
-          hint="All time"
+          hint="All time, excluding income"
           icon={TrendingDown}
+          deco="deco-cyan"
         />
         <StatCard
-          label="This month"
+          label="This month's expenses"
           value={stats.monthlyExpenses}
-          hint={`Spent in ${monthName}`}
+          hint={`Expenses in ${monthName}`}
           icon={CalendarDays}
+          deco="deco-violet"
         />
         <StatCard
           label="Today"
           value={stats.todayExpenses}
           hint="Spent today"
           icon={Clock}
+          deco="deco-blue"
         />
       </div>
+
+      {insights && (
+        <InsightsCard
+          insights={insights}
+          subtitle="This month compared with last month"
+          columns={2}
+          footer={
+            <Link href="/analytics" className="btn btn-ghost btn-sm group shrink-0">
+              More
+              <ArrowRight className="transition-transform duration-200 group-hover:translate-x-0.5" />
+            </Link>
+          }
+        />
+      )}
+
+      {moneySummary && <LendBorrowOverview summary={moneySummary} />}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Recent transactions */}

@@ -15,7 +15,9 @@ import {
   X,
   Plus,
   Receipt,
+  LayoutGrid,
 } from "lucide-react";
+import { Select, type SelectOption } from "./Select";
 import ExpenseModal from "./ExpenseModal";
 import ExpenseDetailsModal from "./ExpenseDetailsModal";
 import PageHeader from "./PageHeader";
@@ -66,6 +68,26 @@ const CATEGORIES = [
   "Entertainment",
   "Others",
   "Income",
+];
+
+const CATEGORY_OPTIONS: SelectOption[] = CATEGORIES.map((cat) =>
+  cat === "All"
+    ? { value: cat, label: "All categories", icon: LayoutGrid, iconClassName: "bg-subtle text-muted" }
+    : { value: cat, label: cat, icon: getCategoryIcon(cat), iconClassName: getCategoryGlow(cat) },
+);
+
+const DATE_OPTIONS: SelectOption[] = [
+  { value: "all", label: "Any time" },
+  { value: "today", label: "Today" },
+  { value: "yesterday", label: "Yesterday" },
+  { value: "week", label: "Last 7 days" },
+  { value: "month", label: "This month" },
+  { value: "custom", label: "Custom range…" },
+];
+
+const SORT_OPTIONS: SelectOption[] = [
+  { value: "latest", label: "Newest first" },
+  { value: "highest", label: "Highest amount" },
 ];
 
 export default function ExpensesClient({
@@ -272,55 +294,44 @@ export default function ExpensesClient({
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:flex gap-2.5">
-              <select
+              <Select
                 value={category}
-                onChange={(e) => {
-                  setCategory(e.target.value);
-                  applyFilters({ category: e.target.value });
+                onChange={(v) => {
+                  setCategory(v);
+                  applyFilters({ category: v });
                 }}
-                className="input lg:w-40"
+                options={CATEGORY_OPTIONS}
+                className="lg:w-44"
                 aria-label="Category"
-              >
-                {CATEGORIES.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat === "All" ? "All categories" : cat}
-                  </option>
-                ))}
-              </select>
+              />
 
-              <select
+              <Select
                 value={dateRange}
-                onChange={(e) => {
-                  setDateRange(e.target.value);
+                onChange={(v) => {
+                  setDateRange(v);
                   applyFilters({
-                    dateRange: e.target.value,
+                    dateRange: v,
                     startDate: null,
                     endDate: null,
                   });
                 }}
-                className="input lg:w-36"
+                options={DATE_OPTIONS}
+                className="lg:w-40"
                 aria-label="Date range"
-              >
-                <option value="all">Any time</option>
-                <option value="today">Today</option>
-                <option value="yesterday">Yesterday</option>
-                <option value="week">Last 7 days</option>
-                <option value="month">This month</option>
-                <option value="custom">Custom range…</option>
-              </select>
+              />
 
-              <select
-                value={sortBy}
-                onChange={(e) => {
-                  setSortBy(e.target.value);
-                  applyFilters({ sortBy: e.target.value });
-                }}
-                className="input lg:w-40 col-span-2 sm:col-span-1"
-                aria-label="Sort"
-              >
-                <option value="latest">Newest first</option>
-                <option value="highest">Highest amount</option>
-              </select>
+              <div className="col-span-2 sm:col-span-1">
+                <Select
+                  value={sortBy}
+                  onChange={(v) => {
+                    setSortBy(v);
+                    applyFilters({ sortBy: v });
+                  }}
+                  options={SORT_OPTIONS}
+                  className="lg:w-44"
+                  aria-label="Sort"
+                />
+              </div>
             </div>
           </div>
 

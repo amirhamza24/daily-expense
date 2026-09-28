@@ -4,6 +4,8 @@ import { db } from '@/lib/db';
 import { redirect } from 'next/navigation';
 import DashboardClient from '@/components/DashboardClient';
 import ErrorState from '@/components/ErrorState';
+import { getMoneySummary } from '@/lib/money-queries';
+import { getDashboardInsights, getUserTimeZone } from '@/lib/finance';
 
 export const revalidate = 0; // Disable server caching for real-time changes
 
@@ -22,7 +24,8 @@ async function fetchDashboardData(userId: string) {
 
   try {
     // Perform parallel database queries for efficiency
-    const [balanceRecord, todaySum, monthSum, totalSpentSum, recentExpenses, monthlyCreditSum, monthlyDebitSum] = await Promise.all([
+    // Expense totals exclude "Income" entries (credits) — only debits count as spending
+    const [balanceRecord, todaySum, totalSpentSum, recentExpenses, monthlyCreditSum, monthlyDebitSum, moneySummary, insights] = await Promise.all([
       db.balance.findUnique({
         where: { userId },
       }),
@@ -30,19 +33,14 @@ async function fetchDashboardData(userId: string) {
         where: {
           userId,
           expenseDate: { gte: todayStart, lte: todayEnd },
+          category: { not: 'Income' },
         },
         _sum: { amount: true },
       }),
       db.expense.aggregate({
         where: {
           userId,
-          expenseDate: { gte: monthStart },
-        },
-        _sum: { amount: true },
-      }),
-      db.expense.aggregate({
-        where: {
-          userId,
+          category: { not: 'Income' },
         },
         _sum: { amount: true },
       }),
@@ -73,6 +71,17 @@ async function fetchDashboardData(userId: string) {
         },
         _sum: { amount: true },
       }),
+      // Optional panel: a failure here shouldn't take the whole dashboard down
+      getMoneySummary(userId).catch((error) => {
+        console.error('Dashboard lend & borrow summary error:', error);
+        return null;
+      }),
+      getUserTimeZone()
+        .then((tz) => getDashboardInsights(userId, tz, 4))
+        .catch((error) => {
+          console.error('Dashboard insights error:', error);
+          return null;
+        }),
     ]);
 
     const totalBalance = balanceRecord?.totalBalance || 0;
@@ -89,7 +98,7 @@ async function fetchDashboardData(userId: string) {
       totalBalance,
       remainingBalance,
       totalExpenses,
-      monthlyExpenses: monthSum._sum.amount || 0,
+      monthlyExpenses: monthlyDebit,
       todayExpenses: todaySum._sum.amount || 0,
       balanceNote: balanceRecord?.note || undefined,
       monthlyCredit,
@@ -101,6 +110,8 @@ async function fetchDashboardData(userId: string) {
       success: true,
       stats,
       recentExpenses,
+      moneySummary,
+      insights,
     };
   } catch (error) {
     console.error('Dashboard server page error:', error);
@@ -133,6 +144,8 @@ export default async function DashboardPage() {
     <DashboardClient
       stats={result.stats}
       recentExpenses={result.recentExpenses}
+      moneySummary={result.moneySummary ?? null}
+      insights={result.insights ?? null}
     />
   );
 }

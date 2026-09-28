@@ -45,7 +45,8 @@ export async function setOrUpdateBalance(totalBalance: number, note: string) {
       });
 
       // 2. Fetch sum of all debits (non-Income) and credits (Income) logged by the user
-      const [debitsAggregation, creditsAggregation] = await Promise.all([
+      // plus lending/borrowing still outstanding (see src/actions/money.ts)
+      const [debitsAggregation, creditsAggregation, moneyTotals] = await Promise.all([
         tx.expense.aggregate({
           where: { userId: user.id, NOT: { category: 'Income' } },
           _sum: { amount: true },
@@ -54,11 +55,23 @@ export async function setOrUpdateBalance(totalBalance: number, note: string) {
           where: { userId: user.id, category: 'Income' },
           _sum: { amount: true },
         }),
+        tx.moneyRecord.groupBy({
+          by: ['type'],
+          where: { userId: user.id },
+          _sum: { amount: true, paidAmount: true },
+        }),
       ]);
+
+      const outstanding = (type: 'LENT' | 'BORROWED') => {
+        const row = moneyTotals.find((m) => m.type === type);
+        return (row?._sum.amount || 0) - (row?._sum.paidAmount || 0);
+      };
 
       const totalDebits = debitsAggregation._sum.amount || 0;
       const totalCredits = creditsAggregation._sum.amount || 0;
-      const remainingBalance = totalBalance + totalCredits - totalDebits;
+      // Receivable money is out of the wallet; payable money is still in it
+      const remainingBalance =
+        totalBalance + totalCredits - totalDebits - outstanding('LENT') + outstanding('BORROWED');
 
       let balanceRecord;
 
@@ -90,6 +103,7 @@ export async function setOrUpdateBalance(totalBalance: number, note: string) {
     revalidatePath('/dashboard');
     revalidatePath('/expenses');
     revalidatePath('/analytics');
+    revalidatePath('/lend-borrow');
 
     return { success: true, balance: result };
   } catch (error) {

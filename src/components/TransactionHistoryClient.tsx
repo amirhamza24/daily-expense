@@ -1,43 +1,94 @@
 "use client";
 
 import React, { Fragment, useState } from "react";
+import Link from "next/link";
 import {
   Search,
   ChevronLeft,
   ChevronRight,
   FilterX,
   Calendar,
+  ArrowUpRight,
+  ArrowDownLeft,
+  HandCoins,
+  Banknote,
 } from "lucide-react";
 import { getCategoryIcon, getCategoryGlow } from "@/lib/categories";
 import { formatMoney } from "@/lib/format";
 import SplitBreakdown, { Collapse, type ExpenseSplitView } from "./SplitBreakdown";
 import DatePicker from "react-datepicker";
+import SegmentIndicator from "./SegmentIndicator";
+import { Select, type SelectOption } from "./Select";
 
-interface SerializedExpense {
+export type LedgerKind = "income" | "expense" | "lent" | "borrowed" | "repaid" | "paidback";
+export type HistoryTab = "All" | "Income" | "Expense" | "LendBorrow";
+
+/** One balance-moving event: an expense/income, or a lend & borrow record or payment. */
+export interface LedgerEntry {
   id: string;
+  kind: LedgerKind;
   title: string;
   amount: number;
+  /** Expense category, or the lend & borrow label (Lent, Borrowed, Repayment, Payment). */
   category: string;
   note: string;
-  expenseDate: string;
+  date: string;
   createdAt: string;
   splits: ExpenseSplitView[];
+  /** Set for lend & borrow entries. */
+  person?: string;
 }
 
 interface TransactionHistoryClientProps {
-  transactions: SerializedExpense[];
+  entries: LedgerEntry[];
   startingBalance: number;
+  initialTab?: HistoryTab;
 }
 
+const MONEY_KINDS: LedgerKind[] = ["lent", "borrowed", "repaid", "paidback"];
+const isMoneyKind = (k: LedgerKind) => MONEY_KINDS.includes(k);
+/** Money coming into the wallet. */
+const isInflow = (k: LedgerKind) => k === "income" || k === "borrowed" || k === "repaid";
+
+const moneyMeta: Record<
+  "lent" | "borrowed" | "repaid" | "paidback",
+  { icon: React.ComponentType<{ className?: string }>; tint: string }
+> = {
+  lent: { icon: ArrowUpRight, tint: "bg-success-soft text-success" },
+  borrowed: { icon: ArrowDownLeft, tint: "bg-warning-soft text-warning" },
+  repaid: { icon: HandCoins, tint: "bg-success-soft text-success" },
+  paidback: { icon: Banknote, tint: "bg-warning-soft text-warning" },
+};
+
+const iconFor = (e: LedgerEntry) =>
+  isMoneyKind(e.kind) ? moneyMeta[e.kind as keyof typeof moneyMeta].icon : getCategoryIcon(e.category);
+const tintFor = (e: LedgerEntry) =>
+  isMoneyKind(e.kind) ? moneyMeta[e.kind as keyof typeof moneyMeta].tint : getCategoryGlow(e.category);
+
+const TABS: Array<{ value: HistoryTab; label: string; short?: string }> = [
+  { value: "All", label: "All" },
+  { value: "Income", label: "Income" },
+  { value: "Expense", label: "Expense" },
+  { value: "LendBorrow", label: "Lend & Borrow", short: "Lend/Borrow" },
+];
+
+const MONEY_FILTER_OPTIONS: SelectOption[] = [
+  { value: "all", label: "All lend & borrow", icon: HandCoins, iconClassName: "bg-subtle text-muted" },
+  { value: "lent", label: "Lent", icon: ArrowUpRight, iconClassName: moneyMeta.lent.tint },
+  { value: "borrowed", label: "Borrowed", icon: ArrowDownLeft, iconClassName: moneyMeta.borrowed.tint },
+  { value: "repaid", label: "Repayments received", icon: HandCoins, iconClassName: moneyMeta.repaid.tint },
+  { value: "paidback", label: "Payments made", icon: Banknote, iconClassName: moneyMeta.paidback.tint },
+];
+
 export default function TransactionHistoryClient({
-  transactions,
+  entries,
   startingBalance,
+  initialTab = "All",
 }: TransactionHistoryClientProps) {
   // --- Filter and Search States ---
   const [searchQuery, setSearchQuery] = useState("");
-  const [typeFilter, setTypeFilter] = useState<"All" | "Credit" | "Debit">(
-    "All",
-  );
+  const [tab, setTab] = useState<HistoryTab>(initialTab);
+  const [moneyFilter, setMoneyFilter] = useState("all");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
@@ -56,60 +107,58 @@ export default function TransactionHistoryClient({
     });
 
   // 1. Calculate sequential Running Balance chronologically (oldest-to-newest)
-  const enrichedTransactions = transactions.reduce((acc, t) => {
-    const isCredit = t.category === "Income";
-    const lastBalance = acc.length > 0 ? acc[acc.length - 1].runningBalance : startingBalance;
-    const currentBalance = isCredit ? lastBalance + t.amount : lastBalance - t.amount;
-    
-    acc.push({
-      ...t,
-      type: isCredit ? "Credit" : "Debit",
-      runningBalance: currentBalance,
-    });
-    return acc;
-  }, [] as Array<SerializedExpense & { type: "Credit" | "Debit"; runningBalance: number }>);
+  const enriched = entries.reduce(
+    (acc, e) => {
+      const last = acc.length > 0 ? acc[acc.length - 1].runningBalance : startingBalance;
+      acc.push({ ...e, runningBalance: isInflow(e.kind) ? last + e.amount : last - e.amount });
+      return acc;
+    },
+    [] as Array<LedgerEntry & { runningBalance: number }>,
+  );
 
-  // 2. Present transactions LATEST FIRST by default
-  const chronologicalLatestFirst = [...enrichedTransactions].reverse();
+  // 2. Present entries LATEST FIRST by default
+  const latestFirst = [...enriched].reverse();
 
   // 3. Apply Filters
-  const filteredTransactions = chronologicalLatestFirst.filter((t) => {
-    // A. Search Filter (Title or Note)
+  const q = searchQuery.toLowerCase();
+  const filtered = latestFirst.filter((e) => {
+    // A. Search (title, note, person, breakdown items)
     const matchesSearch =
-      t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      t.note.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      t.splits.some((s) => s.title.toLowerCase().includes(searchQuery.toLowerCase()));
+      !q ||
+      e.title.toLowerCase().includes(q) ||
+      e.note.toLowerCase().includes(q) ||
+      (e.person ?? "").toLowerCase().includes(q) ||
+      e.splits.some((s) => s.title.toLowerCase().includes(q));
 
-    // B. Transaction Type Filter
-    const matchesType =
-      typeFilter === "All" ||
-      (typeFilter === "Credit" && t.type === "Credit") ||
-      (typeFilter === "Debit" && t.type === "Debit");
+    // B. Tab (+ lend & borrow sub-filter)
+    const matchesTab =
+      tab === "All" ||
+      (tab === "Income" && e.kind === "income") ||
+      (tab === "Expense" && e.kind === "expense") ||
+      (tab === "LendBorrow" && isMoneyKind(e.kind) && (moneyFilter === "all" || e.kind === moneyFilter));
 
-    // C. Date Range Filter
-    const tDate = new Date(t.expenseDate.split("T")[0] + "T00:00:00");
-    const matchesStartDate = !startDate
-      ? true
-      : tDate >= new Date(startDate + "T00:00:00");
-    const matchesEndDate = !endDate
-      ? true
-      : tDate <= new Date(endDate + "T23:59:59");
+    // C. Date Range
+    const tDate = new Date(e.date.split("T")[0] + "T00:00:00");
+    const matchesStartDate = !startDate ? true : tDate >= new Date(startDate + "T00:00:00");
+    const matchesEndDate = !endDate ? true : tDate <= new Date(endDate + "T23:59:59");
 
-    return matchesSearch && matchesType && matchesStartDate && matchesEndDate;
+    return matchesSearch && matchesTab && matchesStartDate && matchesEndDate;
   });
 
   // 4. Handle Pagination
-  const totalItems = filteredTransactions.length;
+  const totalItems = filtered.length;
   const totalPages = Math.ceil(totalItems / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedTransactions = filteredTransactions.slice(
-    startIndex,
-    startIndex + itemsPerPage,
-  );
+  const paginated = filtered.slice(startIndex, startIndex + itemsPerPage);
+
+  // Money in / out over the filtered entries (shown on the Lend & Borrow tab)
+  const moneyIn = filtered.filter((e) => isInflow(e.kind)).reduce((s, e) => s + e.amount, 0);
+  const moneyOut = filtered.filter((e) => !isInflow(e.kind)).reduce((s, e) => s + e.amount, 0);
 
   const handleResetFilters = () => {
     setSearchQuery("");
-    setTypeFilter("All");
+    setTab("All");
+    setMoneyFilter("all");
     setStartDate("");
     setEndDate("");
     setCurrentPage(1);
@@ -125,14 +174,28 @@ export default function TransactionHistoryClient({
     });
   };
 
-  const hasFilters = !!(searchQuery || typeFilter !== "All" || startDate || endDate);
-  const pageKey = `${currentPage}-${searchQuery}-${typeFilter}-${startDate}-${endDate}`;
+  const hasFilters = !!(searchQuery || tab !== "All" || startDate || endDate);
+  const pageKey = `${currentPage}-${searchQuery}-${tab}-${moneyFilter}-${startDate}-${endDate}`;
+
+  const titleFor = (e: LedgerEntry) =>
+    e.person ? (
+      <Link
+        href={`/lend-borrow?person=${encodeURIComponent(e.person)}`}
+        onClick={(ev) => ev.stopPropagation()}
+        className="hover:text-accent-fg hover:underline underline-offset-2"
+        title={`Open ${e.person} in Lend & Borrow`}
+      >
+        {e.title}
+      </Link>
+    ) : (
+      e.title
+    );
 
   return (
     <section className="card overflow-hidden">
       {/* Filters */}
       <div className="card-head flex flex-col gap-3 p-3 md:p-4">
-        <div className="flex flex-col lg:flex-row gap-2.5">
+        <div className="flex flex-col xl:flex-row gap-2.5">
           <div className="relative flex-1">
             <Search className="input-icon" />
             <input
@@ -142,28 +205,38 @@ export default function TransactionHistoryClient({
                 setSearchQuery(e.target.value);
                 setCurrentPage(1);
               }}
-              placeholder="Search by title or note…"
+              placeholder="Search by title, person or note…"
               className="input pl-9"
             />
           </div>
 
-          <div className="segmented lg:w-60 shrink-0">
-            {(["All", "Credit", "Debit"] as const).map((type) => (
+          <div className="segmented xl:w-96 shrink-0" role="tablist" aria-label="Entry type">
+            <SegmentIndicator />
+            {TABS.map((t) => (
               <button
-                key={type}
+                key={t.value}
                 type="button"
-                data-active={typeFilter === type}
+                role="tab"
+                aria-selected={tab === t.value}
+                data-active={tab === t.value}
                 onClick={() => {
-                  setTypeFilter(type);
+                  setTab(t.value);
                   setCurrentPage(1);
                 }}
               >
-                {type}
+                {t.short ? (
+                  <>
+                    <span className="sm:hidden">{t.short}</span>
+                    <span className="hidden sm:inline">{t.label}</span>
+                  </>
+                ) : (
+                  t.label
+                )}
               </button>
             ))}
           </div>
 
-          <div className="grid grid-cols-2 gap-2.5 lg:w-72 shrink-0">
+          <div className="grid grid-cols-2 gap-2.5 xl:w-72 shrink-0">
             <div className="relative">
               <Calendar className="input-icon" />
               <DatePicker
@@ -199,6 +272,35 @@ export default function TransactionHistoryClient({
           </div>
         </div>
 
+        {tab === "LendBorrow" && (
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2.5 animate-fade-in">
+            <div className="sm:w-60">
+              <Select
+                value={moneyFilter}
+                onChange={(v) => {
+                  setMoneyFilter(v);
+                  setCurrentPage(1);
+                }}
+                options={MONEY_FILTER_OPTIONS}
+                aria-label="Lend & borrow entry type"
+              />
+            </div>
+            <div className="flex items-center gap-4 text-[13px] text-muted sm:ml-auto">
+              <span>
+                Money in{" "}
+                <span className="tabular font-medium text-success">+{formatMoney(moneyIn)}</span>
+              </span>
+              <span>
+                Money out{" "}
+                <span className="tabular font-medium text-fg">−{formatMoney(moneyOut)}</span>
+              </span>
+              <Link href="/lend-borrow" className="font-medium text-accent-fg hover:underline underline-offset-2">
+                Manage →
+              </Link>
+            </div>
+          </div>
+        )}
+
         <div className="flex flex-wrap items-center justify-between gap-2 text-[13px] text-muted">
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
             <span>
@@ -222,7 +324,7 @@ export default function TransactionHistoryClient({
         </div>
       </div>
 
-      {paginatedTransactions.length > 0 ? (
+      {paginated.length > 0 ? (
         <>
           {/* Desktop table */}
           <div className="hidden md:block overflow-x-auto">
@@ -238,9 +340,9 @@ export default function TransactionHistoryClient({
                 </tr>
               </thead>
               <tbody className="stagger-rows" key={pageKey}>
-                {paginatedTransactions.map((t) => {
-                  const CategoryIcon = getCategoryIcon(t.category);
-                  const isCredit = t.type === "Credit";
+                {paginated.map((t) => {
+                  const CategoryIcon = iconFor(t);
+                  const isCredit = isInflow(t.kind);
                   const hasSplits = t.splits.length > 0;
                   const isOpen = expanded.has(t.id);
 
@@ -252,11 +354,11 @@ export default function TransactionHistoryClient({
                         aria-expanded={hasSplits ? isOpen : undefined}
                       >
                         <td className="text-muted whitespace-nowrap">
-                          {formatTransactionDate(t.expenseDate)}
+                          {formatTransactionDate(t.date)}
                         </td>
                         <td>
                           <p className="flex items-center gap-2 font-medium text-fg">
-                            <span className="truncate max-w-xs">{t.title}</span>
+                            <span className="truncate max-w-xs">{titleFor(t)}</span>
                             {hasSplits && (
                               <span className="badge h-5 px-1.5 gap-0.5 text-[11px] shrink-0">
                                 <ChevronRight className="chevron h-3 w-3" data-open={isOpen} />
@@ -269,14 +371,14 @@ export default function TransactionHistoryClient({
                           )}
                         </td>
                         <td>
-                          <span className={`badge ${getCategoryGlow(t.category)}`}>
+                          <span className={`badge ${tintFor(t)}`}>
                             <CategoryIcon className="h-3 w-3" />
                             {t.category}
                           </span>
                         </td>
                         <td>
                           <span className={`badge badge-dot ${isCredit ? "badge-success" : "badge-danger"}`}>
-                            {t.type}
+                            {isCredit ? "Credit" : "Debit"}
                           </span>
                         </td>
                         <td className="text-right whitespace-nowrap">
@@ -311,28 +413,28 @@ export default function TransactionHistoryClient({
 
           {/* Mobile list */}
           <ul className="md:hidden divide-y divide-line stagger-rows" key={`m-${pageKey}`}>
-            {paginatedTransactions.map((t) => {
-              const CategoryIcon = getCategoryIcon(t.category);
-              const isCredit = t.type === "Credit";
+            {paginated.map((t) => {
+              const CategoryIcon = iconFor(t);
+              const isCredit = isInflow(t.kind);
               const hasSplits = t.splits.length > 0;
               const isOpen = expanded.has(t.id);
 
               return (
-                <li key={t.id} className={isOpen ? "bg-subtle/60" : ""}>
+                <li key={t.id} className={`transition-colors duration-300 ${isOpen ? "bg-subtle/60" : ""}`}>
                   <div
                     onClick={hasSplits ? () => toggleExpanded(t.id) : undefined}
                     className={`flex items-start gap-3 px-4 py-3 ${hasSplits ? "cursor-pointer" : ""}`}
                     aria-expanded={hasSplits ? isOpen : undefined}
                   >
                     <span
-                      className={`h-9 w-9 shrink-0 rounded-lg flex items-center justify-center ${getCategoryGlow(t.category)}`}
+                      className={`h-9 w-9 shrink-0 rounded-lg flex items-center justify-center ${tintFor(t)}`}
                     >
                       <CategoryIcon className="h-4 w-4" />
                     </span>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-fg truncate">{t.title}</p>
+                      <p className="text-sm font-medium text-fg truncate">{titleFor(t)}</p>
                       <p className="flex items-center gap-1 text-xs text-faint mt-0.5">
-                        {t.category} · {formatTransactionDate(t.expenseDate)}
+                        {t.category} · {formatTransactionDate(t.date)}
                         {hasSplits && (
                           <>
                             {" · "}
@@ -401,13 +503,21 @@ export default function TransactionHistoryClient({
       ) : (
         <div className="flex flex-col items-center justify-center text-center px-6 py-16">
           <div className="h-10 w-10 rounded-full bg-subtle flex items-center justify-center mb-3">
-            <FilterX className="h-5 w-5 text-faint" />
+            {tab === "LendBorrow" ? (
+              <HandCoins className="h-5 w-5 text-faint" />
+            ) : (
+              <FilterX className="h-5 w-5 text-faint" />
+            )}
           </div>
-          <p className="text-sm font-medium text-fg">No transactions found</p>
+          <p className="text-sm font-medium text-fg">
+            {tab === "LendBorrow" ? "No lend & borrow history" : "No transactions found"}
+          </p>
           <p className="text-[13px] text-muted mt-1 max-w-sm">
-            {hasFilters
-              ? "Nothing matches these filters. Try widening the date range or clearing the search."
-              : "Once you record transactions they will show up here."}
+            {tab === "LendBorrow" && !searchQuery && !startDate && !endDate
+              ? "Money you lend, borrow, get back or pay back will show up here."
+              : hasFilters
+                ? "Nothing matches these filters. Try widening the date range or clearing the search."
+                : "Once you record transactions they will show up here."}
           </p>
           {hasFilters && (
             <button onClick={handleResetFilters} className="btn btn-secondary btn-sm mt-4">

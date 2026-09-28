@@ -1,6 +1,7 @@
 import { getSession, removeSession } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
+import TimezoneSync from '@/components/TimezoneSync';
 import { db } from '@/lib/db';
 
 export default async function AuthenticatedLayout({
@@ -44,6 +45,7 @@ export default async function AuthenticatedLayout({
   return (
     <div className="flex-1 flex flex-col md:flex-row min-h-screen">
       <Sidebar user={user} pendingUserCount={pendingUserCount} />
+      <TimezoneSync />
 
       <main className="flex-1 min-w-0 flex flex-col pt-14 md:pt-0">
         <div className="w-full max-w-6xl mx-auto px-4 py-6 md:px-8 md:py-8">

@@ -14,6 +14,10 @@ function LoginContent() {
   const searchParams = useSearchParams();
   const { showToast } = useToast();
   const [isPending, startTransition] = useTransition();
+  // The transition ends when loginUser returns, but the dashboard still has to
+  // load; keep the button busy until this page unmounts.
+  const [redirecting, setRedirecting] = useState(false);
+  const busy = isPending || redirecting;
   const [unverifiedEmail, setUnverifiedEmail] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(
     searchParams.get("error") === "suspended"
@@ -39,6 +43,7 @@ function LoginContent() {
       const res = await loginUser(formData);
 
       if (res.success) {
+        setRedirecting(true);
         showToast("Welcome back! Login successful.", "success");
         router.push("/dashboard");
         router.refresh();
@@ -99,7 +104,7 @@ function LoginContent() {
               autoComplete="email"
               placeholder="you@example.com"
               className="input pl-9 h-11"
-              disabled={isPending}
+              disabled={busy}
             />
           </div>
         </div>
@@ -115,15 +120,15 @@ function LoginContent() {
             required
             autoComplete="current-password"
             placeholder="••••••••"
-            disabled={isPending}
+            disabled={busy}
           />
         </div>
 
-        <button type="submit" disabled={isPending} className="btn btn-primary btn-lg w-full h-11 mt-2">
-          {isPending ? (
+        <button type="submit" disabled={busy} className="btn btn-primary btn-lg w-full h-11 mt-2">
+          {busy ? (
             <>
               <Loader2 className="animate-spin" />
-              Signing in…
+              {redirecting ? "Opening dashboard…" : "Signing in…"}
             </>
           ) : (
             <>

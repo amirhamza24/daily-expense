@@ -9,6 +9,7 @@ import { logoutUser } from "@/actions/auth";
 import { useRouter } from "next/navigation";
 
 import { useTheme } from "@/components/ThemeProvider";
+import SegmentIndicator from "@/components/SegmentIndicator";
 
 type Theme = "light" | "dark";
 
@@ -72,6 +73,7 @@ export default function SettingsPage() {
         </div>
         <Row title="Theme" description="Saved on this device.">
           <div className="segmented w-52">
+            <SegmentIndicator />
             {themeOptions.map((opt) => (
               <button
                 key={opt.value}
