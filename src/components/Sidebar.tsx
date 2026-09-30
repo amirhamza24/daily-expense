@@ -26,6 +26,7 @@ import { useToast } from "./Toast";
 import { useConfirm, confirmPresets } from "./ConfirmModal";
 import { useTheme } from "./ThemeProvider";
 import { initials } from "@/lib/format";
+import { useI18n } from "./I18nProvider";
 
 interface SidebarProps {
   user: {
@@ -50,14 +51,15 @@ export default function Sidebar({ user, pendingUserCount = 0 }: SidebarProps) {
   const { showToast } = useToast();
   const confirm = useConfirm();
   const { theme, setTheme } = useTheme();
+  const { m } = useI18n();
   const [isOpen, setIsOpen] = useState(false);
 
   const handleLogout = async () => {
-    const ok = await confirm(confirmPresets.logout());
+    const ok = await confirm(confirmPresets.logout(m));
     if (!ok) return;
     const res = await logoutUser();
     if (res.success) {
-      showToast("Logged out successfully.", "success");
+      showToast(m.loggedOut, "success");
       router.push("/login");
       router.refresh();
     } else {
@@ -66,23 +68,23 @@ export default function Sidebar({ user, pendingUserCount = 0 }: SidebarProps) {
   };
 
   const navItems: NavItem[] = [
-    { label: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
-    { label: "Expenses", path: "/expenses", icon: Receipt },
-    { label: "Lend & Borrow", path: "/lend-borrow", icon: HandCoins },
-    { label: "History", path: "/transaction-history", icon: History },
-    { label: "Analytics", path: "/analytics", icon: BarChart3 },
-    { label: "Reports", path: "/reports", icon: FileChartColumn },
+    { label: m.nav.dashboard, path: "/dashboard", icon: LayoutDashboard },
+    { label: m.nav.expenses, path: "/expenses", icon: Receipt },
+    { label: m.nav.lendBorrow, path: "/lend-borrow", icon: HandCoins },
+    { label: m.nav.history, path: "/transaction-history", icon: History },
+    { label: m.nav.analytics, path: "/analytics", icon: BarChart3 },
+    { label: m.nav.reports, path: "/reports", icon: FileChartColumn },
   ];
 
   const accountItems: NavItem[] = [
-    { label: "Profile", path: "/profile", icon: User },
-    { label: "Settings", path: "/settings", icon: Settings },
+    { label: m.nav.profile, path: "/profile", icon: User },
+    { label: m.nav.settings, path: "/settings", icon: Settings },
   ];
 
   const adminItems: NavItem[] = [
-    { label: "Overview", path: "/admin/dashboard", icon: ShieldCheck },
+    { label: m.nav.overview, path: "/admin/dashboard", icon: ShieldCheck },
     {
-      label: "Users",
+      label: m.nav.users,
       path: "/admin/users",
       icon: Users,
       badge: pendingUserCount > 0 ? pendingUserCount : undefined,
@@ -141,9 +143,9 @@ export default function Sidebar({ user, pendingUserCount = 0 }: SidebarProps) {
       <div className="h-16 flex items-center px-5 shrink-0">{brand}</div>
 
       <div className="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-6 scrollbar-hide">
-        {renderGroup("Workspace", navItems)}
-        {renderGroup("Account", accountItems)}
-        {user.role === "ADMIN" && renderGroup("Admin", adminItems)}
+        {renderGroup(m.nav.workspace, navItems)}
+        {renderGroup(m.nav.account, accountItems)}
+        {user.role === "ADMIN" && renderGroup(m.nav.admin, adminItems)}
       </div>
 
       <div className="shrink-0 border-t border-line p-3 flex flex-col gap-1.5">
@@ -154,7 +156,7 @@ export default function Sidebar({ user, pendingUserCount = 0 }: SidebarProps) {
           <span key={theme} className="inline-flex animate-pop-in">
             {theme === "dark" ? <Sun /> : <Moon />}
           </span>
-          {theme === "dark" ? "Light mode" : "Dark mode"}
+          {theme === "dark" ? m.nav.lightMode : m.nav.darkMode}
         </button>
 
         <div className="flex items-center gap-2.5 p-2 rounded-xl bg-subtle border border-line">
@@ -170,8 +172,8 @@ export default function Sidebar({ user, pendingUserCount = 0 }: SidebarProps) {
           <button
             onClick={handleLogout}
             className="icon-btn icon-btn-danger"
-            title="Log out"
-            aria-label="Log out"
+            title={m.nav.logOut}
+            aria-label={m.nav.logOut}
           >
             <LogOut />
           </button>
@@ -188,7 +190,7 @@ export default function Sidebar({ user, pendingUserCount = 0 }: SidebarProps) {
         <button
           onClick={() => setIsOpen((v) => !v)}
           className="icon-btn"
-          aria-label={isOpen ? "Close menu" : "Open menu"}
+          aria-label={isOpen ? m.nav.closeMenu : m.nav.openMenu}
         >
           {isOpen ? <X /> : <Menu />}
         </button>

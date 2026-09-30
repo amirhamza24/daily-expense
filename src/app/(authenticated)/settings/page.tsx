@@ -4,19 +4,29 @@ import React, { useState, useTransition } from "react";
 import PageHeader from "@/components/PageHeader";
 import { useToast } from "@/components/Toast";
 import { useConfirm, confirmPresets } from "@/components/ConfirmModal";
-import { Trash2, Loader2, Sun, Moon, LogOut, Settings as SettingsIcon } from "lucide-react";
+import { Trash2, Loader2, Sun, Moon, LogOut, Languages, Settings as SettingsIcon } from "lucide-react";
 import { logoutUser } from "@/actions/auth";
 import { useRouter } from "next/navigation";
 
 import { useTheme } from "@/components/ThemeProvider";
+import { useI18n } from "@/components/I18nProvider";
 import SegmentIndicator from "@/components/SegmentIndicator";
+import type { Locale } from "@/lib/i18n/config";
+import { getMessagesFor } from "@/lib/i18n/messages";
 
 type Theme = "light" | "dark";
+
+// Each language is shown in its own script so it is recognisable either way
+const LANGUAGE_OPTIONS: { value: Locale; label: string }[] = [
+  { value: "en", label: "English" },
+  { value: "bn", label: "বাংলা" },
+];
 
 export default function SettingsPage() {
   const { showToast } = useToast();
   const confirmAction = useConfirm();
   const router = useRouter();
+  const { m, locale, setLocale, switching } = useI18n();
   const [isPending, startTransition] = useTransition();
   const [enableAlerts, setEnableAlerts] = useState(true);
   const [weeklyDigest, setWeeklyDigest] = useState(false);
@@ -26,30 +36,31 @@ export default function SettingsPage() {
 
   const applyTheme = (newTheme: Theme) => {
     setTheme(newTheme);
-    showToast(
-      `Switched to ${newTheme} mode.`,
-      "success",
-    );
+    showToast(m.settings.switchedTheme(newTheme), "success");
+  };
+
+  const applyLanguage = async (next: Locale) => {
+    if (next === locale) return;
+    await setLocale(next);
+    // Confirm in the language just chosen
+    showToast(getMessagesFor(next).settings.languageChanged, "success");
   };
 
   const handleClearHistory = async () => {
-    const ok = await confirmAction(confirmPresets.clearHistory());
+    const ok = await confirmAction(confirmPresets.clearHistory(m));
     if (!ok) return;
     startTransition(async () => {
       await new Promise((resolve) => setTimeout(resolve, 1500));
-      showToast(
-        "All transaction logs cleared successfully. Balance reset to zero.",
-        "success",
-      );
+      showToast(m.settings.ledgerCleared, "success");
     });
   };
 
   const handleLogout = async () => {
-    const ok = await confirmAction(confirmPresets.logout());
+    const ok = await confirmAction(confirmPresets.logout(m));
     if (!ok) return;
     const res = await logoutUser();
     if (res.success) {
-      showToast("Logged out successfully.", "success");
+      showToast(m.loggedOut, "success");
       router.push("/login");
       router.refresh();
     } else {
@@ -57,21 +68,20 @@ export default function SettingsPage() {
     }
   };
 
-
   const themeOptions: { value: Theme; label: string; icon: React.ReactNode }[] = [
-    { value: "light", label: "Light", icon: <Sun className="h-4 w-4" /> },
-    { value: "dark", label: "Dark", icon: <Moon className="h-4 w-4" /> },
+    { value: "light", label: m.settings.light, icon: <Sun className="h-4 w-4" /> },
+    { value: "dark", label: m.settings.dark, icon: <Moon className="h-4 w-4" /> },
   ];
 
   return (
     <>
-      <PageHeader icon={SettingsIcon} title="Settings" description="Appearance, notifications and account." />
+      <PageHeader icon={SettingsIcon} title={m.settings.title} description={m.settings.description} />
 
       <section className="card overflow-hidden max-w-3xl divide-y divide-line">
         <div className="card-head px-5 py-4">
-          <h2 className="section-title">Appearance</h2>
+          <h2 className="section-title">{m.settings.appearance}</h2>
         </div>
-        <Row title="Theme" description="Saved on this device.">
+        <Row title={m.settings.theme} description={m.settings.themeHint}>
           <div className="segmented w-52">
             <SegmentIndicator />
             {themeOptions.map((opt) => (
@@ -87,42 +97,60 @@ export default function SettingsPage() {
             ))}
           </div>
         </Row>
+        <Row title={m.settings.language} description={m.settings.languageHint}>
+          <div className="segmented w-52" aria-busy={switching}>
+            <SegmentIndicator />
+            {LANGUAGE_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                lang={opt.value}
+                data-active={locale === opt.value}
+                onClick={() => applyLanguage(opt.value)}
+              >
+                {locale === opt.value && switching ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Languages className="h-4 w-4" />
+                )}
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </Row>
       </section>
 
       <section className="card overflow-hidden max-w-3xl divide-y divide-line">
         <div className="card-head px-5 py-4">
-          <h2 className="section-title">Notifications</h2>
+          <h2 className="section-title">{m.settings.notifications}</h2>
         </div>
-        <Row title="In-app alerts" description="Show a toast after you add, edit or delete.">
+        <Row title={m.settings.inAppAlerts} description={m.settings.inAppAlertsHint}>
           <Switch
             checked={enableAlerts}
             onChange={() => setEnableAlerts(!enableAlerts)}
-            label="In-app alerts"
+            label={m.settings.inAppAlerts}
           />
         </Row>
-        <Row title="Weekly digest" description="A short email summary of your spending.">
+        <Row title={m.settings.weeklyDigest} description={m.settings.weeklyDigestHint}>
           <Switch
             checked={weeklyDigest}
             onChange={() => setWeeklyDigest(!weeklyDigest)}
-            label="Weekly digest"
+            label={m.settings.weeklyDigest}
           />
         </Row>
       </section>
 
       <section className="card overflow-hidden max-w-3xl divide-y divide-line">
         <div className="card-head px-5 py-4">
-          <h2 className="section-title">Account</h2>
+          <h2 className="section-title">{m.settings.account}</h2>
         </div>
-        <Row title="Sign out" description="End your session on this device.">
+        <Row title={m.settings.signOut} description={m.settings.signOutHint}>
           <button onClick={handleLogout} className="btn btn-secondary btn-sm">
             <LogOut />
-            Sign out
+            {m.settings.signOut}
           </button>
         </Row>
-        <Row
-          title="Reset ledger"
-          description="Permanently delete all transactions and reset your balance."
-        >
+        <Row title={m.settings.resetLedger} description={m.settings.resetLedgerHint}>
           <button
             onClick={handleClearHistory}
             disabled={isPending}
@@ -131,12 +159,12 @@ export default function SettingsPage() {
             {isPending ? (
               <>
                 <Loader2 className="animate-spin" />
-                Resetting…
+                {m.settings.resetting}
               </>
             ) : (
               <>
                 <Trash2 />
-                Reset ledger
+                {m.settings.resetLedger}
               </>
             )}
           </button>

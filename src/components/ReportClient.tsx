@@ -30,19 +30,17 @@ import {
 import PageHeader from "./PageHeader";
 import { Select, type SelectOption } from "./Select";
 import { useToast } from "./Toast";
-import { CHART_COLORS, SERIES, EmptyChart, MoneyTooltip, axisProps, compactMoney, useMounted } from "./ChartKit";
-import { formatMoney } from "@/lib/format";
+import { CHART_COLORS, SERIES, EmptyChart, MoneyTooltip, axisProps, useMounted } from "./ChartKit";
+import { useI18n } from "./I18nProvider";
+import type { Formatter } from "@/lib/format";
+import { categoryLabel } from "@/lib/i18n/messages";
 import { formatMonthKey, formatYmd, monthName, share } from "@/lib/dates";
 import { downloadNodeAsImage, downloadNodeAsPdf } from "@/lib/export-image";
 import type { MoneyMonthSummary, MonthlyReport } from "@/lib/finance-types";
 
-const signed = (n: number) => `${n < 0 ? "−" : n > 0 ? "+" : ""}${formatMoney(n)}`;
-const plain = (n: number) => `${n < 0 ? "−" : ""}${formatMoney(n)}`;
-
-const MONTH_OPTIONS: SelectOption[] = Array.from({ length: 12 }, (_, i) => ({
-  value: String(i),
-  label: monthName(i),
-}));
+const signed = (fmt: Formatter, n: number) => `${n < 0 ? "−" : n > 0 ? "+" : ""}${fmt.money(n)}`;
+const plain = (fmt: Formatter, n: number) => `${n < 0 ? "−" : ""}${fmt.money(n)}`;
+const pct = (fmt: Formatter, n: number) => fmt.digits(`${Math.round(n)}%`);
 
 // ─── Paper building blocks ───────────────────────────────────────────────────
 
@@ -82,6 +80,8 @@ function Rows({ rows }: { rows: Array<[string, string, string?]> }) {
 }
 
 function MoneyBlock({ kind, data }: { kind: "LENT" | "BORROWED"; data: MoneyMonthSummary }) {
+  const { m, fmt } = useI18n();
+  const r = m.reports;
   const lent = kind === "LENT";
   const Icon = lent ? ArrowUpRight : ArrowDownLeft;
   return (
@@ -91,18 +91,18 @@ function MoneyBlock({ kind, data }: { kind: "LENT" | "BORROWED"; data: MoneyMont
           <Icon className="h-4 w-4" />
         </span>
         <div>
-          <p className="text-[13.5px] font-semibold text-fg">{lent ? "Lending — Receivable" : "Borrowing — Payable"}</p>
-          <p className="text-[11px] text-faint">Not counted as {lent ? "expense" : "income"}</p>
+          <p className="text-[13.5px] font-semibold text-fg">{lent ? r.lendingTitle : r.borrowingTitle}</p>
+          <p className="text-[11px] text-faint">{lent ? r.notExpense : r.notIncome}</p>
         </div>
       </div>
       <Rows
         rows={[
-          [lent ? "Lent this month" : "Borrowed this month", `${formatMoney(data.amount)} · ${data.count} record${data.count === 1 ? "" : "s"}`],
-          [lent ? "Repayments received" : "Payments made", formatMoney(data.settled)],
-          ["Still outstanding (this month's records)", formatMoney(data.outstanding)],
-          [lent ? "Current total receivable" : "Current total payable", formatMoney(data.currentOutstanding), lent ? "text-success" : "text-warning"],
-          ["Fully paid · partially paid · pending", `${data.paid} · ${data.partial} · ${data.pending}`],
-          ["Overdue", String(data.overdue), data.overdue ? "text-danger" : undefined],
+          [lent ? r.lentThisMonth : r.borrowedThisMonth, `${fmt.money(data.amount)} · ${r.records(data.count)}`],
+          [lent ? r.repaymentsReceived : r.paymentsMade, fmt.money(data.settled)],
+          [r.stillOutstanding, fmt.money(data.outstanding)],
+          [lent ? r.totalReceivable : r.totalPayable, fmt.money(data.currentOutstanding), lent ? "text-success" : "text-warning"],
+          [r.statusBreakdown, fmt.digits(`${data.paid} · ${data.partial} · ${data.pending}`)],
+          [r.overdue, fmt.number(data.overdue), data.overdue ? "text-danger" : undefined],
         ]}
       />
     </div>
@@ -118,6 +118,13 @@ export default function ReportClient({ report, userName }: { report: MonthlyRepo
   const [isPending, startTransition] = useTransition();
   const [exporting, setExporting] = useState<"pdf" | "png" | "jpg" | null>(null);
   const paperRef = useRef<HTMLElement>(null);
+  const { m, fmt } = useI18n();
+  const r = m.reports;
+  const cat = (name: string) => categoryLabel(m, name);
+  const monthOptions: SelectOption[] = Array.from({ length: 12 }, (_, i) => ({
+    value: String(i),
+    label: monthName(i, fmt.locale),
+  }));
 
   const { month, overview, expense, income, lending, borrowing } = report;
 
@@ -127,7 +134,7 @@ export default function ReportClient({ report, userName }: { report: MonthlyRepo
     startTransition(() => router.push(`/reports?month=${key}`));
   };
 
-  const yearOptions: SelectOption[] = report.years.map((y) => ({ value: String(y), label: String(y) }));
+  const yearOptions: SelectOption[] = report.years.map((y) => ({ value: String(y), label: fmt.digits(y) }));
 
   const handleExport = async (format: "pdf" | "png" | "jpg") => {
     const node = paperRef.current;
@@ -138,18 +145,22 @@ export default function ReportClient({ report, userName }: { report: MonthlyRepo
       if (format === "pdf") await downloadNodeAsPdf(node, fileName);
       // Printable report: always white, regardless of theme
       else await downloadNodeAsImage(node, fileName, format, { backgroundColor: "#ffffff" });
-      showToast(`${month.label} report saved as ${format.toUpperCase()}.`, "success");
+      showToast(r.saved(month.label, format.toUpperCase()), "success");
     } catch (error) {
       console.error("Report export failed:", error);
-      showToast("Couldn't create the file. Please try again.", "error");
+      showToast(r.exportFailed, "error");
     } finally {
       setExporting(null);
     }
   };
 
-  const donut = expense.categories.map((c) => ({ name: c.name, value: c.amount }));
-  const dailyData = report.daily.map((d) => ({ name: formatYmd(d.day, { day: "numeric" }), full: formatYmd(d.day, { weekday: "short", month: "short", day: "numeric" }), Expenses: d.expense }));
-  const trendData = report.trend.map((t) => ({ name: formatMonthKey(t.month), Income: t.income, Expenses: t.expense }));
+  const donut = expense.categories.map((c) => ({ name: cat(c.name), value: c.amount }));
+  const dailyData = report.daily.map((d) => ({
+    name: formatYmd(d.day, { day: "numeric" }, fmt.locale),
+    full: formatYmd(d.day, { weekday: "short", month: "short", day: "numeric" }, fmt.locale),
+    Expenses: d.expense,
+  }));
+  const trendData = report.trend.map((t) => ({ name: formatMonthKey(t.month, undefined, fmt.locale), Income: t.income, Expenses: t.expense }));
   const trendHasHistory = report.trend.filter((t) => t.income || t.expense).length >= 2;
 
   const exportButton = (format: "pdf" | "png" | "jpg", label: string, Icon: React.ComponentType<{ className?: string }>, primary = false) => (
@@ -167,8 +178,8 @@ export default function ReportClient({ report, userName }: { report: MonthlyRepo
     <>
       <PageHeader
         icon={FileChartColumn}
-        title="Financial reports"
-        description="A complete, printable summary of any month."
+        title={r.title}
+        description={r.description}
         actions={
           <>
             {exportButton("pdf", "PDF", FileDown, true)}
@@ -180,21 +191,21 @@ export default function ReportClient({ report, userName }: { report: MonthlyRepo
 
       {/* Month picker */}
       <section className="card p-3 md:p-4 flex flex-wrap items-center gap-2.5">
-        <button onClick={() => goTo(month.year, month.index - 1)} className="icon-btn border border-line" aria-label="Previous month" disabled={isPending}>
+        <button onClick={() => goTo(month.year, month.index - 1)} className="icon-btn border border-line" aria-label={r.prevMonth} disabled={isPending}>
           <ChevronLeft />
         </button>
         <div className="w-40">
-          <Select value={String(month.index)} onChange={(v) => goTo(month.year, Number(v))} options={MONTH_OPTIONS} aria-label="Month" />
+          <Select value={String(month.index)} onChange={(v) => goTo(month.year, Number(v))} options={monthOptions} aria-label={r.month} />
         </div>
         <div className="w-28">
-          <Select value={String(month.year)} onChange={(v) => goTo(Number(v), month.index)} options={yearOptions} aria-label="Year" />
+          <Select value={String(month.year)} onChange={(v) => goTo(Number(v), month.index)} options={yearOptions} aria-label={r.year} />
         </div>
-        <button onClick={() => goTo(month.year, month.index + 1)} className="icon-btn border border-line" aria-label="Next month" disabled={isPending}>
+        <button onClick={() => goTo(month.year, month.index + 1)} className="icon-btn border border-line" aria-label={r.nextMonth} disabled={isPending}>
           <ChevronRight />
         </button>
         <span className="text-[13px] text-muted ml-auto flex items-center gap-2">
           {isPending && <Loader2 className="h-4 w-4 animate-spin text-accent-fg" />}
-          {report.isCurrentMonth ? "Current month — figures so far" : "Complete month"}
+          {report.isCurrentMonth ? r.currentMonth : r.completeMonth}
         </span>
       </section>
 
@@ -212,36 +223,36 @@ export default function ReportClient({ report, userName }: { report: MonthlyRepo
               <p className="text-[15px] font-semibold text-fg">
                 Expens<span className="text-accent-fg">ify</span>
               </p>
-              <p className="text-xs text-faint">Monthly Financial Report</p>
+              <p className="text-xs text-faint">{r.paperTitle}</p>
             </div>
           </div>
           <div className="text-right">
             <h1 className="text-2xl font-semibold tracking-tight text-fg">{month.label}</h1>
-            <p className="text-xs text-faint mt-1">Prepared for {userName}</p>
+            <p className="text-xs text-faint mt-1">{r.preparedFor(userName)}</p>
             <p className="text-xs text-faint">
-              Generated{" "}
+              {r.generated}{" "}
               {mounted
-                ? new Date(report.generatedAt).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })
-                : formatYmd(report.generatedAt.slice(0, 10), { month: "short", day: "numeric", year: "numeric" })}
+                ? new Date(report.generatedAt).toLocaleString(fmt.locale === "bn" ? "bn-BD" : "en-US", { dateStyle: "medium", timeStyle: "short" })
+                : formatYmd(report.generatedAt.slice(0, 10), { month: "short", day: "numeric", year: "numeric" }, fmt.locale)}
             </p>
           </div>
         </header>
 
         <div className="pt-6">
-          <Section title="Financial overview" subtitle="Closing = opening + net cash flow + lend & borrow movements">
+          <Section title={r.overview} subtitle={r.overviewHint}>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              <Figure label="Opening balance" value={plain(overview.opening)} />
-              <Figure label="Income" value={formatMoney(overview.income)} tone="text-success" />
-              <Figure label="Expenses" value={formatMoney(overview.expense)} tone="text-danger" />
-              <Figure label="Net cash flow" value={signed(overview.net)} tone={overview.net < 0 ? "text-danger" : "text-fg"} note="Income − expenses" />
-              <Figure label="Lend & borrow" value={signed(overview.lendBorrowNet)} note="−lent +borrowed +repaid −paid back" />
-              <Figure label="Closing balance" value={plain(overview.closing)} tone="text-accent-fg" />
+              <Figure label={r.opening} value={plain(fmt, overview.opening)} />
+              <Figure label={r.income} value={fmt.money(overview.income)} tone="text-success" />
+              <Figure label={r.expenses} value={fmt.money(overview.expense)} tone="text-danger" />
+              <Figure label={r.netCashFlow} value={signed(fmt, overview.net)} tone={overview.net < 0 ? "text-danger" : "text-fg"} note={r.incomeMinusExpenses} />
+              <Figure label={r.lendBorrow} value={signed(fmt, overview.lendBorrowNet)} note={r.lendBorrowNote} />
+              <Figure label={r.closing} value={plain(fmt, overview.closing)} tone="text-accent-fg" />
             </div>
           </Section>
 
-          <Section title="Monthly highlights">
+          <Section title={r.highlights}>
             {report.highlights.length === 0 ? (
-              <p className="text-[13px] text-faint">No transactions were recorded in {month.label}.</p>
+              <p className="text-[13px] text-faint">{r.noTransactions(month.label)}</p>
             ) : (
               <ul className="grid gap-2">
                 {report.highlights.map((h) => (
@@ -254,15 +265,15 @@ export default function ReportClient({ report, userName }: { report: MonthlyRepo
             )}
           </Section>
 
-          <Section title="Charts">
+          <Section title={r.charts}>
             {!mounted ? (
               <div className="skeleton h-64 w-full rounded-xl" />
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="rounded-xl border border-line p-4 min-w-0">
-                  <p className="text-[13px] font-medium text-fg mb-2">Expenses by category</p>
+                  <p className="text-[13px] font-medium text-fg mb-2">{r.byCategory}</p>
                   {donut.length === 0 ? (
-                    <EmptyChart label="No expenses" height="h-52" />
+                    <EmptyChart label={r.noExpenses} height="h-52" />
                   ) : (
                     <div className="flex items-center gap-3">
                       <div className="w-40 shrink-0">
@@ -282,7 +293,7 @@ export default function ReportClient({ report, userName }: { report: MonthlyRepo
                           <li key={d.name} className="flex items-center gap-2">
                             <span className="h-2 w-2 rounded-full shrink-0" style={{ background: CHART_COLORS[i % CHART_COLORS.length] }} />
                             <span className="flex-1 truncate text-muted">{d.name}</span>
-                            <span className="tabular text-fg">{Math.round(share(d.value, expense.total))}%</span>
+                            <span className="tabular text-fg">{pct(fmt, share(d.value, expense.total))}</span>
                           </li>
                         ))}
                       </ul>
@@ -291,58 +302,58 @@ export default function ReportClient({ report, userName }: { report: MonthlyRepo
                 </div>
 
                 <div className="rounded-xl border border-line p-4 min-w-0">
-                  <p className="text-[13px] font-medium text-fg mb-2">Income vs expenses</p>
+                  <p className="text-[13px] font-medium text-fg mb-2">{r.incomeVsExpenses}</p>
                   {overview.income === 0 && overview.expense === 0 ? (
-                    <EmptyChart label="No income or expenses" height="h-52" />
+                    <EmptyChart label={r.noIncomeExpenses} height="h-52" />
                   ) : (
                     <ResponsiveContainer width="100%" height={180}>
                       <BarChart data={[{ name: month.label, Income: overview.income, Expenses: overview.expense }]} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
                         <CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="3 3" />
                         <XAxis dataKey="name" {...axisProps} />
-                        <YAxis {...axisProps} tickFormatter={compactMoney} width={48} />
+                        <YAxis {...axisProps} tickFormatter={fmt.compactMoney} width={48} />
                         <Tooltip content={<MoneyTooltip />} cursor={{ fill: "var(--surface-2)" }} />
                         <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
-                        <Bar dataKey="Income" fill={SERIES.income} radius={[5, 5, 0, 0]} maxBarSize={56} isAnimationActive={false} />
-                        <Bar dataKey="Expenses" fill={SERIES.expense} radius={[5, 5, 0, 0]} maxBarSize={56} isAnimationActive={false} />
+                        <Bar dataKey="Income" name={r.income} fill={SERIES.income} radius={[5, 5, 0, 0]} maxBarSize={56} isAnimationActive={false} />
+                        <Bar dataKey="Expenses" name={r.expenses} fill={SERIES.expense} radius={[5, 5, 0, 0]} maxBarSize={56} isAnimationActive={false} />
                       </BarChart>
                     </ResponsiveContainer>
                   )}
                 </div>
 
                 <div className="rounded-xl border border-line p-4 min-w-0 md:col-span-2">
-                  <p className="text-[13px] font-medium text-fg mb-2">Daily spending</p>
+                  <p className="text-[13px] font-medium text-fg mb-2">{r.dailySpending}</p>
                   {expense.total === 0 ? (
-                    <EmptyChart label="No expenses" height="h-40" />
+                    <EmptyChart label={r.noExpenses} height="h-40" />
                   ) : (
                     <ResponsiveContainer width="100%" height={180}>
                       <BarChart data={dailyData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
                         <CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="3 3" />
                         <XAxis dataKey="name" {...axisProps} interval="preserveStartEnd" minTickGap={8} />
-                        <YAxis {...axisProps} tickFormatter={compactMoney} width={48} />
+                        <YAxis {...axisProps} tickFormatter={fmt.compactMoney} width={48} />
                         <Tooltip
                           content={<MoneyTooltip labelFormatter={(l) => dailyData.find((d) => d.name === l)?.full ?? l} />}
                           cursor={{ fill: "var(--surface-2)" }}
                         />
-                        <Bar dataKey="Expenses" fill={SERIES.expense} radius={[3, 3, 0, 0]} maxBarSize={18} isAnimationActive={false} />
+                        <Bar dataKey="Expenses" name={r.expenses} fill={SERIES.expense} radius={[3, 3, 0, 0]} maxBarSize={18} isAnimationActive={false} />
                       </BarChart>
                     </ResponsiveContainer>
                   )}
                 </div>
 
                 <div className="rounded-xl border border-line p-4 min-w-0 md:col-span-2">
-                  <p className="text-[13px] font-medium text-fg mb-2">6-month trend</p>
+                  <p className="text-[13px] font-medium text-fg mb-2">{r.trend6}</p>
                   {!trendHasHistory ? (
-                    <EmptyChart label="Not enough history yet — at least two months with data are needed" height="h-40" />
+                    <EmptyChart label={r.notEnoughHistory} height="h-40" />
                   ) : (
                     <ResponsiveContainer width="100%" height={200}>
                       <BarChart data={trendData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }} barGap={3}>
                         <CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="3 3" />
                         <XAxis dataKey="name" {...axisProps} />
-                        <YAxis {...axisProps} tickFormatter={compactMoney} width={48} />
+                        <YAxis {...axisProps} tickFormatter={fmt.compactMoney} width={48} />
                         <Tooltip content={<MoneyTooltip />} cursor={{ fill: "var(--surface-2)" }} />
                         <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
-                        <Bar dataKey="Income" fill={SERIES.income} radius={[4, 4, 0, 0]} maxBarSize={26} isAnimationActive={false} />
-                        <Bar dataKey="Expenses" fill={SERIES.expense} radius={[4, 4, 0, 0]} maxBarSize={26} isAnimationActive={false} />
+                        <Bar dataKey="Income" name={r.income} fill={SERIES.income} radius={[4, 4, 0, 0]} maxBarSize={26} isAnimationActive={false} />
+                        <Bar dataKey="Expenses" name={r.expenses} fill={SERIES.expense} radius={[4, 4, 0, 0]} maxBarSize={26} isAnimationActive={false} />
                       </BarChart>
                     </ResponsiveContainer>
                   )}
@@ -351,35 +362,35 @@ export default function ReportClient({ report, userName }: { report: MonthlyRepo
             )}
           </Section>
 
-          <Section title="Expense summary" subtitle="Income and lend & borrow excluded">
+          <Section title={r.expenseSummary} subtitle={r.expenseSummaryHint}>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
-              <Figure label="Total expenses" value={formatMoney(expense.total)} />
-              <Figure label="Transactions" value={String(expense.count)} />
-              <Figure label="Average expense" value={formatMoney(expense.average)} />
+              <Figure label={r.totalExpenses} value={fmt.money(expense.total)} />
+              <Figure label={r.transactions} value={fmt.number(expense.count)} />
+              <Figure label={r.averageExpense} value={fmt.money(expense.average)} />
               <Figure
-                label="Highest expense"
-                value={expense.highest ? formatMoney(expense.highest.amount) : "—"}
-                note={expense.highest ? `${expense.highest.title} · ${formatYmd(expense.highest.day)}` : undefined}
+                label={r.highestExpense}
+                value={expense.highest ? fmt.money(expense.highest.amount) : "—"}
+                note={expense.highest ? `${expense.highest.title} · ${formatYmd(expense.highest.day, undefined, fmt.locale)}` : undefined}
               />
               <Figure
-                label="Highest spending day"
-                value={expense.highestDay ? formatMoney(expense.highestDay.amount) : "—"}
-                note={expense.highestDay ? formatYmd(expense.highestDay.day, { weekday: "long", month: "short", day: "numeric" }) : undefined}
+                label={r.highestDay}
+                value={expense.highestDay ? fmt.money(expense.highestDay.amount) : "—"}
+                note={expense.highestDay ? formatYmd(expense.highestDay.day, { weekday: "long", month: "short", day: "numeric" }, fmt.locale) : undefined}
               />
               <Figure
-                label="Top category"
-                value={expense.categories[0]?.name ?? "—"}
-                note={expense.categories[0] ? `${formatMoney(expense.categories[0].amount)} · ${Math.round(share(expense.categories[0].amount, expense.total))}%` : undefined}
+                label={r.topCategory}
+                value={expense.categories[0] ? cat(expense.categories[0].name) : "—"}
+                note={expense.categories[0] ? `${fmt.money(expense.categories[0].amount)} · ${pct(fmt, share(expense.categories[0].amount, expense.total))}` : undefined}
               />
             </div>
             {expense.categories.length > 0 && (
               <table className="w-full text-[13px]">
                 <thead>
                   <tr className="text-xs text-faint border-b border-line">
-                    <th className="text-left font-medium py-2">Category</th>
-                    <th className="text-right font-medium py-2">Transactions</th>
-                    <th className="text-right font-medium py-2 w-1/3">Share</th>
-                    <th className="text-right font-medium py-2">Amount</th>
+                    <th className="text-left font-medium py-2">{r.colCategory}</th>
+                    <th className="text-right font-medium py-2">{r.transactions}</th>
+                    <th className="text-right font-medium py-2 w-1/3">{r.colShare}</th>
+                    <th className="text-right font-medium py-2">{r.colAmount}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-line">
@@ -390,19 +401,19 @@ export default function ReportClient({ report, userName }: { report: MonthlyRepo
                         <td className="py-2">
                           <span className="flex items-center gap-2">
                             <span className="h-2 w-2 rounded-full" style={{ background: CHART_COLORS[i % CHART_COLORS.length] }} />
-                            {c.name}
+                            {cat(c.name)}
                           </span>
                         </td>
-                        <td className="py-2 text-right tabular text-muted">{c.count}</td>
+                        <td className="py-2 text-right tabular text-muted">{fmt.number(c.count)}</td>
                         <td className="py-2">
                           <span className="flex items-center justify-end gap-2">
                             <span className="h-1.5 w-24 rounded-full bg-muted-bg overflow-hidden hidden sm:block">
                               <span className="block h-full rounded-full bg-accent" style={{ width: `${pctValue}%` }} />
                             </span>
-                            <span className="tabular text-muted w-9 text-right">{Math.round(pctValue)}%</span>
+                            <span className="tabular text-muted w-9 text-right">{pct(fmt, pctValue)}</span>
                           </span>
                         </td>
-                        <td className="py-2 text-right tabular font-medium">{formatMoney(c.amount)}</td>
+                        <td className="py-2 text-right tabular font-medium">{fmt.money(c.amount)}</td>
                       </tr>
                     );
                   })}
@@ -411,20 +422,20 @@ export default function ReportClient({ report, userName }: { report: MonthlyRepo
             )}
           </Section>
 
-          <Section title="Income summary">
+          <Section title={r.incomeSummary}>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <Figure label="Total income" value={formatMoney(income.total)} tone="text-success" />
-              <Figure label="Transactions" value={String(income.count)} />
-              <Figure label="Average income" value={formatMoney(income.average)} />
+              <Figure label={r.totalIncome} value={fmt.money(income.total)} tone="text-success" />
+              <Figure label={r.transactions} value={fmt.number(income.count)} />
+              <Figure label={r.averageIncome} value={fmt.money(income.average)} />
               <Figure
-                label="Highest income"
-                value={income.highest ? formatMoney(income.highest.amount) : "—"}
-                note={income.highest ? `${income.highest.title} · ${formatYmd(income.highest.day)}` : undefined}
+                label={r.highestIncome}
+                value={income.highest ? fmt.money(income.highest.amount) : "—"}
+                note={income.highest ? `${income.highest.title} · ${formatYmd(income.highest.day, undefined, fmt.locale)}` : undefined}
               />
             </div>
           </Section>
 
-          <Section title="Lending & borrowing" subtitle="Tracked separately — never counted as income or expense">
+          <Section title={r.lendingBorrowing} subtitle={r.lendingBorrowingHint}>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <MoneyBlock kind="LENT" data={lending} />
               <MoneyBlock kind="BORROWED" data={borrowing} />
@@ -433,8 +444,8 @@ export default function ReportClient({ report, userName }: { report: MonthlyRepo
         </div>
 
         <footer className="mt-8 pt-4 border-t border-line flex flex-wrap justify-between gap-2 text-[11px] text-faint">
-          <span>Expensify · Monthly Financial Report · {month.label}</span>
-          <span>Amounts in USD · figures based on transactions recorded in the app</span>
+          <span>{r.footer(month.label)}</span>
+          <span>{r.footerNote}</span>
         </footer>
       </article>
     </>

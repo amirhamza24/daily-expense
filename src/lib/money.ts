@@ -103,41 +103,13 @@ export function displayStatus(
   return isOverdue(record, now) ? 'OVERDUE' : record.status;
 }
 
-export const moneyTerms = {
-  LENT: {
-    label: 'Lent',
-    arrow: '→',
-    preposition: 'to',
-    outstanding: 'Receivable',
-    settled: 'Repaid',
-    payment: 'Repayment',
-    recordPayment: 'Record repayment',
-    dateLabel: 'Lent on',
-  },
-  BORROWED: {
-    label: 'Borrowed',
-    arrow: '←',
-    preposition: 'from',
-    outstanding: 'Payable',
-    settled: 'Paid',
-    payment: 'Payment',
-    recordPayment: 'Record payment',
-    dateLabel: 'Borrowed on',
-  },
-} as const satisfies Record<MoneyType, Record<string, string>>;
+// Display text for types and statuses lives in the messages
+// (`m.moneyTerms[type]`, `m.moneyStatus[status]`, see src/lib/i18n/dict/money.ts).
 
 /** Tint classes for the type icon tile / badge. */
 export const moneyTypeTint: Record<MoneyType, string> = {
   LENT: 'bg-success-soft text-success',
   BORROWED: 'bg-warning-soft text-warning',
-};
-
-export const statusLabels: Record<MoneyStatusFilter, string> = {
-  OPEN: 'Outstanding',
-  PENDING: 'Pending',
-  PARTIALLY_PAID: 'Partially paid',
-  PAID: 'Paid',
-  OVERDUE: 'Overdue',
 };
 
 export const statusBadge: Record<MoneyDisplayStatus, string> = {

@@ -6,6 +6,7 @@ import ExpensesClient, { ExpenseItem } from '@/components/ExpensesClient';
 import { getExpenses, ExpenseFilterOptions } from '@/actions/expenses';
 import { Prisma } from '@prisma/client';
 import ErrorState from '@/components/ErrorState';
+import { getI18n } from '@/lib/i18n/server';
 
 export const revalidate = 0; // Disable caching
 
@@ -157,10 +158,11 @@ export default async function ExpensesPage({ searchParams }: ExpensesPageProps) 
   }
 
   if (!data) {
+    const { m } = await getI18n();
     return (
       <ErrorState
-        title="Couldn't load your expenses"
-        message="The database didn't respond. Please check your connection and try again."
+        title={m.errorState.dbTitle(m.expenses.loadError)}
+        message={m.errorState.dbMessage}
       />
     );
   }

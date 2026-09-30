@@ -1,14 +1,16 @@
 "use client";
 
 import React, { useState, useTransition } from "react";
-import { Banknote, Calendar, DollarSign, Loader2 } from "lucide-react";
+import { Banknote, Calendar, Loader2 } from "lucide-react";
+import TakaSign from "@/components/TakaSign";
 import DatePicker from "react-datepicker";
 import Modal from "./Modal";
 import { useToast } from "./Toast";
 import { MoneyStatusBadge, SettledBar } from "./MoneyBadges";
 import { recordMoneyPayment } from "@/actions/money";
-import { formatMoney } from "@/lib/format";
-import { moneyTerms, remainingOf, round2, settlementStatus, type MoneyRecordView } from "@/lib/money";
+import { useI18n } from "./I18nProvider";
+import { useDatePickerI18n } from "./useDatePickerI18n";
+import { remainingOf, round2, settlementStatus, type MoneyRecordView } from "@/lib/money";
 
 interface MoneyPaymentModalProps {
   record?: MoneyRecordView;
@@ -23,12 +25,15 @@ export default function MoneyPaymentModal({ record, onClose }: MoneyPaymentModal
 
 function PaymentForm({ record, onClose }: { record: MoneyRecordView; onClose: () => void }) {
   const { showToast } = useToast();
+  const { m, fmt } = useI18n();
+  const t = m.money;
+  const datePickerI18n = useDatePickerI18n("short");
   const [isPending, startTransition] = useTransition();
   const [amount, setAmount] = useState("");
   const [paymentDate, setPaymentDate] = useState<Date>(() => new Date());
   const [note, setNote] = useState("");
 
-  const terms = moneyTerms[record.type];
+  const terms = m.moneyTerms[record.type];
   const isLent = record.type === "LENT";
   const remaining = remainingOf(record);
   const parsed = round2(parseFloat(amount) || 0);
@@ -41,11 +46,11 @@ function PaymentForm({ record, onClose }: { record: MoneyRecordView; onClose: ()
     e.preventDefault();
 
     if (isNaN(parsed) || parsed <= 0) {
-      showToast("Amount must be a positive number greater than zero.", "error");
+      showToast(t.amountPositive, "error");
       return;
     }
     if (tooMuch) {
-      showToast(`${terms.payment} can't be more than the remaining ${formatMoney(remaining)}.`, "error");
+      showToast(t.paymentTooMuch(terms.payment, fmt.money(remaining)), "error");
       return;
     }
 
@@ -58,13 +63,13 @@ function PaymentForm({ record, onClose }: { record: MoneyRecordView; onClose: ()
       if (res.success) {
         showToast(
           remainingAfter === 0
-            ? `${terms.payment} recorded — ${record.personName}'s record is fully paid.`
-            : `${terms.payment} of ${formatMoney(parsed)} recorded.`,
+            ? t.paymentFullyPaid(terms.payment, record.personName)
+            : t.paymentRecorded(terms.payment, fmt.money(parsed)),
           "success",
         );
         onClose();
       } else {
-        showToast(res.error || `Failed to record ${terms.payment.toLowerCase()}.`, "error");
+        showToast(res.error || terms.recordPaymentFailed, "error");
       }
     });
   };
@@ -77,14 +82,12 @@ function PaymentForm({ record, onClose }: { record: MoneyRecordView; onClose: ()
       icon={<Banknote className="h-5 w-5" />}
       title={terms.recordPayment}
       description={
-        isLent
-          ? `Money ${record.personName} returned to you.`
-          : `Money you paid back to ${record.personName}.`
+        isLent ? t.returnedToYou(record.personName) : t.youPaidBack(record.personName)
       }
       footer={
         <>
           <button type="button" onClick={onClose} className="btn btn-secondary" disabled={isPending}>
-            Cancel
+            {m.cancel}
           </button>
           <button
             type="submit"
@@ -95,7 +98,7 @@ function PaymentForm({ record, onClose }: { record: MoneyRecordView; onClose: ()
             {isPending ? (
               <>
                 <Loader2 className="animate-spin" />
-                Saving…
+                {m.saving}
               </>
             ) : (
               terms.recordPayment
@@ -110,16 +113,16 @@ function PaymentForm({ record, onClose }: { record: MoneyRecordView; onClose: ()
           <div className="grid grid-cols-3 gap-2 text-center">
             <div>
               <p className="text-xs text-faint">{terms.label}</p>
-              <p className="text-sm font-semibold tabular text-fg">{formatMoney(record.amount)}</p>
+              <p className="text-sm font-semibold tabular text-fg">{fmt.money(record.amount)}</p>
             </div>
             <div>
               <p className="text-xs text-faint">{terms.settled}</p>
-              <p className="text-sm font-semibold tabular text-fg">{formatMoney(record.paidAmount)}</p>
+              <p className="text-sm font-semibold tabular text-fg">{fmt.money(record.paidAmount)}</p>
             </div>
             <div>
-              <p className="text-xs text-faint">Remaining</p>
+              <p className="text-xs text-faint">{t.remaining}</p>
               <p className={`text-sm font-semibold tabular ${isLent ? "text-success" : "text-warning"}`}>
-                {formatMoney(remaining)}
+                {fmt.money(remaining)}
               </p>
             </div>
           </div>
@@ -131,7 +134,7 @@ function PaymentForm({ record, onClose }: { record: MoneyRecordView; onClose: ()
         <div>
           <div className="flex items-center justify-between mb-1.5">
             <label className="label mb-0!" htmlFor="payment-amount">
-              {terms.payment} amount
+              {terms.paymentAmount}
             </label>
             <button
               type="button"
@@ -139,11 +142,11 @@ function PaymentForm({ record, onClose }: { record: MoneyRecordView; onClose: ()
               className="text-xs font-medium text-accent-fg hover:underline underline-offset-2 cursor-pointer"
               disabled={isPending}
             >
-              Full remaining ({formatMoney(remaining)})
+              {t.fullRemaining(fmt.money(remaining))}
             </button>
           </div>
           <div className="relative">
-            <DollarSign className="input-icon" />
+            <TakaSign className="input-icon" />
             <input
               id="payment-amount"
               type="number"
@@ -162,26 +165,26 @@ function PaymentForm({ record, onClose }: { record: MoneyRecordView; onClose: ()
           </div>
           {tooMuch ? (
             <p className="text-xs text-danger mt-1.5">
-              Can&apos;t be more than the remaining {formatMoney(remaining)}.
+              {t.notMoreThanRemaining(fmt.money(remaining))}
             </p>
           ) : parsed > 0 ? (
             <p className="text-xs text-muted mt-1.5 flex flex-wrap items-center gap-1.5">
-              Remaining after this:{" "}
-              <span className="tabular font-medium text-fg">{formatMoney(remainingAfter)}</span>
+              {t.remainingAfter}{" "}
+              <span className="tabular font-medium text-fg">{fmt.money(remainingAfter)}</span>
               <MoneyStatusBadge status={statusAfter} />
             </p>
           ) : null}
         </div>
 
         <div>
-          <label className="label">{terms.payment} date</label>
+          <label className="label">{terms.paymentDate}</label>
           <div className="relative">
             <Calendar className="input-icon" />
             <DatePicker
               selected={paymentDate}
               onChange={(d: Date | null) => setPaymentDate(d || new Date())}
               minDate={recordDate}
-              dateFormat="MMM d, yyyy"
+              {...datePickerI18n}
               fixedHeight
               portalId="root-portal"
               popperPlacement="bottom-start"
@@ -194,7 +197,7 @@ function PaymentForm({ record, onClose }: { record: MoneyRecordView; onClose: ()
 
         <div>
           <label className="label" htmlFor="payment-note">
-            Note <span className="text-faint font-normal">(optional)</span>
+            {t.note} <span className="text-faint font-normal">({m.optional})</span>
           </label>
           <input
             id="payment-note"
@@ -202,16 +205,14 @@ function PaymentForm({ record, onClose }: { record: MoneyRecordView; onClose: ()
             maxLength={300}
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            placeholder={isLent ? "e.g. Paid in cash" : "e.g. Bank transfer"}
+            placeholder={isLent ? t.paidCash : t.bankTransfer}
             className="input"
             disabled={isPending}
           />
         </div>
 
         <p className="text-xs text-faint">
-          {isLent
-            ? "Adds to your available balance and reduces your receivable."
-            : "Deducted from your available balance and reduces your payable."}
+          {isLent ? t.repayInfo : t.payInfo}
         </p>
       </form>
     </Modal>

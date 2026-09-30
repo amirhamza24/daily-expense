@@ -33,6 +33,11 @@ model User {
   emailVerified          Boolean    @default(false)
   verificationCode       String?
   verificationCodeExpiry DateTime?
+  // Password reset: SHA-256 of the emailed 6-digit code (never the code itself),
+  // its expiry, and failed attempts — the code is burned after too many misses.
+  resetCodeHash          String?
+  resetCodeExpiry        DateTime?
+  resetAttempts          Int        @default(0)
   createdAt              DateTime   @default(now())
   
   expenses               Expense[]

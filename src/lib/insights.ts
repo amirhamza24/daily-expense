@@ -1,5 +1,7 @@
-import { formatMoney } from '@/lib/format';
+import { formatMoney, localizeDigits } from '@/lib/format';
 import { formatYmd, pctChange, share } from '@/lib/dates';
+import type { Locale } from '@/lib/i18n/config';
+import { categoryLabel, getMessagesFor } from '@/lib/i18n/messages';
 
 /**
  * Rule-based financial insights. Pure: takes already-aggregated numbers and
@@ -66,11 +68,14 @@ export interface InsightInput {
   dayHref?: (day: string) => string;
 }
 
-const pct = (n: number) => `${Math.abs(n) >= 10 ? Math.round(Math.abs(n)) : Math.abs(n).toFixed(1)}%`;
-const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
-
-export function buildInsights(input: InsightInput, limit = 5): Insight[] {
+export function buildInsights(input: InsightInput, limit = 5, locale: Locale = 'en'): Insight[] {
   const t = INSIGHT_THRESHOLDS;
+  const m = getMessagesFor(locale);
+  const i18n = m.insights;
+  const money$ = (n: number) => formatMoney(n, locale);
+  const pct = (n: number) =>
+    localizeDigits(`${Math.abs(n) >= 10 ? Math.round(Math.abs(n)) : Math.abs(n).toFixed(1)}%`, locale);
+  const cat = (name: string) => categoryLabel(m, name);
   const out: Insight[] = [];
   const { current: cur, previous: prev, money } = input;
   const usedCategories = new Set<string>();
@@ -83,9 +88,9 @@ export function buildInsights(input: InsightInput, limit = 5): Insight[] {
         id: 'cashflow-negative',
         tone: 'negative',
         icon: 'alert',
-        title: 'Expenses exceeded income',
-        message: `You spent ${formatMoney(-net)} more than you earned ${input.periodLabel}.`,
-        metric: `${pct(share(cur.expense, cur.income))} of income spent`,
+        title: i18n.cashflowNegative.title,
+        message: i18n.cashflowNegative.message(money$(-net), input.periodLabel),
+        metric: i18n.cashflowNegative.metric(pct(share(cur.expense, cur.income))),
         priority: 100,
       });
     } else if (cur.income > 0 && net > 0) {
@@ -93,9 +98,9 @@ export function buildInsights(input: InsightInput, limit = 5): Insight[] {
         id: 'cashflow-positive',
         tone: 'positive',
         icon: 'wallet',
-        title: 'Positive cash flow',
-        message: `You had a positive net cash flow of ${formatMoney(net)} ${input.periodLabel}.`,
-        metric: cur.expense > 0 ? `Expenses were ${pct(share(cur.expense, cur.income))} of income` : undefined,
+        title: i18n.cashflowPositive.title,
+        message: i18n.cashflowPositive.message(money$(net), input.periodLabel),
+        metric: cur.expense > 0 ? i18n.cashflowPositive.metric(pct(share(cur.expense, cur.income))) : undefined,
         priority: 70,
       });
     }
@@ -107,9 +112,9 @@ export function buildInsights(input: InsightInput, limit = 5): Insight[] {
       id: 'overdue-lending',
       tone: 'warning',
       icon: 'alert',
-      title: 'Overdue repayments',
-      message: `${plural(money.overdueLending, 'lending record')} ${money.overdueLending === 1 ? 'is' : 'are'} past the due date.`,
-      metric: `${formatMoney(money.receivable)} receivable in total`,
+      title: i18n.overdueLending.title,
+      message: i18n.overdueLending.message(money.overdueLending),
+      metric: i18n.overdueLending.metric(money$(money.receivable)),
       href: '/lend-borrow?type=LENT&status=OVERDUE',
       priority: 95,
     });
@@ -119,9 +124,9 @@ export function buildInsights(input: InsightInput, limit = 5): Insight[] {
       id: 'overdue-borrowing',
       tone: 'warning',
       icon: 'alert',
-      title: 'Overdue payments',
-      message: `You have ${plural(money.overdueBorrowing, 'borrowing record')} past the due date.`,
-      metric: `${formatMoney(money.payable)} payable in total`,
+      title: i18n.overdueBorrowing.title,
+      message: i18n.overdueBorrowing.message(money.overdueBorrowing),
+      metric: i18n.overdueBorrowing.metric(money$(money.payable)),
       href: '/lend-borrow?type=BORROWED&status=OVERDUE',
       priority: 96,
     });
@@ -135,9 +140,9 @@ export function buildInsights(input: InsightInput, limit = 5): Insight[] {
       id: 'expense-change',
       tone: up ? 'negative' : 'positive',
       icon: up ? 'trend-up' : 'trend-down',
-      title: up ? 'Spending increased' : 'Spending decreased',
-      message: `You spent ${formatMoney(Math.abs(cur.expense - prev.expense))} ${up ? "more" : "less"} compared with ${input.prevLabel}.`,
-      metric: `${up ? '+' : '−'}${pct(expenseChange)} vs ${input.prevLabel}`,
+      title: up ? i18n.spendingUp : i18n.spendingDown,
+      message: i18n.spendingChange(money$(Math.abs(cur.expense - prev.expense)), up, input.prevLabel),
+      metric: i18n.vs(`${up ? '+' : '−'}${pct(expenseChange)}`, input.prevLabel),
       priority: 90,
     });
   }
@@ -157,9 +162,9 @@ export function buildInsights(input: InsightInput, limit = 5): Insight[] {
       id: `category-up-${inc.name}`,
       tone: 'negative',
       icon: 'trend-up',
-      title: `${inc.name} spending increased`,
-      message: `You spent ${formatMoney(inc.amount - inc.prevAmount)} more on ${inc.name} compared with ${input.prevLabel}.`,
-      metric: `+${pct(inc.change)} vs ${input.prevLabel}`,
+      title: i18n.categoryUp.title(cat(inc.name)),
+      message: i18n.categoryUp.message(money$(inc.amount - inc.prevAmount), cat(inc.name), input.prevLabel),
+      metric: i18n.vs(`+${pct(inc.change)}`, input.prevLabel),
       href: inc.href,
       priority: 85,
     });
@@ -171,9 +176,9 @@ export function buildInsights(input: InsightInput, limit = 5): Insight[] {
       id: `category-down-${dec.name}`,
       tone: 'positive',
       icon: 'trend-down',
-      title: `${dec.name} spending decreased`,
-      message: `You spent ${formatMoney(dec.prevAmount - dec.amount)} less on ${dec.name} compared with ${input.prevLabel}.`,
-      metric: `−${pct(dec.change)} vs ${input.prevLabel}`,
+      title: i18n.categoryDown.title(cat(dec.name)),
+      message: i18n.categoryDown.message(money$(dec.prevAmount - dec.amount), cat(dec.name), input.prevLabel),
+      metric: i18n.vs(`−${pct(dec.change)}`, input.prevLabel),
       href: dec.href,
       priority: 80,
     });
@@ -189,9 +194,12 @@ export function buildInsights(input: InsightInput, limit = 5): Insight[] {
         id: 'unusual-day',
         tone: 'warning',
         icon: 'calendar',
-        title: 'Unusually high spending',
-        message: `You spent ${formatMoney(top.amount)} on ${formatYmd(top.day, { weekday: 'long', month: 'short', day: 'numeric' })}.`,
-        metric: `${(top.amount / avg).toFixed(1)}× your average spending day`,
+        title: i18n.unusualDay.title,
+        message: i18n.unusualDay.message(
+          money$(top.amount),
+          formatYmd(top.day, { weekday: 'long', month: 'short', day: 'numeric' }, locale),
+        ),
+        metric: i18n.unusualDay.metric(localizeDigits((top.amount / avg).toFixed(1), locale)),
         href: input.dayHref?.(top.day),
         priority: 75,
       });
@@ -206,9 +214,9 @@ export function buildInsights(input: InsightInput, limit = 5): Insight[] {
       id: 'income-change',
       tone: up ? 'positive' : 'negative',
       icon: up ? 'trend-up' : 'trend-down',
-      title: up ? 'Income increased' : 'Income decreased',
-      message: `Your income ${up ? 'increased' : 'decreased'} by ${formatMoney(Math.abs(cur.income - prev.income))} compared with ${input.prevLabel}.`,
-      metric: `${up ? '+' : '−'}${pct(incomeChange)} vs ${input.prevLabel}`,
+      title: up ? i18n.incomeUp : i18n.incomeDown,
+      message: i18n.incomeChange(money$(Math.abs(cur.income - prev.income)), up, input.prevLabel),
+      metric: i18n.vs(`${up ? '+' : '−'}${pct(incomeChange)}`, input.prevLabel),
       priority: 65,
     });
   }
@@ -219,9 +227,9 @@ export function buildInsights(input: InsightInput, limit = 5): Insight[] {
       id: 'receivable',
       tone: 'info',
       icon: 'hand',
-      title: 'Money owed to you',
-      message: `You currently have ${formatMoney(money.receivable)} receivable from others.`,
-      metric: `${plural(money.activeLending, 'active record')}`,
+      title: i18n.receivable.title,
+      message: i18n.receivable.message(money$(money.receivable)),
+      metric: i18n.activeRecords(money.activeLending),
       href: '/lend-borrow?type=LENT&status=OPEN',
       priority: 50,
     });
@@ -231,9 +239,9 @@ export function buildInsights(input: InsightInput, limit = 5): Insight[] {
       id: 'payable',
       tone: 'info',
       icon: 'hand',
-      title: 'Money you owe',
-      message: `You currently owe ${formatMoney(money.payable)} to others.`,
-      metric: `${plural(money.activeBorrowing, 'active record')}`,
+      title: i18n.payable.title,
+      message: i18n.payable.message(money$(money.payable)),
+      metric: i18n.activeRecords(money.activeBorrowing),
       href: '/lend-borrow?type=BORROWED&status=OPEN',
       priority: 45,
     });
@@ -247,9 +255,9 @@ export function buildInsights(input: InsightInput, limit = 5): Insight[] {
       id: 'top-category',
       tone: 'info',
       icon: 'tag',
-      title: `${topCat.name} is your top category`,
-      message: `${topCat.name} accounts for ${pct(share(topCat.amount, cur.expense))} of your spending ${input.periodLabel}.`,
-      metric: formatMoney(topCat.amount),
+      title: i18n.topCategory.title(cat(topCat.name)),
+      message: i18n.topCategory.message(cat(topCat.name), pct(share(topCat.amount, cur.expense)), input.periodLabel),
+      metric: money$(topCat.amount),
       href: topCat.href,
       priority: 40,
     });
@@ -259,9 +267,9 @@ export function buildInsights(input: InsightInput, limit = 5): Insight[] {
       id: 'avg-daily',
       tone: 'info',
       icon: 'info',
-      title: 'Average daily spending',
-      message: `You spent ${formatMoney(cur.expense / input.elapsedDays)} per day on average ${input.periodLabel}.`,
-      metric: `${plural(cur.expenseCount, 'expense')}`,
+      title: i18n.avgDaily.title,
+      message: i18n.avgDaily.message(money$(cur.expense / input.elapsedDays), input.periodLabel),
+      metric: i18n.expenses(cur.expenseCount),
       priority: 30,
     });
   }

@@ -4,6 +4,9 @@ import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
+import { formatMoney } from "@/lib/format";
+import { getI18n } from "@/lib/i18n/server";
+import type { Messages } from "@/lib/i18n/messages";
 
 export type ExpenseFilterOptions = {
   search?: string;
@@ -41,22 +44,22 @@ const splitsInclude = {
 // Validates the breakdown and returns rows ready for a nested create.
 // The parent amount remains the source of truth for balances; splits may
 // cover it fully or partially, but never exceed it.
-function normalizeSplits(data: ExpenseInput) {
+function normalizeSplits(data: ExpenseInput, m: Messages) {
   if (data.category === "Income" || !data.splits?.length) return [];
 
   const splits = data.splits.map((s, i) => {
     const title = s.title.trim();
     const amount = Math.round(Number(s.amount) * 100) / 100;
-    if (!title) throw new Error(`Breakdown item ${i + 1} needs a reason.`);
+    if (!title) throw new Error(m.expenseServer.splitNeedsReason(i + 1));
     if (!Number.isFinite(amount) || amount <= 0) {
-      throw new Error(`Breakdown item "${title}" must have an amount greater than zero.`);
+      throw new Error(m.expenseServer.splitNeedsAmount(title));
     }
     return { title: title.slice(0, 80), amount, position: i };
   });
 
   const sum = splits.reduce((acc, s) => acc + s.amount, 0);
   if (sum - data.amount > 0.005) {
-    throw new Error("Breakdown total cannot be more than the transaction amount.");
+    throw new Error(m.expenseServer.splitTooBig);
   }
   return splits;
 }
@@ -65,7 +68,7 @@ function normalizeSplits(data: ExpenseInput) {
 async function getAuthenticatedUser() {
   const session = await getSession();
   if (!session || session.status !== "APPROVED") {
-    throw new Error("Unauthorized or account not approved.");
+    throw new Error((await getI18n()).m.expenseServer.notApproved);
   }
   return session;
 }
@@ -168,16 +171,17 @@ export async function getExpenses(options: ExpenseFilterOptions = {}) {
     };
   } catch (error) {
     console.error("getExpenses error:", error);
-    throw new Error("Failed to retrieve expenses.");
+    throw new Error((await getI18n()).m.expenseServer.fetchFailed);
   }
 }
 
 export async function createExpense(data: ExpenseInput) {
   const user = await getAuthenticatedUser();
+  const { m, locale } = await getI18n();
 
   try {
     const expenseDate = new Date(data.expenseDate);
-    const splits = normalizeSplits(data);
+    const splits = normalizeSplits(data, m);
 
     // Transaction to create expense and subtract remaining balance
     const result = await db.$transaction(async (tx) => {
@@ -198,7 +202,7 @@ export async function createExpense(data: ExpenseInput) {
       }
 
       if (data.category !== "Income" && balance.remainingBalance < data.amount) {
-        throw new Error(`Insufficient balance. You cannot debit more than your current balance ($${balance.remainingBalance.toLocaleString("en-US", { minimumFractionDigits: 2 })}).`);
+        throw new Error(m.expenseServer.insufficient(formatMoney(balance.remainingBalance, locale)));
       }
 
       // 2. Add or subtract the amount based on Credit / Debit rules
@@ -240,17 +244,18 @@ export async function createExpense(data: ExpenseInput) {
     console.error("createExpense error:", err);
     return {
       success: false,
-      error: err.message || "Failed to create expense.",
+      error: err.message || m.expenseServer.createFailed,
     };
   }
 }
 
 export async function updateExpense(id: string, data: ExpenseInput) {
   const user = await getAuthenticatedUser();
+  const { m, locale } = await getI18n();
 
   try {
     const expenseDate = new Date(data.expenseDate);
-    const splits = normalizeSplits(data);
+    const splits = normalizeSplits(data, m);
 
     const result = await db.$transaction(async (tx) => {
       // 1. Fetch old expense
@@ -259,7 +264,7 @@ export async function updateExpense(id: string, data: ExpenseInput) {
       });
 
       if (!oldExpense) {
-        throw new Error("Expense not found.");
+        throw new Error(m.expenseServer.notFound);
       }
 
       // 2. Fetch user's balance
@@ -295,7 +300,7 @@ export async function updateExpense(id: string, data: ExpenseInput) {
       const newRemainingBalance = balance.remainingBalance + balanceChange;
 
       if (newRemainingBalance < 0) {
-        throw new Error(`Insufficient balance. You cannot debit more than your current balance ($${balance.remainingBalance.toLocaleString("en-US", { minimumFractionDigits: 2 })}).`);
+        throw new Error(m.expenseServer.insufficient(formatMoney(balance.remainingBalance, locale)));
       }
 
       await tx.balance.update({
@@ -330,13 +335,14 @@ export async function updateExpense(id: string, data: ExpenseInput) {
     console.error("updateExpense error:", err);
     return {
       success: false,
-      error: err.message || "Failed to update expense.",
+      error: err.message || m.expenseServer.updateFailed,
     };
   }
 }
 
 export async function deleteExpense(id: string) {
   const user = await getAuthenticatedUser();
+  const { m, locale } = await getI18n();
 
   try {
     const result = await db.$transaction(async (tx) => {
@@ -346,7 +352,7 @@ export async function deleteExpense(id: string) {
       });
 
       if (!oldExpense) {
-        throw new Error("Expense not found.");
+        throw new Error(m.expenseServer.notFound);
       }
 
       // 2. Fetch user's balance
@@ -372,7 +378,7 @@ export async function deleteExpense(id: string) {
           : balance.remainingBalance + oldExpense.amount;
 
       if (newRemainingBalance < 0) {
-        throw new Error(`Insufficient balance. You cannot delete this income as your current balance ($${balance.remainingBalance.toLocaleString("en-US", { minimumFractionDigits: 2 })}) would be negative.`);
+        throw new Error(m.expenseServer.incomeDeleteNegative(formatMoney(balance.remainingBalance, locale)));
       }
 
       await tx.balance.update({
@@ -398,7 +404,7 @@ export async function deleteExpense(id: string) {
     console.error("deleteExpense error:", err);
     return {
       success: false,
-      error: err.message || "Failed to delete expense.",
+      error: err.message || m.expenseServer.deleteFailed,
     };
   }
 }

@@ -6,10 +6,12 @@ import DashboardClient from '@/components/DashboardClient';
 import ErrorState from '@/components/ErrorState';
 import { getMoneySummary } from '@/lib/money-queries';
 import { getDashboardInsights, getUserTimeZone } from '@/lib/finance';
+import { getI18n } from '@/lib/i18n/server';
+import type { Locale } from '@/lib/i18n/config';
 
 export const revalidate = 0; // Disable server caching for real-time changes
 
-async function fetchDashboardData(userId: string) {
+async function fetchDashboardData(userId: string, locale: Locale) {
   const now = new Date();
 
   // Define Today's start and end limits
@@ -77,7 +79,7 @@ async function fetchDashboardData(userId: string) {
         return null;
       }),
       getUserTimeZone()
-        .then((tz) => getDashboardInsights(userId, tz, 4))
+        .then((tz) => getDashboardInsights(userId, tz, 4, locale))
         .catch((error) => {
           console.error('Dashboard insights error:', error);
           return null;
@@ -129,19 +131,21 @@ export default async function DashboardPage() {
     redirect('/login');
   }
 
-  const result = await fetchDashboardData(sessionUser.id);
+  const { locale, m } = await getI18n();
+  const result = await fetchDashboardData(sessionUser.id, locale);
 
   if (!result.success || !result.stats || !result.recentExpenses) {
     return (
       <ErrorState
-        title="Couldn't load your dashboard"
-        message="The database didn't respond. Please refresh the page or try again shortly."
+        title={m.errorState.dbTitle(m.dashboard.loadError)}
+        message={m.errorState.dbMessage}
       />
     );
   }
 
   return (
     <DashboardClient
+      userName={sessionUser.name}
       stats={result.stats}
       recentExpenses={result.recentExpenses}
       moneySummary={result.moneySummary ?? null}

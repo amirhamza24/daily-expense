@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useTransition } from "react";
 import {
-  DollarSign,
   Calendar,
   Loader2,
   TrendingUp,
@@ -15,13 +14,16 @@ import {
   HandCoins,
   ArrowRight,
 } from "lucide-react";
+import TakaSign from "@/components/TakaSign";
 import Link from "next/link";
 import { Collapse } from "./SplitBreakdown";
 import MoneyEntryForm, { MONEY_ENTRY_KINDS, type MoneyEntryKind } from "./MoneyEntryForm";
 import { Select, type SelectOption } from "./Select";
 import SegmentIndicator from "./SegmentIndicator";
 import { getCategoryIcon, getCategoryGlow } from "@/lib/categories";
-import { formatMoney } from "@/lib/format";
+import { useI18n } from "./I18nProvider";
+import { useDatePickerI18n } from "./useDatePickerI18n";
+import { categoryLabel, type Messages } from "@/lib/i18n/messages";
 import { createExpense, updateExpense } from "@/actions/expenses";
 import DatePicker from "react-datepicker";
 import { useToast } from "./Toast";
@@ -62,9 +64,9 @@ const CATEGORIES = [
   "Others",
 ];
 
-const CATEGORY_OPTIONS: SelectOption[] = CATEGORIES.map((cat) => ({
+const categoryOptions = (m: Messages): SelectOption[] => CATEGORIES.map((cat) => ({
   value: cat,
-  label: cat,
+  label: categoryLabel(m, cat),
   icon: getCategoryIcon(cat),
   iconClassName: getCategoryGlow(cat),
 }));
@@ -76,6 +78,9 @@ export default function ExpenseModal({
 }: ExpenseModalProps) {
   const { showToast } = useToast();
   const confirm = useConfirm();
+  const { m, fmt } = useI18n();
+  const t = m.txModal;
+  const datePickerI18n = useDatePickerI18n("long");
   const [isPending, startTransition] = useTransition();
 
   // Form states
@@ -121,7 +126,7 @@ export default function ExpenseModal({
 
   const isCredit = transactionType === "credit";
   const isMoney = transactionType === "money";
-  const moneyConfig = MONEY_ENTRY_KINDS[moneyKind];
+  const moneyConfig = MONEY_ENTRY_KINDS(m)[moneyKind];
 
   // Breakdown bookkeeping (debits only)
   const hasSplits = !isCredit && splits.length > 0;
@@ -141,12 +146,12 @@ export default function ExpenseModal({
 
     const parsedAmount = parseFloat(amount);
     if (isNaN(parsedAmount) || parsedAmount <= 0) {
-      showToast("Amount must be a positive number greater than zero.", "error");
+      showToast(t.amountPositive, "error");
       return;
     }
 
     if (!title.trim()) {
-      showToast("Title is required.", "error");
+      showToast(t.titleRequired, "error");
       return;
     }
 
@@ -157,12 +162,12 @@ export default function ExpenseModal({
     for (const s of filledSplits) {
       const value = parseFloat(s.amount);
       if (!s.title.trim() || isNaN(value) || value <= 0) {
-        showToast("Each breakdown item needs a reason and an amount.", "error");
+        showToast(t.splitIncomplete, "error");
         return;
       }
     }
     if (overAllocated) {
-      showToast("Breakdown total is more than the transaction amount.", "error");
+      showToast(t.splitOver, "error");
       return;
     }
 
@@ -170,19 +175,13 @@ export default function ExpenseModal({
     const finalCategory = isCredit ? "Income" : category;
 
     const ok = await confirm({
-      title: expense?.id
-        ? "Update transaction"
-        : isCredit
-          ? "Add balance"
-          : "Record expense",
+      title: expense?.id ? t.confirmUpdateTitle : isCredit ? t.addBalance : t.recordExpense,
       message: expense?.id
-        ? "Your balance will be recalculated with the updated values."
+        ? t.confirmUpdateMsg
         : isCredit
-          ? `Add $${parsedAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })} to your wallet?`
-          : `Record an expense of $${parsedAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}${
-              filledSplits.length ? ` split into ${filledSplits.length} items` : ""
-            }?`,
-      confirmText: expense?.id ? "Update" : "Confirm",
+          ? t.confirmAddMsg(fmt.money(parsedAmount))
+          : t.confirmExpenseMsg(fmt.money(parsedAmount), filledSplits.length),
+      confirmText: expense?.id ? m.update : m.confirm,
       variant: isCredit ? "success" : "default",
     });
     if (!ok) return;
@@ -209,16 +208,12 @@ export default function ExpenseModal({
 
       if (res.success) {
         showToast(
-          expense?.id
-            ? "Transaction details updated."
-            : isCredit
-              ? "Balance added (credited) successfully."
-              : "Expense logged successfully.",
+          expense?.id ? t.updated : isCredit ? t.credited : t.logged,
           "success",
         );
         onClose();
       } else {
-        showToast(res.error || "Failed to complete action.", "error");
+        showToast(res.error || t.failed, "error");
       }
     });
   };
@@ -230,15 +225,9 @@ export default function ExpenseModal({
       locked={isPending}
       size="lg"
       icon={expense?.id ? <Pencil className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
-      title={expense?.id ? "Edit transaction" : "New transaction"}
+      title={expense?.id ? t.editTitle : t.newTitle}
       description={
-        expense?.id
-          ? "Update the details of this entry."
-          : isMoney
-            ? "Money lent, borrowed or paid back — tracked in Lend & Borrow."
-            : isCredit
-              ? "Add money to your wallet balance."
-              : "Record money you spent."
+        expense?.id ? t.editDesc : isMoney ? t.moneyDesc : isCredit ? t.creditDesc : t.debitDesc
       }
       footer={
         <>
@@ -248,7 +237,7 @@ export default function ExpenseModal({
             className="btn btn-secondary"
             disabled={isPending}
           >
-            Cancel
+            {m.cancel}
           </button>
           <button
             type="submit"
@@ -259,16 +248,16 @@ export default function ExpenseModal({
             {isPending ? (
               <>
                 <Loader2 className="animate-spin" />
-                Saving…
+                {m.saving}
               </>
             ) : isMoney ? (
               moneyConfig.submit
             ) : expense?.id ? (
-              "Save changes"
+              t.saveChanges
             ) : isCredit ? (
-              "Add balance"
+              t.addBalance
             ) : (
-              "Record expense"
+              t.recordExpense
             )}
           </button>
         </>
@@ -288,7 +277,7 @@ export default function ExpenseModal({
             }}
           >
             <TrendingDown className={transactionType === "debit" ? "text-danger" : ""} />
-            Expense
+            {t.tabExpense}
           </button>
           <button
             type="button"
@@ -297,7 +286,7 @@ export default function ExpenseModal({
             onClick={() => setTransactionType("credit")}
           >
             <TrendingUp className={isCredit ? "text-success" : ""} />
-            Income
+            {t.tabIncome}
           </button>
           {/* Lend & borrow entries can't be created by editing an expense */}
           {!expense?.id && (
@@ -307,8 +296,8 @@ export default function ExpenseModal({
               onClick={() => setTransactionType("money")}
             >
               <HandCoins className={isMoney ? "text-accent-fg" : ""} />
-              <span className="sm:hidden">Lend/Borrow</span>
-              <span className="hidden sm:inline">Lend &amp; Borrow</span>
+              <span className="sm:hidden">{t.tabMoneyShort}</span>
+              <span className="hidden sm:inline">{t.tabMoney}</span>
             </button>
           )}
         </div>
@@ -317,19 +306,19 @@ export default function ExpenseModal({
           <>
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <span className="label mb-0!">What are you doing?</span>
+                <span className="label mb-0!">{t.whatDoing}</span>
                 <Link
                   href="/lend-borrow"
                   onClick={onClose}
                   className="text-xs font-medium text-accent-fg hover:underline underline-offset-2 inline-flex items-center gap-1"
                 >
-                  Open Lend &amp; Borrow
+                  {t.openLendBorrow}
                   <ArrowRight className="h-3 w-3" />
                 </Link>
               </div>
-              <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Lend or borrow type">
-                {(Object.keys(MONEY_ENTRY_KINDS) as MoneyEntryKind[]).map((k) => {
-                  const cfg = MONEY_ENTRY_KINDS[k];
+              <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label={t.lendBorrowType}>
+                {(Object.keys(MONEY_ENTRY_KINDS(m)) as MoneyEntryKind[]).map((k) => {
+                  const cfg = MONEY_ENTRY_KINDS(m)[k];
                   const Icon = cfg.icon;
                   const active = moneyKind === k;
                   const tint = cfg.type === "LENT" ? "bg-success-soft text-success" : "bg-warning-soft text-warning";
@@ -373,7 +362,7 @@ export default function ExpenseModal({
 
         <div>
           <label className="label" htmlFor="tx-title">
-            {isCredit ? "Source" : "Title"}
+            {isCredit ? t.source : t.titleLabel}
           </label>
           <input
             id="tx-title"
@@ -382,7 +371,7 @@ export default function ExpenseModal({
             maxLength={80}
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder={isCredit ? "e.g. Monthly salary" : "e.g. Weekly groceries"}
+            placeholder={isCredit ? t.sourcePlaceholder : t.titlePlaceholder}
             className="input"
             disabled={isPending}
             autoFocus
@@ -392,10 +381,10 @@ export default function ExpenseModal({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="label" htmlFor="tx-amount">
-              Amount
+              {t.amount}
             </label>
             <div className="relative">
-              <DollarSign className="input-icon" />
+              <TakaSign className="input-icon" />
               <input
                 id="tx-amount"
                 type="number"
@@ -412,19 +401,19 @@ export default function ExpenseModal({
 
           <div>
             <label className="label" htmlFor="tx-category">
-              Category
+              {t.category}
             </label>
             {isCredit ? (
               <div className="input flex items-center gap-2 bg-subtle text-muted shadow-none">
                 <Coins className="h-4 w-4 text-success" />
-                Income
+                {categoryLabel(m, "Income")}
               </div>
             ) : (
               <Select
                 id="tx-category"
                 value={category}
                 onChange={setCategory}
-                options={CATEGORY_OPTIONS}
+                options={categoryOptions(m)}
                 disabled={isPending}
               />
             )}
@@ -436,9 +425,9 @@ export default function ExpenseModal({
           <div className="rounded-lg border border-line bg-subtle/50">
             <div className="flex items-center justify-between gap-3 px-3 py-2.5">
               <div className="min-w-0">
-                <p className="text-[13px] font-medium text-fg">Breakdown</p>
+                <p className="text-[13px] font-medium text-fg">{t.breakdown}</p>
                 <p className="text-xs text-faint">
-                  Optional — split this amount into separate reasons.
+                  {t.breakdownHint}
                 </p>
               </div>
               <button
@@ -448,7 +437,7 @@ export default function ExpenseModal({
                 disabled={isPending}
               >
                 <Plus />
-                Add item
+                {t.addItem}
               </button>
             </div>
 
@@ -457,21 +446,21 @@ export default function ExpenseModal({
                 {splits.map((s, i) => (
                   <div key={s.key} className="flex items-center gap-2 animate-fade-up">
                     <span className="w-5 shrink-0 text-center text-xs text-faint tabular">
-                      {i + 1}
+                      {fmt.digits(i + 1)}
                     </span>
                     <input
                       type="text"
                       value={s.title}
                       maxLength={80}
                       onChange={(e) => updateSplit(s.key, { title: e.target.value })}
-                      placeholder="Reason, e.g. Rent"
-                      aria-label={`Item ${i + 1} reason`}
+                      placeholder={t.reasonPlaceholder}
+                      aria-label={t.itemReason(i + 1)}
                       className="input h-8 flex-1 min-w-0 text-[13px]"
                       disabled={isPending}
                       autoFocus={i === splits.length - 1 && !s.title}
                     />
                     <div className="relative w-28 shrink-0">
-                      <DollarSign className="input-icon h-3.5! w-3.5! left-2.5!" />
+                      <TakaSign className="input-icon h-3.5! w-3.5! left-2.5!" />
                       <input
                         type="number"
                         step="0.01"
@@ -479,7 +468,7 @@ export default function ExpenseModal({
                         value={s.amount}
                         onChange={(e) => updateSplit(s.key, { amount: e.target.value })}
                         placeholder="0.00"
-                        aria-label={`Item ${i + 1} amount`}
+                        aria-label={t.itemAmount(i + 1)}
                         className="input h-8 pl-7 text-[13px] tabular"
                         disabled={isPending}
                       />
@@ -488,7 +477,7 @@ export default function ExpenseModal({
                       type="button"
                       onClick={() => removeSplit(s.key)}
                       className="icon-btn icon-btn-danger h-8 w-8 shrink-0"
-                      aria-label={`Remove item ${i + 1}`}
+                      aria-label={t.removeItem(i + 1)}
                       disabled={isPending}
                     >
                       <X />
@@ -498,30 +487,30 @@ export default function ExpenseModal({
 
                 <div className="flex flex-wrap items-center justify-between gap-2 pt-2 mt-1 border-t border-dashed border-line text-xs">
                   <span className="text-muted">
-                    Allocated{" "}
-                    <span className="tabular font-medium text-fg">{formatMoney(allocated)}</span>
-                    {" of "}
-                    <span className="tabular font-medium text-fg">{formatMoney(totalAmount)}</span>
+                    {t.allocated}{" "}
+                    <span className="tabular font-medium text-fg">{fmt.money(allocated)}</span>
+                    {` ${t.of} `}
+                    <span className="tabular font-medium text-fg">{fmt.money(totalAmount)}</span>
                   </span>
                   {overAllocated ? (
                     <span className="flex items-center gap-2 text-danger font-medium">
-                      Over by <span className="tabular">{formatMoney(-remaining)}</span>
+                      {t.overBy} <span className="tabular">{fmt.money(-remaining)}</span>
                       <button
                         type="button"
                         onClick={() => setAmount(allocated.toFixed(2))}
                         className="underline underline-offset-2 cursor-pointer"
                       >
-                        Use {formatMoney(allocated)} as total
+                        {t.useAsTotal(fmt.money(allocated))}
                       </button>
                     </span>
                   ) : remaining > 0 ? (
                     <span className="text-faint">
-                      <span className="tabular">{formatMoney(remaining)}</span> unassigned
+                      <span className="tabular">{fmt.money(remaining)}</span> {t.unassigned}
                     </span>
                   ) : (
                     <span className="flex items-center gap-1 text-success font-medium">
                       <Check className="h-3.5 w-3.5" />
-                      Fully allocated
+                      {t.fullyAllocated}
                     </span>
                   )}
                 </div>
@@ -531,13 +520,13 @@ export default function ExpenseModal({
         )}
 
         <div>
-          <label className="label">Date</label>
+          <label className="label">{t.date}</label>
           <div className="relative">
             <Calendar className="input-icon" />
             <DatePicker
               selected={expenseDate}
               onChange={(date: Date | null) => setExpenseDate(date || new Date())}
-              dateFormat="MMMM d, yyyy"
+              {...datePickerI18n}
               fixedHeight
               portalId="root-portal"
               popperPlacement="bottom-start"
@@ -550,7 +539,7 @@ export default function ExpenseModal({
 
         <div>
           <label className="label" htmlFor="tx-note">
-            Note <span className="text-faint font-normal">(optional)</span>
+            {t.note} <span className="text-faint font-normal">({m.optional})</span>
           </label>
           <textarea
             id="tx-note"
@@ -558,7 +547,7 @@ export default function ExpenseModal({
             onChange={(e) => setNote(e.target.value)}
             maxLength={300}
             rows={3}
-            placeholder="Add any details…"
+            placeholder={t.notePlaceholder}
             className="input resize-none"
             disabled={isPending}
           />

@@ -6,7 +6,7 @@ import Link from "next/link";
 import { ShieldAlert, ShieldCheck, Users, TrendingDown, ArrowRight } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import ErrorState from "@/components/ErrorState";
-import { formatMoney } from "@/lib/format";
+import { getI18n } from "@/lib/i18n/server";
 
 export const revalidate = 0; // Disable caching
 
@@ -21,6 +21,9 @@ export default async function AdminDashboardPage() {
   ) {
     redirect("/dashboard");
   }
+
+  const { m, fmt } = await getI18n();
+  const t = m.admin;
 
   let overview: {
     totalUsers: number;
@@ -41,17 +44,17 @@ export default async function AdminDashboardPage() {
   if (!overview) {
     return (
       <ErrorState
-        title="Couldn't load admin overview"
-        message="The database didn't respond. Please refresh or try again shortly."
+        title={t.overviewLoadError}
+        message={t.overviewLoadMessage}
       />
     );
   }
 
   const statuses = [
-    { label: "Approved", value: overview.approvedCount, dot: "bg-success" },
-    { label: "Pending", value: overview.pendingCount, dot: "bg-warning" },
-    { label: "Suspended", value: overview.suspendedCount, dot: "bg-danger" },
-    { label: "Rejected", value: overview.rejectedCount, dot: "bg-faint" },
+    { label: m.userStatus.APPROVED, value: overview.approvedCount, dot: "bg-success" },
+    { label: m.userStatus.PENDING, value: overview.pendingCount, dot: "bg-warning" },
+    { label: m.userStatus.SUSPENDED, value: overview.suspendedCount, dot: "bg-danger" },
+    { label: m.userStatus.REJECTED, value: overview.rejectedCount, dot: "bg-faint" },
   ];
   const statusTotal = statuses.reduce((sum, s) => sum + s.value, 0);
 
@@ -59,11 +62,11 @@ export default async function AdminDashboardPage() {
     <>
       <PageHeader
         icon={ShieldCheck}
-        title="Admin overview"
-        description="Platform activity and registrations that need attention."
+        title={t.overviewTitle}
+        description={t.overviewDesc}
         actions={
           <Link href="/admin/users" className="btn btn-primary">
-            Manage users
+            {t.manageUsers}
             <ArrowRight />
           </Link>
         }
@@ -72,33 +75,33 @@ export default async function AdminDashboardPage() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
         <div className="card card-interactive p-4 md:p-5">
           <div className="flex items-center justify-between">
-            <span className="stat-label">Total users</span>
+            <span className="stat-label">{t.totalUsers}</span>
             <span className="icon-tile h-8 w-8 rounded-lg"><Users className="h-4 w-4" /></span>
           </div>
-          <p className="stat-value mt-2">{overview.totalUsers}</p>
-          <p className="text-xs text-faint mt-1">Registered accounts</p>
+          <p className="stat-value mt-2">{fmt.number(overview.totalUsers)}</p>
+          <p className="text-xs text-faint mt-1">{t.registered}</p>
         </div>
 
         <div className="card card-interactive p-4 md:p-5">
           <div className="flex items-center justify-between">
-            <span className="stat-label">Expenses logged</span>
+            <span className="stat-label">{t.expensesLogged}</span>
             <span className="icon-tile h-8 w-8 rounded-lg"><TrendingDown className="h-4 w-4" /></span>
           </div>
-          <p className="stat-value mt-2">{formatMoney(overview.totalSystemExpenses)}</p>
-          <p className="text-xs text-faint mt-1">Across all users</p>
+          <p className="stat-value mt-2">{fmt.money(overview.totalSystemExpenses)}</p>
+          <p className="text-xs text-faint mt-1">{t.acrossUsers}</p>
         </div>
 
         <Link href="/admin/users" className="card card-interactive p-4 md:p-5 block">
           <div className="flex items-center justify-between">
-            <span className="stat-label">Pending approval</span>
+            <span className="stat-label">{t.pendingApproval}</span>
             <span className="icon-tile h-8 w-8 rounded-lg"><ShieldAlert className="h-4 w-4" /></span>
           </div>
-          <p className="stat-value mt-2">{overview.pendingCount}</p>
+          <p className="stat-value mt-2">{fmt.number(overview.pendingCount)}</p>
           <p className="text-xs mt-1 text-faint">
             {overview.pendingCount > 0 ? (
-              <span className="text-warning font-medium">Needs review →</span>
+              <span className="text-warning font-medium">{t.needsReview}</span>
             ) : (
-              "All caught up"
+              t.caughtUp
             )}
           </p>
         </Link>
@@ -106,8 +109,8 @@ export default async function AdminDashboardPage() {
 
       <section className="card overflow-hidden">
         <div className="card-head px-5 py-4">
-          <h2 className="section-title">Accounts by status</h2>
-          <p className="section-subtitle">How every registered user is currently set</p>
+          <h2 className="section-title">{t.byStatus}</h2>
+          <p className="section-subtitle">{t.byStatusHint}</p>
         </div>
 
         <div className="p-5 pt-0">
@@ -120,7 +123,7 @@ export default async function AdminDashboardPage() {
                   key={s.label}
                   className={`${s.dot} h-full first:rounded-l-full last:rounded-r-full`}
                   style={{ width: `${(s.value / statusTotal) * 100}%` }}
-                  title={`${s.label}: ${s.value}`}
+                  title={`${s.label}: ${fmt.number(s.value)}`}
                 />
               ) : null,
             )}
@@ -133,7 +136,7 @@ export default async function AdminDashboardPage() {
                 <span className={`h-2 w-2 rounded-full ${s.dot}`} />
                 {s.label}
               </dt>
-              <dd className="text-xl font-semibold tabular text-fg mt-1">{s.value}</dd>
+              <dd className="text-xl font-semibold tabular text-fg mt-1">{fmt.number(s.value)}</dd>
             </div>
           ))}
         </dl>

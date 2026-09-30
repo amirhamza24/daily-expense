@@ -7,12 +7,12 @@ import TransactionHistoryClient, {
 } from "@/components/TransactionHistoryClient";
 import PageHeader from "@/components/PageHeader";
 import { History } from "lucide-react";
+import { getI18n } from "@/lib/i18n/server";
 
-export const metadata = {
-  title: "Transaction History Ledger | Wallet Tracker",
-  description:
-    "View and filter your complete credit and debit ledger with real-time running balance.",
-};
+export async function generateMetadata() {
+  const { m } = await getI18n();
+  return { title: m.history.metaTitle, description: m.history.metaDescription };
+}
 
 const TABS: HistoryTab[] = ["All", "Income", "Expense", "LendBorrow"];
 
@@ -27,6 +27,7 @@ export default async function TransactionHistoryPage({
     redirect("/login");
   }
 
+  const { m } = await getI18n();
   const { type } = await searchParams;
   const initialTab = TABS.find((t) => t.toLowerCase() === type?.toLowerCase()) ?? "All";
 
@@ -69,7 +70,7 @@ export default async function TransactionHistoryPage({
       const record: LedgerEntry = {
         id: `rec_${r.id}`,
         kind: isLent ? "lent" : "borrowed",
-        title: isLent ? `Lent to ${r.personName}` : `Borrowed from ${r.personName}`,
+        title: isLent ? m.history.lentTo(r.personName) : m.history.borrowedFrom(r.personName),
         amount: r.amount,
         category: isLent ? "Lent" : "Borrowed",
         note: r.note || "",
@@ -81,7 +82,7 @@ export default async function TransactionHistoryPage({
       const payments: LedgerEntry[] = r.payments.map((p) => ({
         id: `pay_${p.id}`,
         kind: isLent ? "repaid" : "paidback",
-        title: isLent ? `Repayment from ${r.personName}` : `Paid back to ${r.personName}`,
+        title: isLent ? m.history.repaymentFrom(r.personName) : m.history.paidBackTo(r.personName),
         amount: p.amount,
         category: isLent ? "Repayment" : "Payment",
         note: p.note || "",
@@ -101,8 +102,8 @@ export default async function TransactionHistoryPage({
     <>
       <PageHeader
         icon={History}
-        title="Transaction history"
-        description="Your complete ledger, including lend & borrow, with a running balance after every entry."
+        title={m.history.title}
+        description={m.history.description}
       />
 
       <TransactionHistoryClient

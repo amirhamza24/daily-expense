@@ -5,9 +5,11 @@ import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
 import { formatMoney } from "@/lib/format";
+import { getI18n } from "@/lib/i18n/server";
+import type { Locale } from "@/lib/i18n/config";
+import type { Messages } from "@/lib/i18n/messages";
 import {
   isMoneyType,
-  moneyTerms,
   remainingOf,
   round2,
   settlementStatus,
@@ -42,47 +44,50 @@ export type MoneyPaymentInput = {
 
 type Tx = Prisma.TransactionClient;
 
+// Server messages follow the caller's UI language (request cookie).
+type I18n = { m: Messages; locale: Locale };
+
 class ConflictError extends Error {
-  constructor() {
-    super("This record was changed by another request. Please refresh and try again.");
+  constructor(m: Messages) {
+    super(m.moneyServer.conflict);
   }
 }
 
 async function getAuthenticatedUser() {
   const session = await getSession();
   if (!session || session.status !== "APPROVED") {
-    throw new Error("Unauthorized or account not approved.");
+    throw new Error((await getI18n()).m.expenseServer.notApproved);
   }
   return session;
 }
 
-function parseDate(value: string | null | undefined, field: string) {
+function parseDate(m: Messages, value: string | null | undefined, field: string) {
   const d = value ? new Date(value) : null;
-  if (!d || isNaN(d.getTime())) throw new Error(`${field} is not a valid date.`);
+  if (!d || isNaN(d.getTime())) throw new Error(m.moneyServer.invalidDate(field));
   return d;
 }
 
-function parseAmount(value: unknown, field = "Amount") {
+function parseAmount(m: Messages, value: unknown, field = m.moneyServer.fieldAmount) {
   const amount = round2(Number(value));
   if (!Number.isFinite(amount) || amount <= 0) {
-    throw new Error(`${field} must be a positive number greater than zero.`);
+    throw new Error(m.moneyServer.mustBePositive(field));
   }
-  if (amount > 1_000_000_000) throw new Error(`${field} is too large.`);
+  if (amount > 1_000_000_000) throw new Error(m.moneyServer.tooLarge(field));
   return amount;
 }
 
-function normalizeRecord(data: MoneyRecordInput) {
-  if (!isMoneyType(data.type)) throw new Error("Choose whether you lent or borrowed.");
+function normalizeRecord(m: Messages, data: MoneyRecordInput) {
+  if (!isMoneyType(data.type)) throw new Error(m.moneyServer.chooseType);
 
   const personName = (data.personName ?? "").trim().replace(/\s+/g, " ");
-  if (!personName) throw new Error("Person name is required.");
-  if (personName.length > 80) throw new Error("Person name must be 80 characters or fewer.");
+  if (!personName) throw new Error(m.moneyServer.personRequired);
+  if (personName.length > 80) throw new Error(m.moneyServer.personTooLong);
 
-  const amount = parseAmount(data.amount);
-  const date = parseDate(data.date, "Date");
-  const dueDate = data.dueDate ? parseDate(data.dueDate, "Due date") : null;
+  const amount = parseAmount(m, data.amount);
+  const date = parseDate(m, data.date, m.moneyServer.fieldDate);
+  const dueDate = data.dueDate ? parseDate(m, data.dueDate, m.moneyServer.fieldDueDate) : null;
   if (dueDate && dueDate.toDateString() !== date.toDateString() && dueDate < date) {
-    throw new Error("Due date can't be before the date of the record.");
+    throw new Error(m.moneyServer.dueBeforeDate);
   }
 
   const note = data.note?.trim().slice(0, 300) || null;
@@ -94,9 +99,7 @@ function normalizeRecord(data: MoneyRecordInput) {
  * would make it negative, mirroring the expense rules. Uses a compare-and-set
  * update so two concurrent requests can't both spend the same balance.
  */
-const NEGATIVE = "This change would make your available balance negative";
-
-async function applyBalanceDelta(tx: Tx, userId: string, delta: number, reason: string) {
+async function applyBalanceDelta(tx: Tx, { m, locale }: I18n, userId: string, delta: number, reason: string) {
   if (delta === 0) return;
 
   let balance = await tx.balance.findUnique({ where: { userId } });
@@ -108,27 +111,26 @@ async function applyBalanceDelta(tx: Tx, userId: string, delta: number, reason: 
 
   const next = round2(balance.remainingBalance + delta);
   if (next < 0) {
-    throw new Error(
-      `Insufficient balance. ${reason} (available: ${formatMoney(balance.remainingBalance)}).`,
-    );
+    throw new Error(m.moneyServer.insufficient(reason, formatMoney(balance.remainingBalance, locale)));
   }
 
   const { count } = await tx.balance.updateMany({
     where: { userId, remainingBalance: balance.remainingBalance },
     data: { remainingBalance: next },
   });
-  if (count !== 1) throw new ConflictError();
+  if (count !== 1) throw new ConflictError(m);
 }
 
-async function findOwnedRecord(tx: Tx, userId: string, id: string) {
+async function findOwnedRecord(tx: Tx, m: Messages, userId: string, id: string) {
   const record = await tx.moneyRecord.findFirst({ where: { id, userId } });
-  if (!record) throw new Error("Record not found.");
+  if (!record) throw new Error(m.moneyServer.notFound);
   return record;
 }
 
 /** Writes new paid total + status, failing if the record changed since it was read. */
 async function setPaidAmount(
   tx: Tx,
+  m: Messages,
   record: { id: string; amount: number; paidAmount: number; updatedAt: Date },
   paidAmount: number,
 ) {
@@ -136,7 +138,7 @@ async function setPaidAmount(
     where: { id: record.id, paidAmount: record.paidAmount, updatedAt: record.updatedAt },
     data: { paidAmount, status: settlementStatus(record.amount, paidAmount) },
   });
-  if (count !== 1) throw new ConflictError();
+  if (count !== 1) throw new ConflictError(m);
 }
 
 function revalidateMoney() {
@@ -166,23 +168,26 @@ export async function createMoneyRecord(data: MoneyRecordInput) {
  */
 export async function createMoneyRecords(items: MoneyRecordInput[]) {
   const user = await getAuthenticatedUser();
+  const i18n = await getI18n();
+  const { m } = i18n;
 
   try {
-    if (!Array.isArray(items) || items.length === 0) throw new Error("Add at least one person.");
-    if (items.length > MAX_BATCH) throw new Error(`You can add up to ${MAX_BATCH} people at once.`);
+    if (!Array.isArray(items) || items.length === 0) throw new Error(m.moneyServer.addOne);
+    if (items.length > MAX_BATCH) throw new Error(m.moneyServer.maxPeople(MAX_BATCH));
 
-    const inputs = items.map(normalizeRecord);
+    const inputs = items.map((item) => normalizeRecord(m, item));
     const type = inputs[0].type;
-    if (inputs.some((i) => i.type !== type)) throw new Error("All entries must be the same type.");
+    if (inputs.some((i) => i.type !== type)) throw new Error(m.moneyServer.sameType);
 
     const total = round2(inputs.reduce((sum, i) => sum + i.amount, 0));
 
     const records = await db.$transaction(async (tx) => {
       await applyBalanceDelta(
         tx,
+        i18n,
         user.id,
         type === "LENT" ? -total : total,
-        "You can't lend more than your available balance",
+        type === "LENT" ? m.moneyServer.cantLendMore : m.moneyServer.negative,
       );
       const created = [];
       for (const input of inputs) {
@@ -198,26 +203,27 @@ export async function createMoneyRecords(items: MoneyRecordInput[]) {
     revalidateMoney();
     return { success: true as const, records };
   } catch (error) {
-    return fail("createMoneyRecords", error, "Failed to save record.");
+    return fail("createMoneyRecords", error, m.moneyServer.saveFailed);
   }
 }
 
 export async function updateMoneyRecord(id: string, data: MoneyRecordInput) {
   const user = await getAuthenticatedUser();
+  const i18n = await getI18n();
+  const { m, locale } = i18n;
 
   try {
-    const input = normalizeRecord(data);
+    const input = normalizeRecord(m, data);
 
     const record = await db.$transaction(async (tx) => {
-      const old = await findOwnedRecord(tx, user.id, id);
+      const old = await findOwnedRecord(tx, m, user.id, id);
 
       if (input.type !== old.type) {
-        throw new Error("The type of a record can't be changed. Delete it and add a new one instead.");
+        throw new Error(m.moneyServer.typeLocked);
       }
       if (input.amount < old.paidAmount) {
-        const settled = moneyTerms[old.type].settled.toLowerCase();
         throw new Error(
-          `Amount can't be less than the ${formatMoney(old.paidAmount)} already ${settled}.`,
+          m.moneyServer.amountBelowSettled(formatMoney(old.paidAmount, locale), m.moneyTerms[old.type].settled),
         );
       }
 
@@ -225,9 +231,10 @@ export async function updateMoneyRecord(id: string, data: MoneyRecordInput) {
       const diff = round2(input.amount - old.amount);
       await applyBalanceDelta(
         tx,
+        i18n,
         user.id,
         old.type === "LENT" ? -diff : diff,
-        old.type === "LENT" ? "You can't lend more than your available balance" : NEGATIVE,
+        old.type === "LENT" ? m.moneyServer.cantLendMore : m.moneyServer.negative,
       );
 
       const { count } = await tx.moneyRecord.updateMany({
@@ -241,7 +248,7 @@ export async function updateMoneyRecord(id: string, data: MoneyRecordInput) {
           status: settlementStatus(input.amount, old.paidAmount),
         },
       });
-      if (count !== 1) throw new ConflictError();
+      if (count !== 1) throw new ConflictError(m);
 
       return tx.moneyRecord.findUniqueOrThrow({ where: { id } });
     });
@@ -249,36 +256,39 @@ export async function updateMoneyRecord(id: string, data: MoneyRecordInput) {
     revalidateMoney();
     return { success: true as const, record };
   } catch (error) {
-    return fail("updateMoneyRecord", error, "Failed to update record.");
+    return fail("updateMoneyRecord", error, m.moneyServer.updateFailed);
   }
 }
 
 export async function deleteMoneyRecord(id: string) {
   const user = await getAuthenticatedUser();
+  const i18n = await getI18n();
+  const { m } = i18n;
 
   try {
     await db.$transaction(async (tx) => {
-      const old = await findOwnedRecord(tx, user.id, id);
+      const old = await findOwnedRecord(tx, m, user.id, id);
 
       // Undo the record and all of its payments: only the outstanding part is still "moved"
       const outstanding = remainingOf(old);
       await applyBalanceDelta(
         tx,
+        i18n,
         user.id,
         old.type === "LENT" ? outstanding : -outstanding,
-        NEGATIVE,
+        m.moneyServer.negative,
       );
 
       const { count } = await tx.moneyRecord.deleteMany({
         where: { id, userId: user.id, updatedAt: old.updatedAt },
       });
-      if (count !== 1) throw new ConflictError();
+      if (count !== 1) throw new ConflictError(m);
     });
 
     revalidateMoney();
     return { success: true as const };
   } catch (error) {
-    return fail("deleteMoneyRecord", error, "Failed to delete record.");
+    return fail("deleteMoneyRecord", error, m.moneyServer.deleteFailed);
   }
 }
 
@@ -305,17 +315,19 @@ export type MoneyPaymentsBatchInput = {
  */
 export async function recordMoneyPayments(data: MoneyPaymentsBatchInput) {
   const user = await getAuthenticatedUser();
+  const i18n = await getI18n();
+  const { m, locale } = i18n;
 
   try {
     const items = Array.isArray(data.items) ? data.items : [];
-    if (items.length === 0) throw new Error("Choose at least one record and enter an amount.");
-    if (items.length > MAX_BATCH) throw new Error(`You can settle up to ${MAX_BATCH} records at once.`);
+    if (items.length === 0) throw new Error(m.moneyServer.chooseRecord);
+    if (items.length > MAX_BATCH) throw new Error(m.moneyServer.maxRecords(MAX_BATCH));
     if (new Set(items.map((i) => i.recordId)).size !== items.length) {
-      throw new Error("Each record can only appear once.");
+      throw new Error(m.moneyServer.onceEach);
     }
 
-    const parsed = items.map((i) => ({ recordId: String(i.recordId), amount: parseAmount(i.amount) }));
-    const paymentDate = parseDate(data.paymentDate, "Payment date");
+    const parsed = items.map((i) => ({ recordId: String(i.recordId), amount: parseAmount(m, i.amount) }));
+    const paymentDate = parseDate(m, data.paymentDate, m.moneyServer.fieldPaymentDate);
     const note = data.note?.trim().slice(0, 300) || null;
 
     const records = await db.$transaction(async (tx) => {
@@ -323,22 +335,20 @@ export async function recordMoneyPayments(data: MoneyPaymentsBatchInput) {
       const touched = [];
 
       for (const item of parsed) {
-        const record = await findOwnedRecord(tx, user.id, item.recordId);
-        const terms = moneyTerms[record.type];
+        const record = await findOwnedRecord(tx, m, user.id, item.recordId);
+        const terms = m.moneyTerms[record.type];
         const remaining = remainingOf(record);
-        const who = parsed.length > 1 ? ` for ${record.personName}` : "";
+        const who = parsed.length > 1 ? m.moneyServer.forPerson(record.personName) : "";
 
-        if (remaining <= 0) throw new Error(`The record${who} is already fully paid.`);
+        if (remaining <= 0) throw new Error(m.moneyServer.alreadyPaid(who));
         if (item.amount > remaining) {
-          throw new Error(
-            `${terms.payment}${who} can't be more than the remaining ${formatMoney(remaining)}.`,
-          );
+          throw new Error(m.moneyServer.paymentTooMuch(terms.payment, who, formatMoney(remaining, locale)));
         }
         if (paymentDate.toDateString() !== record.date.toDateString() && paymentDate < record.date) {
-          throw new Error(`${terms.payment} date can't be before the ${terms.label.toLowerCase()} date${who}.`);
+          throw new Error(m.moneyServer.paymentBeforeDate(terms.payment, terms.label, who));
         }
 
-        await setPaidAmount(tx, record, round2(record.paidAmount + item.amount));
+        await setPaidAmount(tx, m, record, round2(record.paidAmount + item.amount));
         await tx.moneyPayment.create({
           data: { moneyRecordId: record.id, amount: item.amount, paymentDate, note },
         });
@@ -348,12 +358,7 @@ export async function recordMoneyPayments(data: MoneyPaymentsBatchInput) {
         touched.push(record.id);
       }
 
-      await applyBalanceDelta(
-        tx,
-        user.id,
-        round2(delta),
-        "You can't pay back more than your available balance",
-      );
+      await applyBalanceDelta(tx, i18n, user.id, round2(delta), m.moneyServer.cantPayMore);
 
       return tx.moneyRecord.findMany({ where: { id: { in: touched } } });
     });
@@ -361,13 +366,14 @@ export async function recordMoneyPayments(data: MoneyPaymentsBatchInput) {
     revalidateMoney();
     return { success: true as const, records };
   } catch (error) {
-    return fail("recordMoneyPayments", error, "Failed to record payment.");
+    return fail("recordMoneyPayments", error, m.moneyServer.recordPaymentFailed);
   }
 }
 
 /** Data for the lend/borrow options of the "New transaction" dialog. */
 export async function getMoneyEntryData() {
   const user = await getAuthenticatedUser();
+  const { m } = await getI18n();
 
   try {
     const [open, people] = await Promise.all([
@@ -400,12 +406,14 @@ export async function getMoneyEntryData() {
       people: people.map((p) => p.personName),
     };
   } catch (error) {
-    return fail("getMoneyEntryData", error, "Couldn't load your lend & borrow records.");
+    return fail("getMoneyEntryData", error, m.moneyServer.loadFailed);
   }
 }
 
 export async function deleteMoneyPayment(paymentId: string) {
   const user = await getAuthenticatedUser();
+  const i18n = await getI18n();
+  const { m } = i18n;
 
   try {
     await db.$transaction(async (tx) => {
@@ -413,23 +421,24 @@ export async function deleteMoneyPayment(paymentId: string) {
         where: { id: paymentId, moneyRecord: { userId: user.id } },
         include: { moneyRecord: true },
       });
-      if (!payment) throw new Error("Payment not found.");
+      if (!payment) throw new Error(m.moneyServer.paymentNotFound);
       const record = payment.moneyRecord;
 
       // Reverse the balance move of this payment
       await applyBalanceDelta(
         tx,
+        i18n,
         user.id,
         record.type === "LENT" ? -payment.amount : payment.amount,
-        NEGATIVE,
+        m.moneyServer.negative,
       );
-      await setPaidAmount(tx, record, Math.max(0, round2(record.paidAmount - payment.amount)));
+      await setPaidAmount(tx, m, record, Math.max(0, round2(record.paidAmount - payment.amount)));
       await tx.moneyPayment.delete({ where: { id: payment.id } });
     });
 
     revalidateMoney();
     return { success: true as const };
   } catch (error) {
-    return fail("deleteMoneyPayment", error, "Failed to delete payment.");
+    return fail("deleteMoneyPayment", error, m.moneyServer.deletePaymentFailed);
   }
 }

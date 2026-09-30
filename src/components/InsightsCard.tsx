@@ -1,3 +1,5 @@
+"use client";
+
 import React from "react";
 import Link from "next/link";
 import {
@@ -13,6 +15,7 @@ import {
   Wallet,
 } from "lucide-react";
 import type { Insight, InsightIcon, InsightTone } from "@/lib/insights";
+import { useI18n } from "./I18nProvider";
 
 const ICONS: Record<InsightIcon, React.ComponentType<{ className?: string }>> = {
   "trend-up": TrendingUp,
@@ -35,7 +38,7 @@ const TONES: Record<InsightTone, { tile: string; metric: string }> = {
 /** "Financial Insights" card; rule-based observations from src/lib/insights.ts. */
 export default function InsightsCard({
   insights,
-  subtitle = "Based on your recorded transactions",
+  subtitle,
   footer,
   className = "",
   columns = 1,
@@ -47,6 +50,7 @@ export default function InsightsCard({
   /** 2 lays insights out in two columns on large screens. */
   columns?: 1 | 2;
 }) {
+  const { m } = useI18n();
   return (
     <section className={`card overflow-hidden flex flex-col ${className}`}>
       <div className="card-head px-5 py-4 flex items-center justify-between gap-3">
@@ -55,8 +59,8 @@ export default function InsightsCard({
             <Lightbulb className="h-4 w-4" />
           </span>
           <div>
-            <h2 className="section-title">Financial insights</h2>
-            <p className="section-subtitle">{subtitle}</p>
+            <h2 className="section-title">{m.insights.title}</h2>
+            <p className="section-subtitle">{subtitle ?? m.insights.subtitle}</p>
           </div>
         </div>
         {footer}
@@ -67,9 +71,9 @@ export default function InsightsCard({
           <div className="h-10 w-10 rounded-full bg-subtle flex items-center justify-center mb-3">
             <Lightbulb className="h-5 w-5 text-faint" />
           </div>
-          <p className="text-sm font-medium text-fg">No insights yet</p>
+          <p className="text-sm font-medium text-fg">{m.insights.emptyTitle}</p>
           <p className="text-[13px] text-muted mt-1 max-w-xs">
-            Record a few transactions and insights about your spending will appear here.
+            {m.insights.emptyBody}
           </p>
         </div>
       ) : (

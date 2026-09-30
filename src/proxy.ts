@@ -28,7 +28,8 @@ export async function proxy(request: NextRequest) {
   const sessionToken = request.cookies.get("session")?.value;
 
   // Define public and private path groups
-  const isPublicPath = path === "/login" || path === "/register";
+  const isPublicPath =
+    path === "/login" || path === "/register" || path === "/forgot-password";
   const isPrivatePath =
     path === "/" ||
     path.startsWith("/dashboard") ||
@@ -94,6 +95,7 @@ export const config = {
     "/",
     "/login",
     "/register",
+    "/forgot-password",
     "/dashboard/:path*",
     "/expenses/:path*",
     "/analytics/:path*",

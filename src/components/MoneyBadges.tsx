@@ -1,13 +1,9 @@
+'use client';
+
 import React from 'react';
 import { ArrowDownLeft, ArrowUpRight } from 'lucide-react';
-import {
-  moneyTerms,
-  moneyTypeTint,
-  statusBadge,
-  statusLabels,
-  type MoneyDisplayStatus,
-  type MoneyType,
-} from '@/lib/money';
+import { moneyTypeTint, statusBadge, type MoneyDisplayStatus, type MoneyType } from '@/lib/money';
+import { useI18n } from './I18nProvider';
 
 /** Arrow out (lent) / arrow in (borrowed) in a tinted tile. */
 export function MoneyTypeIcon({ type, className = 'h-8 w-8' }: { type: MoneyType; className?: string }) {
@@ -21,7 +17,7 @@ export function MoneyTypeIcon({ type, className = 'h-8 w-8' }: { type: MoneyType
 
 /** "Lent →" / "Borrowed ←" pill. */
 export function MoneyTypeBadge({ type }: { type: MoneyType }) {
-  const terms = moneyTerms[type];
+  const terms = useI18n().m.moneyTerms[type];
   return (
     <span className={`badge ${moneyTypeTint[type]}`}>
       {terms.label} <span aria-hidden>{terms.arrow}</span>
@@ -30,11 +26,13 @@ export function MoneyTypeBadge({ type }: { type: MoneyType }) {
 }
 
 export function MoneyStatusBadge({ status }: { status: MoneyDisplayStatus }) {
-  return <span className={`badge badge-dot ${statusBadge[status]}`}>{statusLabels[status]}</span>;
+  const { m } = useI18n();
+  return <span className={`badge badge-dot ${statusBadge[status]}`}>{m.moneyStatus[status]}</span>;
 }
 
 /** Thin bar showing how much of the original amount is settled. */
 export function SettledBar({ amount, paidAmount, type }: { amount: number; paidAmount: number; type: MoneyType }) {
+  const { m } = useI18n();
   const pct = amount > 0 ? Math.min(100, (paidAmount / amount) * 100) : 0;
   return (
     <div
@@ -43,7 +41,7 @@ export function SettledBar({ amount, paidAmount, type }: { amount: number; paidA
       aria-valuenow={Math.round(pct)}
       aria-valuemin={0}
       aria-valuemax={100}
-      aria-label={`${Math.round(pct)}% ${moneyTerms[type].settled.toLowerCase()}`}
+      aria-label={m.moneyTerms[type].settledBar(Math.round(pct))}
     >
       <div
         className={`h-full rounded-full transition-[width] duration-700 ease-out ${

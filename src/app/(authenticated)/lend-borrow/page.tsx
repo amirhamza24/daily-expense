@@ -3,6 +3,7 @@ import { getSession } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import MoneyClient from '@/components/MoneyClient';
 import ErrorState from '@/components/ErrorState';
+import { getI18n } from '@/lib/i18n/server';
 import {
   getMoneySummary,
   listMoneyPeople,
@@ -42,10 +43,11 @@ export default async function LendBorrowPage({ searchParams }: LendBorrowPagePro
   const data = await fetchData(sessionUser.id, await searchParams);
 
   if (!data) {
+    const { m } = await getI18n();
     return (
       <ErrorState
-        title="Couldn't load lending & borrowing"
-        message="The database didn't respond. Please refresh the page or try again shortly."
+        title={m.errorState.dbTitle(m.money.loadError)}
+        message={m.errorState.dbMessage}
       />
     );
   }

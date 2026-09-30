@@ -20,6 +20,8 @@ import {
   HelpCircle,
   Crown,
 } from 'lucide-react';
+import type { Messages } from '@/lib/i18n/messages';
+import { useI18n } from './I18nProvider';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -71,14 +73,13 @@ const DEFAULT_STATE: ModalState = {
   open: false,
   title: '',
   message: '',
-  confirmText: 'Confirm',
-  cancelText: 'Cancel',
   variant: 'default',
 };
 
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
 export function ConfirmProvider({ children }: { children: React.ReactNode }) {
+  const { m } = useI18n();
   const [modal, setModal] = useState<ModalState>(DEFAULT_STATE);
   const resolverRef = useRef<((value: boolean) => void) | null>(null);
 
@@ -135,10 +136,10 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
 
             <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 px-5 py-3.5 border-t border-line bg-subtle/60 rounded-b-2xl">
               <button onClick={handleCancel} className="btn btn-secondary">
-                {modal.cancelText ?? 'Cancel'}
+                {modal.cancelText ?? m.cancel}
               </button>
               <button onClick={handleConfirm} autoFocus className={`btn ${cfg.confirmBtn}`}>
-                {modal.confirmText ?? 'Confirm'}
+                {modal.confirmText ?? m.confirm}
               </button>
             </div>
           </div>
@@ -149,117 +150,69 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
 }
 
 // ─── Pre-built confirm helpers ─────────────────────────────────────────────────
-// These are convenient typed shortcuts used by each action.
+// Typed shortcuts used by each action; pass `m` from useI18n().
+
+type Dialogs = Messages['confirmDialogs'];
 
 export const confirmPresets = {
-  logout: (): ConfirmOptions => ({
-    title: 'Sign Out',
-    message: 'You will be logged out of your account. Any unsaved changes will be lost.',
-    confirmText: 'Yes, Logout',
-    cancelText: 'Stay',
+  logout: (m: Messages): ConfirmOptions => ({
+    title: m.confirmDialogs.logout.title,
+    message: m.confirmDialogs.logout.message,
+    confirmText: m.confirmDialogs.logout.confirm,
+    cancelText: m.confirmDialogs.logout.cancel,
     variant: 'info',
     icon: <LogOut className="h-6 w-6" />,
   }),
 
-  deleteExpense: (): ConfirmOptions => ({
-    title: 'Delete Transaction',
-    message:
-      'This expense record will be permanently removed and the amount will be credited back to your balance. This action cannot be undone.',
-    confirmText: 'Delete',
-    cancelText: 'Cancel',
-    variant: 'danger',
-    icon: <Trash2 className="h-6 w-6" />,
-  }),
+  deleteExpense: (m: Messages): ConfirmOptions => simple(m.confirmDialogs.deleteExpense, 'danger', <Trash2 className="h-6 w-6" />),
 
-  setBalance: (): ConfirmOptions => ({
-    title: 'Update Wallet Balance',
-    message:
-      'Are you sure you want to set a new balance? This will overwrite your current total balance.',
-    confirmText: 'Update Balance',
-    cancelText: 'Cancel',
-    variant: 'info',
-    icon: <RefreshCw className="h-6 w-6" />,
-  }),
+  setBalance: (m: Messages): ConfirmOptions => simple(m.confirmDialogs.setBalance, 'info', <RefreshCw className="h-6 w-6" />),
 
-  addExpense: (): ConfirmOptions => ({
-    title: 'Record New Expense',
-    message: 'This expense will be saved and deducted from your current wallet balance.',
-    confirmText: 'Save Expense',
-    cancelText: 'Cancel',
-    variant: 'info',
-    icon: <ShieldCheck className="h-6 w-6" />,
-  }),
+  addExpense: (m: Messages): ConfirmOptions => simple(m.confirmDialogs.addExpense, 'info', <ShieldCheck className="h-6 w-6" />),
 
-  updateExpense: (): ConfirmOptions => ({
-    title: 'Update Expense',
-    message: 'Your changes will be saved and the balance will be recalculated accordingly.',
-    confirmText: 'Save Changes',
-    cancelText: 'Cancel',
-    variant: 'info',
-    icon: <ShieldCheck className="h-6 w-6" />,
-  }),
+  updateExpense: (m: Messages): ConfirmOptions => simple(m.confirmDialogs.updateExpense, 'info', <ShieldCheck className="h-6 w-6" />),
 
-  clearHistory: (): ConfirmOptions => ({
-    title: 'Reset Transaction Ledger',
-    message:
-      'All expense records and your wallet balance will be permanently erased. This is irreversible and cannot be recovered!',
-    confirmText: 'Yes, Wipe All',
-    cancelText: 'Abort',
+  clearHistory: (m: Messages): ConfirmOptions => ({
+    title: m.confirmDialogs.clearHistory.title,
+    message: m.confirmDialogs.clearHistory.message,
+    confirmText: m.confirmDialogs.clearHistory.confirm,
+    cancelText: m.confirmDialogs.clearHistory.cancel,
     variant: 'warning',
     icon: <AlertTriangle className="h-6 w-6" />,
   }),
 
-  approveUser: (name: string): ConfirmOptions => ({
-    title: 'Approve User Account',
-    message: `Grant full access to "${name}"? They will be able to log in and use the platform immediately.`,
-    confirmText: 'Approve',
-    cancelText: 'Cancel',
-    variant: 'success',
-    icon: <UserCheck className="h-6 w-6" />,
-  }),
+  approveUser: (m: Messages, name: string): ConfirmOptions =>
+    named(m.confirmDialogs.approveUser, name, 'success', <UserCheck className="h-6 w-6" />),
 
-  rejectUser: (name: string): ConfirmOptions => ({
-    title: 'Reject Registration',
-    message: `Reject the registration request from "${name}"? They will not be able to access the platform.`,
-    confirmText: 'Reject',
-    cancelText: 'Cancel',
-    variant: 'danger',
-    icon: <UserX className="h-6 w-6" />,
-  }),
+  rejectUser: (m: Messages, name: string): ConfirmOptions =>
+    named(m.confirmDialogs.rejectUser, name, 'danger', <UserX className="h-6 w-6" />),
 
-  suspendUser: (name: string): ConfirmOptions => ({
-    title: 'Suspend User Account',
-    message: `Suspend "${name}"? Their session will be terminated and they will be locked out of the system.`,
-    confirmText: 'Suspend',
-    cancelText: 'Cancel',
-    variant: 'danger',
-    icon: <ShieldX className="h-6 w-6" />,
-  }),
+  suspendUser: (m: Messages, name: string): ConfirmOptions =>
+    named(m.confirmDialogs.suspendUser, name, 'danger', <ShieldX className="h-6 w-6" />),
 
-  reactivateUser: (name: string): ConfirmOptions => ({
-    title: 'Reactivate Account',
-    message: `Re-activate "${name}" and grant them platform access again?`,
-    confirmText: 'Reactivate',
-    cancelText: 'Cancel',
-    variant: 'success',
-    icon: <ShieldCheck className="h-6 w-6" />,
-  }),
+  reactivateUser: (m: Messages, name: string): ConfirmOptions =>
+    named(m.confirmDialogs.reactivateUser, name, 'success', <ShieldCheck className="h-6 w-6" />),
 
-  promoteToAdmin: (name: string): ConfirmOptions => ({
-    title: 'Promote to Admin',
-    message: `Grant administrator privileges to "${name}"? They will have full control over user management and system settings.`,
-    confirmText: 'Promote',
-    cancelText: 'Cancel',
-    variant: 'warning',
-    icon: <Crown className="h-6 w-6" />,
-  }),
+  promoteToAdmin: (m: Messages, name: string): ConfirmOptions =>
+    named(m.confirmDialogs.promoteToAdmin, name, 'warning', <Crown className="h-6 w-6" />),
 
-  demoteToUser: (name: string): ConfirmOptions => ({
-    title: 'Demote to User',
-    message: `Remove administrator privileges from "${name}"? They will lose access to admin-only features.`,
-    confirmText: 'Demote',
-    cancelText: 'Cancel',
-    variant: 'danger',
-    icon: <ShieldAlert className="h-6 w-6" />,
-  }),
+  demoteToUser: (m: Messages, name: string): ConfirmOptions =>
+    named(m.confirmDialogs.demoteToUser, name, 'danger', <ShieldAlert className="h-6 w-6" />),
 };
+
+function simple(
+  d: Dialogs['deleteExpense'],
+  variant: ConfirmVariant,
+  icon: React.ReactNode,
+): ConfirmOptions {
+  return { title: d.title, message: d.message, confirmText: d.confirm, variant, icon };
+}
+
+function named(
+  d: Dialogs['approveUser'],
+  name: string,
+  variant: ConfirmVariant,
+  icon: React.ReactNode,
+): ConfirmOptions {
+  return { title: d.title, message: d.message(name), confirmText: d.confirm, variant, icon };
+}

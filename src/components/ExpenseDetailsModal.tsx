@@ -3,7 +3,8 @@
 import React from 'react';
 import Modal from './Modal';
 import { getCategoryIcon, getCategoryGlow } from '@/lib/categories';
-import { formatDate, formatMoney } from '@/lib/format';
+import { useI18n } from './I18nProvider';
+import { categoryLabel } from '@/lib/i18n/messages';
 import SplitBreakdown, { type ExpenseSplitView } from './SplitBreakdown';
 import { toFileSlug } from '@/lib/export-image';
 import { fileDate } from '@/lib/format';
@@ -21,6 +22,7 @@ interface ExpenseDetailsModalProps {
 }
 
 export default function ExpenseDetailsModal({ expense, onClose }: ExpenseDetailsModalProps) {
+  const { m, fmt } = useI18n();
   if (!expense) return null;
 
   const isCredit = expense.category === 'Income';
@@ -36,14 +38,14 @@ export default function ExpenseDetailsModal({ expense, onClose }: ExpenseDetails
       }}
       footer={
         <button onClick={onClose} className="btn btn-secondary">
-          Close
+          {m.close}
         </button>
       }
     >
       <div className="flex items-center justify-between pb-4 border-b border-line">
         <span className={`badge ${getCategoryGlow(expense.category)}`}>
           {React.createElement(getCategoryIcon(expense.category), { className: 'h-3 w-3' })}
-          {expense.category}
+          {categoryLabel(m, expense.category)}
         </span>
         <span
           className={`text-xl font-semibold tabular tracking-tight ${
@@ -51,15 +53,15 @@ export default function ExpenseDetailsModal({ expense, onClose }: ExpenseDetails
           }`}
         >
           {isCredit ? '+' : '−'}
-          {formatMoney(expense.amount)}
+          {fmt.money(expense.amount)}
         </span>
       </div>
 
       <dl className="text-[13px] divide-y divide-line">
         <div className="flex justify-between py-3">
-          <dt className="text-muted">Date</dt>
+          <dt className="text-muted">{m.details.date}</dt>
           <dd className="font-medium text-fg">
-            {formatDate(expense.expenseDate, {
+            {fmt.date(expense.expenseDate, {
               weekday: 'short',
               year: 'numeric',
               month: 'long',
@@ -68,13 +70,13 @@ export default function ExpenseDetailsModal({ expense, onClose }: ExpenseDetails
           </dd>
         </div>
         <div className="flex justify-between py-3">
-          <dt className="text-muted">Type</dt>
-          <dd className="font-medium text-fg">{isCredit ? 'Credit' : 'Debit'}</dd>
+          <dt className="text-muted">{m.details.type}</dt>
+          <dd className="font-medium text-fg">{isCredit ? m.details.credit : m.details.debit}</dd>
         </div>
         {!!expense.splits?.length && (
           <div className="py-3">
             <dt className="text-muted mb-1">
-              Breakdown · {expense.splits.length} items
+              {m.details.breakdown(expense.splits.length)}
             </dt>
             <dd className="-ml-4">
               <SplitBreakdown splits={expense.splits} total={expense.amount} />
@@ -82,13 +84,13 @@ export default function ExpenseDetailsModal({ expense, onClose }: ExpenseDetails
           </div>
         )}
         <div className="pt-3">
-          <dt className="text-muted mb-1.5">Note</dt>
+          <dt className="text-muted mb-1.5">{m.details.note}</dt>
           <dd
             className={`rounded-lg bg-subtle px-3 py-2.5 leading-relaxed whitespace-pre-wrap ${
               expense.note ? 'text-fg' : 'text-faint'
             }`}
           >
-            {expense.note || 'No note added.'}
+            {expense.note || m.details.noNote}
           </dd>
         </div>
       </dl>

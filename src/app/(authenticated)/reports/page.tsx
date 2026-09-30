@@ -5,12 +5,14 @@ import ReportClient from '@/components/ReportClient';
 import ErrorState from '@/components/ErrorState';
 import { getMonthlyReport, getUserTimeZone } from '@/lib/finance';
 import { toYmd } from '@/lib/dates';
+import { getI18n } from '@/lib/i18n/server';
 
 export const revalidate = 0; // Disable caching
 
-export const metadata = {
-  title: 'Financial Reports | Expensify',
-};
+export async function generateMetadata() {
+  const { m } = await getI18n();
+  return { title: m.reports.metaTitle };
+}
 
 interface ReportsPageProps {
   searchParams: Promise<{ month?: string }>;
@@ -25,6 +27,7 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
   }
 
   const tz = await getUserTimeZone();
+  const { locale, m } = await getI18n();
   const { month } = await searchParams;
 
   // "YYYY-MM", defaulting to the current month in the user's time zone
@@ -36,7 +39,7 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
 
   let report;
   try {
-    report = await getMonthlyReport(sessionUser.id, tz, valid ? year : today.y, valid ? index : today.m);
+    report = await getMonthlyReport(sessionUser.id, tz, valid ? year : today.y, valid ? index : today.m, locale);
   } catch (error) {
     console.error('Reports server page error:', error);
   }
@@ -44,8 +47,8 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
   if (!report) {
     return (
       <ErrorState
-        title="Couldn't build the report"
-        message="We couldn't aggregate this month right now. Please try again shortly."
+        title={m.reports.loadErrorTitle}
+        message={m.reports.loadErrorMessage}
       />
     );
   }

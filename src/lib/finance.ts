@@ -3,7 +3,9 @@ import { Prisma } from '@prisma/client';
 import { db } from '@/lib/db';
 import { getMoneySummary } from '@/lib/money-queries';
 import { remainingOf, round2, startOfToday } from '@/lib/money';
-import { formatMoney } from '@/lib/format';
+import { formatMoney, localizeDigits } from '@/lib/format';
+import type { Locale } from '@/lib/i18n/config';
+import { categoryLabel, getMessagesFor } from '@/lib/i18n/messages';
 import { buildInsights } from '@/lib/insights';
 import {
   DEFAULT_TIME_ZONE,
@@ -15,7 +17,7 @@ import {
   formatYmd,
   isValidTimeZone,
   monthKey,
-  monthName,
+  monthYearLabel,
   normYmd,
   resolvePeriod,
   toYmd,
@@ -183,8 +185,9 @@ export async function getAnalytics(
   preset: RangePreset,
   from?: string | null,
   to?: string | null,
+  locale: Locale = 'en',
 ): Promise<AnalyticsData> {
-  const period = resolvePeriod(preset, tz, from, to);
+  const period = resolvePeriod(preset, tz, from, to, locale);
   const cur = rangeOf(period.start, period.end, tz);
   const prev = rangeOf(period.prevStart, period.prevEnd, tz);
 
@@ -265,7 +268,7 @@ export async function getAnalytics(
     },
     insights: buildInsights(
       {
-        periodLabel: periodPhrase(period),
+        periodLabel: periodPhrase(period, locale),
         prevLabel: period.prevLabel,
         current,
         previous,
@@ -276,34 +279,36 @@ export async function getAnalytics(
         dayHref: (day) => `/expenses?dateRange=custom&startDate=${day}&endDate=${day}`,
       },
       8,
+      locale,
     ),
   };
 }
 
-function periodPhrase(p: Period) {
+function periodPhrase(p: Period, locale: Locale) {
+  const phrase = getMessagesFor(locale).periods.phrase;
   switch (p.preset) {
     case 'today':
-      return 'today';
+      return phrase.today;
     case 'week':
-      return 'this week';
+      return phrase.week;
     case 'month':
-      return 'this month';
+      return phrase.month;
     case 'year':
-      return 'this year';
+      return phrase.year;
     case 'last-month':
-      return `in ${p.label}`;
+      return phrase.inMonth(p.label);
     case '3m':
-      return 'over the last 3 months';
+      return phrase.lastNMonths(3);
     case '6m':
-      return 'over the last 6 months';
+      return phrase.lastNMonths(6);
     default:
-      return 'in this period';
+      return phrase.period;
   }
 }
 
 /** Compact insights for the dashboard: this month vs last month. */
-export async function getDashboardInsights(userId: string, tz: string, limit = 4) {
-  const data = await getAnalytics(userId, tz, 'month');
+export async function getDashboardInsights(userId: string, tz: string, limit = 4, locale: Locale = 'en') {
+  const data = await getAnalytics(userId, tz, 'month', null, null, locale);
   return data.insights.slice(0, limit);
 }
 
@@ -351,7 +356,15 @@ async function dataYears(userId: string, tz: string, fallback: number) {
   return Array.from({ length: hi - lo + 1 }, (_, i) => hi - i);
 }
 
-export async function getMonthlyReport(userId: string, tz: string, year: number, monthIndex: number): Promise<MonthlyReport> {
+export async function getMonthlyReport(
+  userId: string,
+  tz: string,
+  year: number,
+  monthIndex: number,
+  locale: Locale = 'en',
+): Promise<MonthlyReport> {
+  const hl = getMessagesFor(locale).highlights;
+  const money$ = (n: number) => formatMoney(n, locale);
   const first = normYmd(year, monthIndex, 1);
   const next = addMonths(first, 1);
   const r = rangeOf(first, next, tz);
@@ -389,35 +402,29 @@ export async function getMonthlyReport(userId: string, tz: string, year: number,
   const hiDay = spendingDays.length ? spendingDays.reduce((a, b) => (b.expense > a.expense ? b : a)) : null;
   const daysForAverage = Math.max(1, daysBetween(first, isCurrentMonth ? addDays(today, 1) : next));
   const avgDaily = round2(month.expense / daysForAverage);
-  const label = `${monthName(first.m)} ${first.y}`;
+  const label = monthYearLabel(first, locale);
 
   const highlights: string[] = [];
   if (categories[0]) {
-    const pctShare = Math.round((categories[0].amount / month.expense) * 100);
-    highlights.push(`${categories[0].name} was your highest spending category (${formatMoney(categories[0].amount)}, ${pctShare}%).`);
+    const pctShare = localizeDigits(`${Math.round((categories[0].amount / month.expense) * 100)}%`, locale);
+    highlights.push(
+      hl.topCategory(categoryLabel(getMessagesFor(locale), categories[0].name), money$(categories[0].amount), pctShare),
+    );
   }
   if (hiDay) {
     highlights.push(
-      `${formatYmd(hiDay.day, { weekday: 'long', month: 'short', day: 'numeric' })} was your highest spending day (${formatMoney(hiDay.expense)}).`,
+      hl.topDay(formatYmd(hiDay.day, { weekday: 'long', month: 'short', day: 'numeric' }, locale), money$(hiDay.expense)),
     );
   }
-  if (highestExpense) highlights.push(`Your largest expense was ${formatMoney(highestExpense.amount)} — ${highestExpense.title}.`);
-  if (month.expense > 0) highlights.push(`Average daily expense was ${formatMoney(avgDaily)}.`);
+  if (highestExpense) highlights.push(hl.largestExpense(money$(highestExpense.amount), highestExpense.title));
+  if (month.expense > 0) highlights.push(hl.avgDaily(money$(avgDaily)));
   const txCount = month.incomeCount + month.expenseCount;
   if (txCount > 0) {
-    highlights.push(
-      `${txCount} transaction${txCount === 1 ? '' : 's'}: ${formatMoney(month.income)} income and ${formatMoney(month.expense)} expenses.`,
-    );
-    highlights.push(
-      net >= 0
-        ? `Net cash flow was positive: ${formatMoney(net)}.`
-        : `Net cash flow was negative: expenses exceeded income by ${formatMoney(-net)}.`,
-    );
+    highlights.push(hl.transactions(txCount, money$(month.income), money$(month.expense)));
+    highlights.push(net >= 0 ? hl.netPositive(money$(net)) : hl.netNegative(money$(-net)));
   }
   if (lending.count || borrowing.count || month.repaid || month.paidBack) {
-    highlights.push(
-      `Lend & borrow moved ${lendBorrowNet >= 0 ? '+' : '−'}${formatMoney(lendBorrowNet)} through your balance (not counted as income or expense).`,
-    );
+    highlights.push(hl.lendBorrow(`${lendBorrowNet >= 0 ? '+' : '−'}${money$(lendBorrowNet)}`));
   }
 
   return {

@@ -1,7 +1,10 @@
+"use client";
+
 import React from "react";
 import Link from "next/link";
 import { Outfit } from "next/font/google";
 import { Wallet } from "lucide-react";
+import { useI18n } from "./I18nProvider";
 
 const outfit = Outfit({ subsets: ["latin"], weight: ["300", "600", "700"] });
 
@@ -37,19 +40,39 @@ export default function AuthShell({
   footer,
   icon: Icon,
 }: AuthShellProps) {
+  const { m } = useI18n();
   return (
     <div className="flex-1 min-h-screen grid lg:grid-cols-2 lg:fixed lg:inset-0 lg:min-h-0">
       {/* Brand panel (desktop) */}
       <aside className="relative hidden lg:flex lg:h-full items-center justify-center overflow-hidden text-white bg-[linear-gradient(160deg,#17703b_0%,#0f4d28_60%,#0b3b1f_100%)]">
         {/* Decorative circles */}
         <div aria-hidden className="pointer-events-none absolute inset-0">
+          {/* Soft glow breathing behind the brand mark */}
+          <span className="auth-glow absolute left-1/2 top-1/2 h-[380px] w-[380px] rounded-full" />
+
           <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-[600px] w-[600px] rounded-full border border-white/10" />
           <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-[460px] w-[460px] rounded-full border border-white/15" />
           <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-[330px] w-[330px] rounded-full bg-white/5 border border-white/20" />
+
+          {/* Light streaks sweeping slowly along the rings */}
+          <span className="auth-sweep h-[600px] w-[600px] [--orbit-duration:60s] [animation-direction:reverse]" />
+          <span className="auth-sweep h-[460px] w-[460px] [--orbit-duration:34s]" />
+          <span className="auth-sweep h-[330px] w-[330px] [--orbit-duration:22s] [animation-delay:-8s]" />
+
+          {/* Glowing dots orbiting on the rings */}
+          <span className="auth-orbit h-[600px] w-[600px] [--orbit-duration:80s] [animation-delay:-20s]">
+            <span className="auth-orbit-dot h-2 w-2" />
+          </span>
+          <span className="auth-orbit h-[460px] w-[460px] [--orbit-duration:48s] [animation-direction:reverse]">
+            <span className="auth-orbit-dot h-2.5 w-2.5" />
+          </span>
+          <span className="auth-orbit h-[330px] w-[330px] [--orbit-duration:30s] [animation-delay:-12s]">
+            <span className="auth-orbit-dot h-1.5 w-1.5" />
+          </span>
           <span className="absolute -top-28 -left-28 h-80 w-80 rounded-full bg-white/6" />
           <span className="absolute -bottom-36 -right-24 h-96 w-96 rounded-full bg-emerald-300/10" />
-          <span className="absolute top-[18%] right-[16%] h-16 w-16 rounded-full border-2 border-white/20" />
-          <span className="absolute bottom-[20%] left-[14%] h-10 w-10 rounded-full bg-emerald-200/25" />
+          <span className="absolute top-[18%] right-[16%] h-16 w-16 rounded-full border-2 border-white/20 [animation:float_9s_ease-in-out_infinite]" />
+          <span className="absolute bottom-[20%] left-[14%] h-10 w-10 rounded-full bg-emerald-200/25 [animation:float_11s_ease-in-out_-4s_infinite]" />
           <span className="absolute top-[30%] left-[22%] h-3 w-3 rounded-full bg-white/40" />
           <span className="absolute bottom-[30%] right-[24%] h-2.5 w-2.5 rounded-full bg-emerald-200/60" />
         </div>
@@ -66,7 +89,7 @@ export default function AuthShell({
           <p
             className={`${outfit.className} mt-2 text-lg font-light tracking-wide text-emerald-100/90`}
           >
-            Track your daily expenses
+            {m.tagline}
           </p>
         </div>
       </aside>

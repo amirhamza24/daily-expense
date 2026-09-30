@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useSyncExternalStore } from "react";
-import { formatMoney } from "@/lib/format";
+import { useI18n } from "./I18nProvider";
 
 /** Shared chart styling for Analytics and Reports (Recharts). */
 
@@ -30,14 +30,7 @@ export const axisProps = {
   axisLine: false,
 } as const;
 
-/** "$1.2k", "$15k", "$1.1M" for axis ticks. */
-export function compactMoney(v: number) {
-  const abs = Math.abs(v);
-  const sign = v < 0 ? "−" : "";
-  if (abs >= 1_000_000) return `${sign}$${(abs / 1_000_000).toFixed(abs >= 10_000_000 ? 0 : 1)}M`;
-  if (abs >= 1_000) return `${sign}$${(abs / 1_000).toFixed(abs >= 10_000 ? 0 : 1)}k`;
-  return `${sign}$${Math.round(abs)}`;
-}
+// Axis ticks: use `useI18n().fmt.compactMoney` ("৳1.2k" / "৳১.২k").
 
 /** Recharts renders nothing useful on the server; mount charts on the client only. */
 export function useMounted() {
@@ -56,6 +49,7 @@ interface TooltipProps {
 }
 
 export function MoneyTooltip({ active, payload, label, labelFormatter }: TooltipProps) {
+  const { fmt } = useI18n();
   if (!active || !payload?.length) return null;
   const title = String(label ?? payload[0].payload?.name ?? payload[0].name ?? "");
   return (
@@ -71,7 +65,7 @@ export function MoneyTooltip({ active, payload, label, labelFormatter }: Tooltip
           )}
           <span className="text-sm font-semibold tabular text-fg">
             {(p.value ?? 0) < 0 && "−"}
-            {formatMoney(p.value ?? 0)}
+            {fmt.money(p.value ?? 0)}
           </span>
         </p>
       ))}
@@ -127,16 +121,21 @@ export function ChangeBadge({
   invert?: boolean;
   className?: string;
 }) {
+  const { m, fmt } = useI18n();
   if (value === null || !Number.isFinite(value)) {
-    return <span className={`badge ${className}`} title="No data in the previous period to compare">New</span>;
+    return (
+      <span className={`badge ${className}`} title={m.charts.noPrevData}>
+        {m.charts.new}
+      </span>
+    );
   }
   const rounded = Math.abs(value) >= 10 ? Math.round(value) : Math.round(value * 10) / 10;
-  if (rounded === 0) return <span className={`badge ${className}`}>0%</span>;
+  if (rounded === 0) return <span className={`badge ${className}`}>{fmt.digits("0%")}</span>;
   const up = rounded > 0;
   const good = invert ? !up : up;
   return (
     <span className={`badge ${good ? "badge-success" : "badge-danger"} tabular ${className}`}>
-      {up ? "▲" : "▼"} {Math.abs(rounded)}%
+      {up ? "▲" : "▼"} {fmt.digits(`${Math.abs(rounded)}%`)}
     </span>
   );
 }

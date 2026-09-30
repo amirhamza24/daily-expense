@@ -6,9 +6,9 @@ import {
   HeartPulse,
   GraduationCap,
   Tv,
-  DollarSign,
   Coins,
 } from 'lucide-react';
+import TakaSign from '@/components/TakaSign';
 
 export const getCategoryIcon = (category: string) => {
   switch (category) {
@@ -29,7 +29,7 @@ export const getCategoryIcon = (category: string) => {
     case 'Income':
       return Coins;
     default:
-      return DollarSign;
+      return TakaSign;
   }
 };
 

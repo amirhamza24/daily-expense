@@ -11,16 +11,12 @@ import {
   Crown,
 } from "lucide-react";
 import PageHeader from "./PageHeader";
-import { formatDate, initials } from "@/lib/format";
+import { initials } from "@/lib/format";
+import { useI18n } from "./I18nProvider";
 import { updateUserStatus, updateUserRole } from "@/actions/admin";
 import { useToast } from "./Toast";
 import { useConfirm, confirmPresets } from "./ConfirmModal";
 import { Select, type SelectOption } from "./Select";
-
-const ROLE_OPTIONS: SelectOption<"USER" | "ADMIN">[] = [
-  { value: "USER", label: "User", icon: User, iconClassName: "bg-subtle text-muted" },
-  { value: "ADMIN", label: "Admin", icon: Crown, iconClassName: "bg-warning-soft text-warning" },
-];
 
 interface UserRecord {
   id: string;
@@ -42,7 +38,13 @@ export default function UsersRegistryClient({
 }: UsersRegistryClientProps) {
   const { showToast } = useToast();
   const confirm = useConfirm();
+  const { m, fmt } = useI18n();
+  const t = m.admin;
   const [isPending, startTransition] = useTransition();
+  const roleOptions: SelectOption<"USER" | "ADMIN">[] = [
+    { value: "USER", label: m.userRole.USER, icon: User, iconClassName: "bg-subtle text-muted" },
+    { value: "ADMIN", label: m.userRole.ADMIN, icon: Crown, iconClassName: "bg-warning-soft text-warning" },
+  ];
 
   // Local state for search & category filtering
   const [searchTerm, setSearchTerm] = useState("");
@@ -57,21 +59,21 @@ export default function UsersRegistryClient({
   ) => {
     const preset =
       newStatus === "APPROVED"
-        ? confirmPresets.approveUser(userName)
+        ? confirmPresets.approveUser(m, userName)
         : newStatus === "SUSPENDED"
-          ? confirmPresets.suspendUser(userName)
+          ? confirmPresets.suspendUser(m, userName)
           : newStatus === "REJECTED"
-            ? confirmPresets.rejectUser(userName)
-            : confirmPresets.reactivateUser(userName);
+            ? confirmPresets.rejectUser(m, userName)
+            : confirmPresets.reactivateUser(m, userName);
 
     const ok = await confirm(preset);
     if (!ok) return;
     startTransition(async () => {
       const res = await updateUserStatus(userId, newStatus);
       if (res.success) {
-        showToast(`User status updated to ${newStatus}.`, "success");
+        showToast(t.statusUpdated(m.userStatus[newStatus]), "success");
       } else {
-        showToast(res.error || "Failed to update user status.", "error");
+        showToast(res.error || t.statusFailed, "error");
       }
     });
   };
@@ -85,16 +87,16 @@ export default function UsersRegistryClient({
     if (newRole === currentRole) return;
     const preset =
       newRole === "ADMIN"
-        ? confirmPresets.promoteToAdmin(userName)
-        : confirmPresets.demoteToUser(userName);
+        ? confirmPresets.promoteToAdmin(m, userName)
+        : confirmPresets.demoteToUser(m, userName);
     const ok = await confirm(preset);
     if (!ok) return;
     startTransition(async () => {
       const res = await updateUserRole(userId, newRole);
       if (res.success) {
-        showToast(`User role updated to ${newRole}.`, "success");
+        showToast(t.roleUpdated(m.userRole[newRole]), "success");
       } else {
-        showToast(res.error || "Failed to update role.", "error");
+        showToast(res.error || t.roleFailed, "error");
       }
     });
   };
@@ -124,8 +126,8 @@ export default function UsersRegistryClient({
     <>
       <PageHeader
         icon={Users}
-        title="Users"
-        description="Approve new registrations and manage access."
+        title={t.usersTitle}
+        description={t.usersDesc}
       />
 
       <section className="card overflow-hidden">
@@ -136,7 +138,7 @@ export default function UsersRegistryClient({
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search by name or email…"
+              placeholder={t.search}
               className="input pl-9"
             />
           </div>
@@ -148,15 +150,15 @@ export default function UsersRegistryClient({
                 <button
                   key={tab}
                   onClick={() => setStatusFilter(tab)}
-                  className={`btn btn-sm shrink-0 capitalize ${
+                  className={`btn btn-sm shrink-0 ${
                     active ? "btn-primary" : "btn-ghost"
                   }`}
                 >
-                  {tab.toLowerCase()}
+                  {tab === "ALL" ? t.all : m.userStatus[tab]}
                   <span
                     className={`tabular text-xs ${active ? "text-white/75" : "text-faint"}`}
                   >
-                    {countFor(tab)}
+                    {fmt.number(countFor(tab))}
                   </span>
                 </button>
               );
@@ -169,9 +171,9 @@ export default function UsersRegistryClient({
             <div className="h-10 w-10 rounded-full bg-subtle flex items-center justify-center mb-3">
               <Users className="h-5 w-5 text-faint" />
             </div>
-            <p className="text-sm font-medium text-fg">No users found</p>
+            <p className="text-sm font-medium text-fg">{t.noneFound}</p>
             <p className="text-[13px] text-muted mt-1 max-w-sm">
-              Nobody matches this search or status.
+              {t.noneFoundHint}
             </p>
           </div>
         ) : (
@@ -179,11 +181,11 @@ export default function UsersRegistryClient({
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>User</th>
-                  <th className="hidden md:table-cell">Joined</th>
-                  <th className="hidden md:table-cell">Role</th>
-                  <th>Status</th>
-                  <th className="text-right!">Actions</th>
+                  <th>{t.colUser}</th>
+                  <th className="hidden md:table-cell">{t.colJoined}</th>
+                  <th className="hidden md:table-cell">{t.colRole}</th>
+                  <th>{t.colStatus}</th>
+                  <th className="text-right!">{t.colActions}</th>
                 </tr>
               </thead>
               <tbody className="stagger-rows" key={`${statusFilter}-${searchTerm}`}>
@@ -206,7 +208,7 @@ export default function UsersRegistryClient({
                     </td>
 
                     <td className="hidden md:table-cell text-muted whitespace-nowrap">
-                      {formatDate(user.createdAt)}
+                      {fmt.date(user.createdAt)}
                     </td>
 
                     {/* Role — editable for APPROVED users only */}
@@ -215,21 +217,19 @@ export default function UsersRegistryClient({
                         value={user.role}
                         disabled={user.status !== "APPROVED" || isPending}
                         onChange={(role) => handleRoleChange(user.id, user.name, role, user.role)}
-                        options={ROLE_OPTIONS}
+                        options={roleOptions}
                         title={
-                          user.status !== "APPROVED"
-                            ? "Role can only be changed for approved users"
-                            : "Change user role"
+                          user.status !== "APPROVED" ? t.roleLocked : t.changeRole
                         }
-                        aria-label={`Role for ${user.name}`}
+                        aria-label={t.roleFor(user.name)}
                         size="sm"
                         className="w-32"
                       />
                     </td>
 
                     <td>
-                      <span className={`badge badge-dot capitalize ${statusBadge[user.status]}`}>
-                        {user.status.toLowerCase()}
+                      <span className={`badge badge-dot ${statusBadge[user.status]}`}>
+                        {m.userStatus[user.status]}
                       </span>
                     </td>
 
@@ -243,14 +243,14 @@ export default function UsersRegistryClient({
                               className="btn btn-secondary btn-sm"
                             >
                               <UserCheck className="text-success" />
-                              Approve
+                              {t.approve}
                             </button>
                             <button
                               onClick={() => handleStatusChange(user.id, user.name, "REJECTED")}
                               disabled={isPending}
                               className="icon-btn icon-btn-danger"
-                              title="Reject"
-                              aria-label="Reject"
+                              title={t.reject}
+                              aria-label={t.reject}
                             >
                               <UserX />
                             </button>
@@ -262,8 +262,8 @@ export default function UsersRegistryClient({
                             onClick={() => handleStatusChange(user.id, user.name, "SUSPENDED")}
                             disabled={isPending}
                             className="icon-btn icon-btn-danger"
-                            title="Suspend"
-                            aria-label="Suspend"
+                            title={t.suspend}
+                            aria-label={t.suspend}
                           >
                             <Ban />
                           </button>
@@ -276,12 +276,12 @@ export default function UsersRegistryClient({
                             className="btn btn-secondary btn-sm"
                           >
                             <UserCheck className="text-success" />
-                            {user.status === "SUSPENDED" ? "Reactivate" : "Approve"}
+                            {user.status === "SUSPENDED" ? t.reactivate : t.approve}
                           </button>
                         )}
 
                         {user.status === "APPROVED" && user.role === "ADMIN" && (
-                          <span className="text-xs text-faint pr-1">Admin</span>
+                          <span className="text-xs text-faint pr-1">{m.userRole.ADMIN}</span>
                         )}
                       </div>
                     </td>

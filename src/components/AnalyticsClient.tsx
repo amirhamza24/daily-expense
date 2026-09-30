@@ -51,11 +51,13 @@ import {
   EmptyChart,
   MoneyTooltip,
   axisProps,
-  compactMoney,
   useMounted,
 } from "./ChartKit";
+import { useI18n } from "./I18nProvider";
+import { useDatePickerI18n } from "./useDatePickerI18n";
 import { getCategoryIcon, getCategoryGlow } from "@/lib/categories";
-import { formatMoney } from "@/lib/format";
+import type { Formatter } from "@/lib/format";
+import { categoryLabel, type Messages } from "@/lib/i18n/messages";
 import {
   RANGE_PRESETS,
   addDays,
@@ -69,8 +71,8 @@ import {
 } from "@/lib/dates";
 import type { AnalyticsData, DayPoint } from "@/lib/finance-types";
 
-const signed = (n: number) => `${n < 0 ? "−" : ""}${formatMoney(n)}`;
-const pctText = (n: number) => `${Math.round(n)}%`;
+const signed = (fmt: Formatter, n: number) => `${n < 0 ? "−" : ""}${fmt.money(n)}`;
+const pctText = (fmt: Formatter, n: number) => fmt.digits(`${Math.round(n)}%`);
 
 const toYmdString = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -98,6 +100,7 @@ function OverviewCard({
   valueClass?: string;
   href?: string;
 }) {
+  const { fmt } = useI18n();
   const content = (
     <>
       <div className="flex items-center justify-between gap-2">
@@ -106,7 +109,7 @@ function OverviewCard({
           <Icon className="h-4 w-4" />
         </span>
       </div>
-      <p className={`stat-value mt-3 truncate ${valueClass}`}>{signed(value)}</p>
+      <p className={`stat-value mt-3 truncate ${valueClass}`}>{signed(fmt, value)}</p>
       <p className="text-xs mt-1 text-faint truncate">{hint}</p>
     </>
   );
@@ -165,12 +168,14 @@ function groupSeries(daily: DayPoint[], g: Granularity) {
   return [...map.values()];
 }
 
-const bucketLabel = (key: string, g: Granularity, long = false) =>
+const bucketLabel = (m: Messages, fmt: Formatter, key: string, g: Granularity, long = false) =>
   g === "month"
-    ? formatMonthKey(key, long ? { month: "long", year: "numeric" } : undefined)
+    ? formatMonthKey(key, long ? { month: "long", year: "numeric" } : undefined, fmt.locale)
     : g === "week"
-      ? `${long ? "Week of " : ""}${formatYmd(key)}`
-      : formatYmd(key, long ? { weekday: "short", month: "short", day: "numeric", year: "numeric" } : undefined);
+      ? long
+        ? m.analytics.weekOf(formatYmd(key, undefined, fmt.locale))
+        : formatYmd(key, undefined, fmt.locale)
+      : formatYmd(key, long ? { weekday: "short", month: "short", day: "numeric", year: "numeric" } : undefined, fmt.locale);
 
 // ─── Page ────────────────────────────────────────────────────────────────────
 
@@ -178,16 +183,20 @@ export default function AnalyticsClient({ data }: { data: AnalyticsData }) {
   const router = useRouter();
   const mounted = useMounted();
   const [isPending, startTransition] = useTransition();
+  const { m, fmt } = useI18n();
+  const a = m.analytics;
+  const datePickerI18n = useDatePickerI18n("short");
   const { period, overview, current, previous, categories, stats, money } = data;
+  const cat = (name: string) => categoryLabel(m, name);
 
   const [customFrom, setCustomFrom] = useState(period.preset === "custom" ? period.from : "");
   const [customTo, setCustomTo] = useState(period.preset === "custom" ? period.to : "");
 
   const days = period.elapsedDays;
   const granularities: Array<{ value: Granularity; label: string }> = [
-    { value: "day", label: "Daily" },
-    ...(days >= 14 ? [{ value: "week" as const, label: "Weekly" }] : []),
-    ...(days >= 60 ? [{ value: "month" as const, label: "Monthly" }] : []),
+    { value: "day", label: a.daily },
+    ...(days >= 14 ? [{ value: "week" as const, label: a.weekly }] : []),
+    ...(days >= 60 ? [{ value: "month" as const, label: a.monthly }] : []),
   ];
   const defaultGranularity: Granularity = days <= 31 ? "day" : days <= 120 ? "week" : "month";
   const [granularity, setGranularity] = useState<Granularity>(defaultGranularity);
@@ -199,9 +208,9 @@ export default function AnalyticsClient({ data }: { data: AnalyticsData }) {
       groupSeries(data.daily, g).map((b) => ({
         ...b,
         net: Math.round((b.income - b.expense) * 100) / 100,
-        label: bucketLabel(b.key, g),
+        label: bucketLabel(m, fmt, b.key, g),
       })),
-    [data.daily, g],
+    [data.daily, g, m, fmt],
   );
   const trendHasData = trend.some((b) => b.income !== 0 || b.expense !== 0);
 
@@ -223,13 +232,13 @@ export default function AnalyticsClient({ data }: { data: AnalyticsData }) {
   };
 
   const expenseCats = categories.filter((c) => c.amount > 0);
-  const donutData = expenseCats.slice(0, 7).map((c) => ({ name: c.name, value: c.amount }));
+  const donutData = expenseCats.slice(0, 7).map((c) => ({ name: cat(c.name), value: c.amount }));
   const otherTotal = expenseCats.slice(7).reduce((s, c) => s + c.amount, 0);
-  if (otherTotal > 0) donutData.push({ name: "Other categories", value: otherTotal });
+  if (otherTotal > 0) donutData.push({ name: a.otherCategories, value: otherTotal });
 
   const compareBars = [
-    { name: "Income", Previous: previous.income, Current: current.income },
-    { name: "Expenses", Previous: previous.expense, Current: current.expense },
+    { key: "income", name: a.income, Previous: previous.income, Current: current.income },
+    { key: "expense", name: a.expenses, Previous: previous.expense, Current: current.expense },
   ];
   const expenseShareOfIncome = current.income > 0 ? share(current.expense, current.income) : null;
 
@@ -240,12 +249,12 @@ export default function AnalyticsClient({ data }: { data: AnalyticsData }) {
     <>
       <PageHeader
         icon={BarChart3}
-        title="Analytics"
-        description="Income, spending and lend & borrow — analysed by period."
+        title={a.title}
+        description={a.description}
         actions={
           <Link href="/reports" className="btn btn-secondary">
             <FileChartColumn />
-            Monthly report
+            {a.monthlyReport}
           </Link>
         }
       />
@@ -257,8 +266,8 @@ export default function AnalyticsClient({ data }: { data: AnalyticsData }) {
             <Select
               value={period.preset}
               onChange={onPreset}
-              options={RANGE_PRESETS as SelectOption<RangePreset>[]}
-              aria-label="Analysis period"
+              options={RANGE_PRESETS.map((value): SelectOption<RangePreset> => ({ value, label: m.periods.presets[value] }))}
+              aria-label={a.period}
             />
           </div>
           {period.preset === "custom" && (
@@ -274,8 +283,8 @@ export default function AnalyticsClient({ data }: { data: AnalyticsData }) {
                     go({ range: "custom", from: f, to: customTo || f });
                   }}
                   maxDate={fromYmdString(customTo) ?? undefined}
-                  dateFormat="MMM d, yyyy"
-                  placeholderText="From"
+                  {...datePickerI18n}
+                  placeholderText={a.from}
                   fixedHeight
                   className="input pl-9 cursor-pointer"
                   wrapperClassName="w-full"
@@ -292,8 +301,8 @@ export default function AnalyticsClient({ data }: { data: AnalyticsData }) {
                     go({ range: "custom", from: customFrom || t, to: t });
                   }}
                   minDate={fromYmdString(customFrom) ?? undefined}
-                  dateFormat="MMM d, yyyy"
-                  placeholderText="To"
+                  {...datePickerI18n}
+                  placeholderText={a.to}
                   fixedHeight
                   className="input pl-9 cursor-pointer"
                   wrapperClassName="w-full"
@@ -306,33 +315,33 @@ export default function AnalyticsClient({ data }: { data: AnalyticsData }) {
           {isPending ? <Loader2 className="h-4 w-4 animate-spin text-accent-fg" /> : <CalendarRange className="h-4 w-4 text-faint" />}
           <span>
             <span className="font-medium text-fg">{period.label}</span>
-            <span className="text-faint"> · compared with {period.prevLabel}</span>
+            <span className="text-faint">{a.comparedWith(period.prevLabel)}</span>
           </span>
         </p>
       </section>
 
       {/* Overview */}
       <div className={`grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 transition-[opacity,filter] ${dim}`}>
-        <OverviewCard label="Available balance" value={overview.available} hint="Right now" icon={Wallet} deco="deco-green" href="/dashboard" />
-        <OverviewCard label="Total income" value={overview.income} hint={`${current.incomeCount} income entries`} icon={TrendingUp} deco="deco-teal" />
-        <OverviewCard label="Total expenses" value={overview.expense} hint={`${current.expenseCount} expenses`} icon={TrendingDown} deco="deco-cyan" />
+        <OverviewCard label={a.availableBalance} value={overview.available} hint={a.rightNow} icon={Wallet} deco="deco-green" href="/dashboard" />
+        <OverviewCard label={a.totalIncome} value={overview.income} hint={a.incomeEntries(current.incomeCount)} icon={TrendingUp} deco="deco-teal" />
+        <OverviewCard label={a.totalExpenses} value={overview.expense} hint={a.expensesCount(current.expenseCount)} icon={TrendingDown} deco="deco-cyan" />
         <OverviewCard
-          label="Net cash flow"
+          label={a.netCashFlow}
           value={overview.net}
-          hint="Income − expenses"
+          hint={a.incomeMinusExpenses}
           icon={Scale}
           deco={overview.net < 0 ? "deco-rose" : "deco-blue"}
           valueClass={overview.net < 0 ? "text-danger!" : ""}
         />
-        <OverviewCard label="Lent" value={overview.lent} hint="In this period" icon={ArrowUpRight} deco="deco-sky" href="/lend-borrow?type=LENT" />
-        <OverviewCard label="Receivable" value={overview.receivable} hint="Others owe you now" icon={HandCoins} deco="deco-green" href="/lend-borrow?type=LENT&status=OPEN" />
-        <OverviewCard label="Borrowed" value={overview.borrowed} hint="In this period" icon={ArrowDownLeft} deco="deco-amber" href="/lend-borrow?type=BORROWED" />
-        <OverviewCard label="Payable" value={overview.payable} hint="You owe now" icon={HandCoins} deco="deco-orange" href="/lend-borrow?type=BORROWED&status=OPEN" />
+        <OverviewCard label={a.lent} value={overview.lent} hint={a.inPeriod} icon={ArrowUpRight} deco="deco-sky" href="/lend-borrow?type=LENT" />
+        <OverviewCard label={a.receivable} value={overview.receivable} hint={a.othersOweNow} icon={HandCoins} deco="deco-green" href="/lend-borrow?type=LENT&status=OPEN" />
+        <OverviewCard label={a.borrowed} value={overview.borrowed} hint={a.inPeriod} icon={ArrowDownLeft} deco="deco-amber" href="/lend-borrow?type=BORROWED" />
+        <OverviewCard label={a.payable} value={overview.payable} hint={a.youOweNow} icon={HandCoins} deco="deco-orange" href="/lend-borrow?type=BORROWED&status=OPEN" />
       </div>
 
       <InsightsCard
         insights={data.insights}
-        subtitle={`${period.label} · rule-based, from your own data`}
+        subtitle={a.insightsSubtitle(period.label)}
         columns={2}
         className={dim}
       />
@@ -346,30 +355,30 @@ export default function AnalyticsClient({ data }: { data: AnalyticsData }) {
         <>
           {/* Income vs expense + period comparison */}
           <div className={`grid grid-cols-1 lg:grid-cols-5 gap-4 ${dim}`}>
-            <ChartCard title="Income vs expenses" subtitle={`${period.label} and ${period.prevLabel}`} className="lg:col-span-3">
+            <ChartCard title={a.incomeVsExpenses} subtitle={a.andPrev(period.label, period.prevLabel)} className="lg:col-span-3">
               <div className="grid grid-cols-3 gap-2 mb-4">
-                <StatTile label="Income" value={formatMoney(current.income)} />
-                <StatTile label="Expenses" value={formatMoney(current.expense)} />
+                <StatTile label={a.income} value={fmt.money(current.income)} />
+                <StatTile label={a.expenses} value={fmt.money(current.expense)} />
                 <StatTile
-                  label="Net flow"
-                  value={signed(current.income - current.expense)}
-                  hint={expenseShareOfIncome !== null ? `${pctText(expenseShareOfIncome)} of income spent` : "No income recorded"}
+                  label={a.netFlow}
+                  value={signed(fmt, current.income - current.expense)}
+                  hint={expenseShareOfIncome !== null ? a.ofIncomeSpent(pctText(fmt, expenseShareOfIncome)) : a.noIncome}
                 />
               </div>
               {noActivity && previous.income === 0 && previous.expense === 0 ? (
-                <EmptyChart label="No income or expenses in this period" height="h-52" />
+                <EmptyChart label={a.noActivity} height="h-52" />
               ) : (
                 <ResponsiveContainer width="100%" height={220}>
                   <BarChart data={compareBars} margin={{ top: 4, right: 4, left: 0, bottom: 0 }} barGap={6}>
                     <CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="3 3" />
                     <XAxis dataKey="name" {...axisProps} />
-                    <YAxis {...axisProps} tickFormatter={compactMoney} width={52} />
+                    <YAxis {...axisProps} tickFormatter={fmt.compactMoney} width={52} />
                     <Tooltip content={<MoneyTooltip />} cursor={{ fill: "var(--surface-2)" }} />
                     <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12, color: "var(--text-2)" }} />
                     <Bar dataKey="Previous" name={period.prevLabel} fill={SERIES.previous} radius={[5, 5, 0, 0]} maxBarSize={44} />
                     <Bar dataKey="Current" name={period.label} radius={[5, 5, 0, 0]} maxBarSize={44}>
                       {compareBars.map((b) => (
-                        <Cell key={b.name} fill={b.name === "Income" ? SERIES.income : SERIES.expense} />
+                        <Cell key={b.key} fill={b.key === "income" ? SERIES.income : SERIES.expense} />
                       ))}
                     </Bar>
                   </BarChart>
@@ -377,22 +386,23 @@ export default function AnalyticsClient({ data }: { data: AnalyticsData }) {
               )}
             </ChartCard>
 
-            <ChartCard title="Period comparison" subtitle={`vs ${period.prevLabel}`} className="lg:col-span-2" bodyClassName="px-5 py-2">
+            <ChartCard title={a.periodComparison} subtitle={a.vsPrev(period.prevLabel)} className="lg:col-span-2" bodyClassName="px-5 py-2">
               <table className="w-full text-[13px]">
                 <thead>
                   <tr className="text-xs text-faint">
                     <th className="text-left font-medium py-2"> </th>
-                    <th className="text-right font-medium py-2">Previous</th>
-                    <th className="text-right font-medium py-2">Current</th>
-                    <th className="text-right font-medium py-2">Change</th>
+                    <th className="text-right font-medium py-2">{a.previous}</th>
+                    <th className="text-right font-medium py-2">{a.current}</th>
+                    <th className="text-right font-medium py-2">{a.change}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-line">
                   {[
-                    { label: "Income", cur: current.income, prev: previous.income, invert: false },
-                    { label: "Expenses", cur: current.expense, prev: previous.expense, invert: true },
+                    { key: "income", label: a.income, cur: current.income, prev: previous.income, invert: false },
+                    { key: "expense", label: a.expenses, cur: current.expense, prev: previous.expense, invert: true },
                     {
-                      label: "Net flow",
+                      key: "net",
+                      label: a.netFlow,
                       cur: current.income - current.expense,
                       prev: previous.income - previous.expense,
                       invert: false,
@@ -400,16 +410,16 @@ export default function AnalyticsClient({ data }: { data: AnalyticsData }) {
                   ].map((r) => {
                     // Net flow can be negative: compare against |previous| so the direction stays honest
                     const change =
-                      r.label === "Net flow"
+                      r.key === "net"
                         ? r.prev !== 0
                           ? ((r.cur - r.prev) / Math.abs(r.prev)) * 100
                           : null
                         : pctChange(r.cur, r.prev);
                     return (
-                      <tr key={r.label}>
+                      <tr key={r.key}>
                         <td className="py-3 text-muted">{r.label}</td>
-                        <td className="py-3 text-right tabular text-muted">{signed(r.prev)}</td>
-                        <td className="py-3 text-right tabular font-semibold text-fg">{signed(r.cur)}</td>
+                        <td className="py-3 text-right tabular text-muted">{signed(fmt, r.prev)}</td>
+                        <td className="py-3 text-right tabular font-semibold text-fg">{signed(fmt, r.cur)}</td>
                         <td className="py-3 text-right">
                           {r.cur === 0 && r.prev === 0 ? (
                             <span className="text-faint">—</span>
@@ -423,54 +433,54 @@ export default function AnalyticsClient({ data }: { data: AnalyticsData }) {
                 </tbody>
               </table>
               <p className="text-xs text-faint py-3 border-t border-line">
-                Difference in expenses:{" "}
+                {a.expenseDiff}{" "}
                 <span className="tabular font-medium text-fg">
                   {current.expense - previous.expense >= 0 ? "+" : "−"}
-                  {formatMoney(current.expense - previous.expense)}
+                  {fmt.money(current.expense - previous.expense)}
                 </span>
-                . &ldquo;New&rdquo; means nothing was recorded in {period.prevLabel}.
+                {a.newMeans(period.prevLabel)}
               </p>
             </ChartCard>
           </div>
 
           {/* Trend */}
           <ChartCard
-            title="Trend"
-            subtitle={`${metric === "expense" ? "Expenses" : metric === "income" ? "Income" : "Net cash flow"} · ${period.label}`}
+            title={a.trend}
+            subtitle={`${metric === "expense" ? a.expenses : metric === "income" ? a.income : a.netCashFlow} · ${period.label}`}
             className={dim}
             action={
               <div className="flex flex-wrap items-center gap-2">
-                <div className="segmented" role="tablist" aria-label="Trend metric">
+                <div className="segmented" role="tablist" aria-label={a.trendMetric}>
                   <SegmentIndicator />
-                  {(["expense", "income", "net"] as const).map((m) => (
-                    <button key={m} type="button" role="tab" aria-selected={metric === m} data-active={metric === m} onClick={() => setMetric(m)}>
-                      {m === "expense" ? "Expenses" : m === "income" ? "Income" : "Net"}
+                  {(["expense", "income", "net"] as const).map((k) => (
+                    <button key={k} type="button" role="tab" aria-selected={metric === k} data-active={metric === k} onClick={() => setMetric(k)}>
+                      {k === "expense" ? a.expenses : k === "income" ? a.income : a.net}
                     </button>
                   ))}
                 </div>
                 {granularities.length > 1 && (
                   <div className="w-32">
-                    <Select value={g} onChange={setGranularity} options={granularities} size="sm" aria-label="Group by" />
+                    <Select value={g} onChange={setGranularity} options={granularities} size="sm" aria-label={a.groupBy} />
                   </div>
                 )}
               </div>
             }
           >
             {!trendHasData ? (
-              <EmptyChart label="Nothing recorded in this period yet" />
+              <EmptyChart label={a.nothingYet} />
             ) : (
               <ResponsiveContainer width="100%" height={260}>
                 {metric === "net" ? (
                   <BarChart data={trend} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
                     <CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="3 3" />
                     <XAxis dataKey="label" {...axisProps} minTickGap={16} />
-                    <YAxis {...axisProps} tickFormatter={compactMoney} width={52} />
+                    <YAxis {...axisProps} tickFormatter={fmt.compactMoney} width={52} />
                     <ReferenceLine y={0} stroke="var(--border-strong)" />
                     <Tooltip
-                      content={<MoneyTooltip labelFormatter={(l) => bucketLabel(trend.find((t) => t.label === l)?.key ?? l, g, true)} />}
+                      content={<MoneyTooltip labelFormatter={(l) => bucketLabel(m, fmt, trend.find((t) => t.label === l)?.key ?? l, g, true)} />}
                       cursor={{ fill: "var(--surface-2)" }}
                     />
-                    <Bar dataKey="net" name="Net flow" radius={[4, 4, 0, 0]} maxBarSize={32}>
+                    <Bar dataKey="net" name={a.netFlow} radius={[4, 4, 0, 0]} maxBarSize={32}>
                       {trend.map((b) => (
                         <Cell key={b.key} fill={b.net < 0 ? SERIES.expense : SERIES.income} />
                       ))}
@@ -486,15 +496,15 @@ export default function AnalyticsClient({ data }: { data: AnalyticsData }) {
                     </defs>
                     <CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="3 3" />
                     <XAxis dataKey="label" {...axisProps} minTickGap={16} />
-                    <YAxis {...axisProps} tickFormatter={compactMoney} width={52} />
+                    <YAxis {...axisProps} tickFormatter={fmt.compactMoney} width={52} />
                     <Tooltip
-                      content={<MoneyTooltip labelFormatter={(l) => bucketLabel(trend.find((t) => t.label === l)?.key ?? l, g, true)} />}
+                      content={<MoneyTooltip labelFormatter={(l) => bucketLabel(m, fmt, trend.find((t) => t.label === l)?.key ?? l, g, true)} />}
                       cursor={{ stroke: "var(--border-strong)", strokeDasharray: "3 3" }}
                     />
                     <Area
                       type="monotone"
                       dataKey={metric}
-                      name={metric === "income" ? "Income" : "Expenses"}
+                      name={metric === "income" ? a.income : a.expenses}
                       stroke={metric === "income" ? SERIES.income : SERIES.expense}
                       strokeWidth={2}
                       fill="url(#trendFill)"
@@ -509,9 +519,9 @@ export default function AnalyticsClient({ data }: { data: AnalyticsData }) {
 
           {/* Categories */}
           <div className={`grid grid-cols-1 lg:grid-cols-5 gap-4 ${dim}`}>
-            <ChartCard title="Top spending categories" subtitle="Share of expenses" className="lg:col-span-2">
+            <ChartCard title={a.topCategories} subtitle={a.shareOfExpenses} className="lg:col-span-2">
               {donutData.length === 0 ? (
-                <EmptyChart label="No expenses in this period" />
+                <EmptyChart label={a.noExpenses} />
               ) : (
                 <div className="flex flex-col gap-4">
                   <ResponsiveContainer width="100%" height={180}>
@@ -541,13 +551,13 @@ export default function AnalyticsClient({ data }: { data: AnalyticsData }) {
                         <Link
                           href={c.href}
                           className="group flex items-center gap-2.5 rounded-lg px-2 py-1.5 -mx-2 text-[13px] hover:bg-subtle transition-colors"
-                          title={`View ${c.name} expenses`}
+                          title={a.viewCategory(cat(c.name))}
                         >
-                          <span className="w-4 text-faint tabular text-right">{i + 1}</span>
+                          <span className="w-4 text-faint tabular text-right">{fmt.digits(i + 1)}</span>
                           <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: CHART_COLORS[i] }} />
-                          <span className="flex-1 truncate text-fg group-hover:text-accent-fg">{c.name}</span>
-                          <span className="tabular text-faint w-10 text-right">{pctText(share(c.amount, current.expense))}</span>
-                          <span className="tabular font-medium text-fg w-24 text-right">{formatMoney(c.amount)}</span>
+                          <span className="flex-1 truncate text-fg group-hover:text-accent-fg">{cat(c.name)}</span>
+                          <span className="tabular text-faint w-10 text-right">{pctText(fmt, share(c.amount, current.expense))}</span>
+                          <span className="tabular font-medium text-fg w-24 text-right">{fmt.money(c.amount)}</span>
                         </Link>
                       </li>
                     ))}
@@ -556,19 +566,19 @@ export default function AnalyticsClient({ data }: { data: AnalyticsData }) {
               )}
             </ChartCard>
 
-            <ChartCard title="Category comparison" subtitle={`${period.label} vs ${period.prevLabel}`} className="lg:col-span-3">
+            <ChartCard title={a.categoryComparison} subtitle={a.vsLabel(period.label, period.prevLabel)} className="lg:col-span-3">
               {categories.length === 0 ? (
-                <EmptyChart label="No expenses in either period" />
+                <EmptyChart label={a.noExpensesEither} />
               ) : (
                 <ResponsiveContainer width="100%" height={Math.max(220, categories.length * 44)}>
                   <BarChart
-                    data={categories.map((c) => ({ name: c.name, Current: c.amount, Previous: c.prevAmount }))}
+                    data={categories.map((c) => ({ name: cat(c.name), Current: c.amount, Previous: c.prevAmount }))}
                     layout="vertical"
                     margin={{ top: 0, right: 8, left: 8, bottom: 0 }}
                     barGap={2}
                   >
                     <CartesianGrid horizontal={false} stroke="var(--border)" strokeDasharray="3 3" />
-                    <XAxis type="number" {...axisProps} tickFormatter={compactMoney} />
+                    <XAxis type="number" {...axisProps} tickFormatter={fmt.compactMoney} />
                     <YAxis type="category" dataKey="name" {...axisProps} width={96} />
                     <Tooltip content={<MoneyTooltip />} cursor={{ fill: "var(--surface-2)" }} />
                     <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12, color: "var(--text-2)" }} />
@@ -584,19 +594,19 @@ export default function AnalyticsClient({ data }: { data: AnalyticsData }) {
           {categories.length > 0 && (
             <section className={`card overflow-hidden ${dim}`}>
               <div className="card-head px-5 py-4">
-                <h2 className="section-title">Category summary</h2>
-                <p className="section-subtitle">Click a category to see its expenses</p>
+                <h2 className="section-title">{a.categorySummary}</h2>
+                <p className="section-subtitle">{a.categorySummaryHint}</p>
               </div>
               <div className="overflow-x-auto">
                 <table className="data-table">
                   <thead>
                     <tr>
-                      <th>Category</th>
-                      <th className="text-right!">Amount</th>
-                      <th className="text-right!">Share</th>
-                      <th className="text-right! hidden sm:table-cell">Transactions</th>
-                      <th className="text-right! hidden md:table-cell">Previous</th>
-                      <th className="text-right!">Change</th>
+                      <th>{a.colCategory}</th>
+                      <th className="text-right!">{a.colAmount}</th>
+                      <th className="text-right!">{a.colShare}</th>
+                      <th className="text-right! hidden sm:table-cell">{a.colTransactions}</th>
+                      <th className="text-right! hidden md:table-cell">{a.previous}</th>
+                      <th className="text-right!">{a.change}</th>
                     </tr>
                   </thead>
                   <tbody className="stagger-rows" key={period.from + period.to}>
@@ -609,13 +619,13 @@ export default function AnalyticsClient({ data }: { data: AnalyticsData }) {
                               <span className={`h-7 w-7 rounded-lg flex items-center justify-center ${getCategoryGlow(c.name)}`}>
                                 <Icon className="h-3.5 w-3.5" />
                               </span>
-                              <span className="font-medium">{c.name}</span>
+                              <span className="font-medium">{cat(c.name)}</span>
                             </span>
                           </td>
-                          <td className="text-right tabular font-semibold">{formatMoney(c.amount)}</td>
-                          <td className="text-right tabular text-muted">{pctText(share(c.amount, current.expense))}</td>
-                          <td className="text-right tabular text-muted hidden sm:table-cell">{c.count}</td>
-                          <td className="text-right tabular text-muted hidden md:table-cell">{formatMoney(c.prevAmount)}</td>
+                          <td className="text-right tabular font-semibold">{fmt.money(c.amount)}</td>
+                          <td className="text-right tabular text-muted">{pctText(fmt, share(c.amount, current.expense))}</td>
+                          <td className="text-right tabular text-muted hidden sm:table-cell">{fmt.number(c.count)}</td>
+                          <td className="text-right tabular text-muted hidden md:table-cell">{fmt.money(c.prevAmount)}</td>
                           <td className="text-right">
                             {c.amount === 0 && c.prevAmount === 0 ? (
                               <span className="text-faint">—</span>
@@ -641,31 +651,31 @@ export default function AnalyticsClient({ data }: { data: AnalyticsData }) {
             <Activity className="h-4 w-4" />
           </span>
           <div>
-            <h2 className="section-title">Spending statistics</h2>
-            <p className="section-subtitle">Expenses only — income and lend & borrow excluded</p>
+            <h2 className="section-title">{a.spendingStats}</h2>
+            <p className="section-subtitle">{a.spendingStatsHint}</p>
           </div>
         </div>
         <div className="p-4 md:p-5 grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <StatTile label="Average daily" value={formatMoney(stats.avgDaily)} hint={`Over ${days} day${days === 1 ? "" : "s"}`} />
-          <StatTile label="Average weekly" value={stats.avgWeekly !== null ? formatMoney(stats.avgWeekly) : "—"} hint={stats.avgWeekly === null ? "Needs 7+ days" : undefined} />
-          <StatTile label="Average monthly" value={stats.avgMonthly !== null ? formatMoney(stats.avgMonthly) : "—"} hint={stats.avgMonthly === null ? "Needs 28+ days" : undefined} />
-          <StatTile label="Expense transactions" value={String(stats.expenseCount)} hint={`Avg ${formatMoney(stats.avgTransaction)} each`} />
+          <StatTile label={a.avgDaily} value={fmt.money(stats.avgDaily)} hint={a.overDays(days)} />
+          <StatTile label={a.avgWeekly} value={stats.avgWeekly !== null ? fmt.money(stats.avgWeekly) : "—"} hint={stats.avgWeekly === null ? a.needs7 : undefined} />
+          <StatTile label={a.avgMonthly} value={stats.avgMonthly !== null ? fmt.money(stats.avgMonthly) : "—"} hint={stats.avgMonthly === null ? a.needs28 : undefined} />
+          <StatTile label={a.expenseTransactions} value={fmt.number(stats.expenseCount)} hint={a.avgEach(fmt.money(stats.avgTransaction))} />
           <StatTile
-            label="Highest spending day"
-            value={stats.highestDay ? formatMoney(stats.highestDay.amount) : "—"}
-            hint={stats.highestDay ? formatYmd(stats.highestDay.day, { weekday: "short", month: "short", day: "numeric" }) : "No expenses"}
+            label={a.highestDay}
+            value={stats.highestDay ? fmt.money(stats.highestDay.amount) : "—"}
+            hint={stats.highestDay ? formatYmd(stats.highestDay.day, { weekday: "short", month: "short", day: "numeric" }, fmt.locale) : a.noExpensesShort}
           />
           <StatTile
-            label="Lowest spending day"
-            value={stats.lowestDay ? formatMoney(stats.lowestDay.amount) : "—"}
-            hint={stats.lowestDay ? formatYmd(stats.lowestDay.day, { weekday: "short", month: "short", day: "numeric" }) : "Needs 2+ spending days"}
+            label={a.lowestDay}
+            value={stats.lowestDay ? fmt.money(stats.lowestDay.amount) : "—"}
+            hint={stats.lowestDay ? formatYmd(stats.lowestDay.day, { weekday: "short", month: "short", day: "numeric" }, fmt.locale) : a.needs2Days}
           />
           <StatTile
-            label="Highest single expense"
-            value={stats.highestExpense ? formatMoney(stats.highestExpense.amount) : "—"}
-            hint={stats.highestExpense ? `${stats.highestExpense.title} · ${formatYmd(stats.highestExpense.day)}` : "No expenses"}
+            label={a.highestSingle}
+            value={stats.highestExpense ? fmt.money(stats.highestExpense.amount) : "—"}
+            hint={stats.highestExpense ? `${stats.highestExpense.title} · ${formatYmd(stats.highestExpense.day, undefined, fmt.locale)}` : a.noExpensesShort}
           />
-          <StatTile label="Average transaction" value={formatMoney(stats.avgTransaction)} hint="Per expense" />
+          <StatTile label={a.avgTransaction} value={fmt.money(stats.avgTransaction)} hint={a.perExpense} />
         </div>
       </section>
 
@@ -674,38 +684,40 @@ export default function AnalyticsClient({ data }: { data: AnalyticsData }) {
         {(
           [
             {
-              title: "Lending",
-              subtitle: "Money you gave — receivable",
+              key: "lending",
+              title: a.lending,
+              subtitle: a.lendingHint,
               icon: ArrowUpRight,
               tile: "bg-success-soft text-success",
               href: "/lend-borrow?type=LENT",
               rows: [
-                { label: "Lent in period", value: `${formatMoney(money.lentInPeriod)} · ${money.lentCountInPeriod} record${money.lentCountInPeriod === 1 ? "" : "s"}` },
-                { label: "Repaid in period", value: formatMoney(money.repaidInPeriod) },
-                { label: "Current receivable", value: formatMoney(money.receivable), strong: true, tone: "text-success" },
-                { label: "Active records", value: String(money.activeLending) },
-                { label: "Overdue records", value: String(money.overdueLending), tone: money.overdueLending ? "text-danger" : undefined },
+                { label: a.lentInPeriod, value: `${fmt.money(money.lentInPeriod)} · ${a.records(money.lentCountInPeriod)}` },
+                { label: a.repaidInPeriod, value: fmt.money(money.repaidInPeriod) },
+                { label: a.currentReceivable, value: fmt.money(money.receivable), strong: true, tone: "text-success" },
+                { label: a.activeRecords, value: fmt.number(money.activeLending) },
+                { label: a.overdueRecords, value: fmt.number(money.overdueLending), tone: money.overdueLending ? "text-danger" : undefined },
               ],
             },
             {
-              title: "Borrowing",
-              subtitle: "Money you received — payable",
+              key: "borrowing",
+              title: a.borrowing,
+              subtitle: a.borrowingHint,
               icon: ArrowDownRight,
               tile: "bg-warning-soft text-warning",
               href: "/lend-borrow?type=BORROWED",
               rows: [
-                { label: "Borrowed in period", value: `${formatMoney(money.borrowedInPeriod)} · ${money.borrowedCountInPeriod} record${money.borrowedCountInPeriod === 1 ? "" : "s"}` },
-                { label: "Paid back in period", value: formatMoney(money.paidInPeriod) },
-                { label: "Current payable", value: formatMoney(money.payable), strong: true, tone: "text-warning" },
-                { label: "Active records", value: String(money.activeBorrowing) },
-                { label: "Overdue records", value: String(money.overdueBorrowing), tone: money.overdueBorrowing ? "text-danger" : undefined },
+                { label: a.borrowedInPeriod, value: `${fmt.money(money.borrowedInPeriod)} · ${a.records(money.borrowedCountInPeriod)}` },
+                { label: a.paidInPeriod, value: fmt.money(money.paidInPeriod) },
+                { label: a.currentPayable, value: fmt.money(money.payable), strong: true, tone: "text-warning" },
+                { label: a.activeRecords, value: fmt.number(money.activeBorrowing) },
+                { label: a.overdueRecords, value: fmt.number(money.overdueBorrowing), tone: money.overdueBorrowing ? "text-danger" : undefined },
               ],
             },
           ] as const
         ).map((s) => {
           const Icon = s.icon;
           return (
-            <section key={s.title} className="card overflow-hidden">
+            <section key={s.key} className="card overflow-hidden">
               <div className="card-head px-5 py-4 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2.5">
                   <span className={`h-8 w-8 rounded-lg flex items-center justify-center ${s.tile}`}>
@@ -717,7 +729,7 @@ export default function AnalyticsClient({ data }: { data: AnalyticsData }) {
                   </div>
                 </div>
                 <Link href={s.href} className="btn btn-ghost btn-sm">
-                  View
+                  {m.view}
                 </Link>
               </div>
               <dl className="px-5 py-1 divide-y divide-line">
@@ -726,7 +738,7 @@ export default function AnalyticsClient({ data }: { data: AnalyticsData }) {
                 ))}
               </dl>
               <p className="px-5 py-3 text-xs text-faint border-t border-line">
-                Not counted as {s.title === "Lending" ? "an expense" : "income"}.
+                {s.key === "lending" ? a.notExpense : a.notIncome}
               </p>
             </section>
           );
@@ -736,13 +748,13 @@ export default function AnalyticsClient({ data }: { data: AnalyticsData }) {
       {noActivity && money.recordCount === 0 && (
         <div className="card p-6 text-center">
           <Receipt className="h-6 w-6 text-faint mx-auto mb-2" />
-          <p className="text-sm font-medium text-fg">No data yet</p>
+          <p className="text-sm font-medium text-fg">{a.noData}</p>
           <p className="text-[13px] text-muted mt-1">
-            Add transactions from the dashboard and your analytics will fill in automatically.
+            {a.noDataHint}
           </p>
           <Link href="/dashboard" className="btn btn-secondary btn-sm mt-3">
             <Trophy />
-            Go to dashboard
+            {a.goDashboard}
           </Link>
         </div>
       )}

@@ -8,10 +8,12 @@ import { registerUser } from "@/actions/auth";
 import { useToast } from "@/components/Toast";
 import AuthShell from "@/components/AuthShell";
 import PasswordInput from "@/components/PasswordInput";
+import { useI18n } from "@/components/I18nProvider";
 
 export default function RegisterPage() {
   const router = useRouter();
   const { showToast } = useToast();
+  const { m } = useI18n();
   const [isPending, startTransition] = useTransition();
 
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -30,17 +32,17 @@ export default function RegisterPage() {
 
     // Client-side validations
     if (!name || !email || !password || !confirmPassword) {
-      setErrorMessage("Please fill in all fields.");
+      setErrorMessage(m.auth.register.fillAll);
       return;
     }
 
     if (password.length < 6) {
-      setErrorMessage("Password must be at least 6 characters long.");
+      setErrorMessage(m.authServer.newPasswordTooShort);
       return;
     }
 
     if (password !== confirmPassword) {
-      setErrorMessage("Passwords do not match.");
+      setErrorMessage(m.authServer.passwordsMismatch);
       return;
     }
 
@@ -48,13 +50,8 @@ export default function RegisterPage() {
       const res = await registerUser(formData);
 
       if (res.success) {
-        setSuccessMessage(
-          "Registration successful! Redirecting to email verification...",
-        );
-        showToast(
-          "Registration successful! Redirecting to email verification...",
-          "success",
-        );
+        setSuccessMessage(m.auth.register.successRedirect);
+        showToast(m.auth.register.successRedirect, "success");
 
         // Redirect to email verification page after 1.5 seconds
         setTimeout(() => {
@@ -70,14 +67,14 @@ export default function RegisterPage() {
   return (
     <AuthShell
       icon={UserPlus}
-      title="Create your account"
-      description="Start tracking where your money goes."
+      title={m.auth.register.title}
+      description={m.auth.register.description}
       footer={
         !successMessage && (
           <>
-            Already have an account?{" "}
+            {m.auth.register.haveAccount}{" "}
             <Link href="/login" className="font-medium text-accent-fg hover:underline underline-offset-4">
-              Sign in
+              {m.auth.register.signIn}
             </Link>
           </>
         )
@@ -94,7 +91,7 @@ export default function RegisterPage() {
         <div className="alert alert-success animate-fade-up">
           <CheckCircle2 />
           <div>
-            <p className="font-medium">Account created</p>
+            <p className="font-medium">{m.auth.register.created}</p>
             <p className="mt-0.5 opacity-90">{successMessage}</p>
           </div>
         </div>
@@ -102,7 +99,7 @@ export default function RegisterPage() {
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div>
             <label className="label" htmlFor="name">
-              Full name
+              {m.auth.fullName}
             </label>
             <div className="relative">
               <User className="input-icon" />
@@ -112,7 +109,7 @@ export default function RegisterPage() {
                 name="name"
                 required
                 autoComplete="name"
-                placeholder="Jane Doe"
+                placeholder={m.auth.namePlaceholder}
                 className="input pl-9 h-11"
                 disabled={isPending}
               />
@@ -121,7 +118,7 @@ export default function RegisterPage() {
 
           <div>
             <label className="label" htmlFor="email">
-              Email
+              {m.auth.email}
             </label>
             <div className="relative">
               <Mail className="input-icon" />
@@ -131,7 +128,7 @@ export default function RegisterPage() {
                 name="email"
                 required
                 autoComplete="email"
-                placeholder="you@example.com"
+                placeholder={m.auth.emailPlaceholder}
                 className="input pl-9 h-11"
                 disabled={isPending}
               />
@@ -140,7 +137,7 @@ export default function RegisterPage() {
 
           <div>
             <label className="label" htmlFor="password">
-              Password
+              {m.auth.password}
             </label>
             <PasswordInput
               className="h-11"
@@ -148,14 +145,14 @@ export default function RegisterPage() {
               name="password"
               required
               autoComplete="new-password"
-              placeholder="At least 6 characters"
+              placeholder={m.auth.atLeast6}
               disabled={isPending}
             />
           </div>
 
           <div>
             <label className="label" htmlFor="confirmPassword">
-              Confirm password
+              {m.auth.register.confirmPassword}
             </label>
             <PasswordInput
               className="h-11"
@@ -163,7 +160,7 @@ export default function RegisterPage() {
               name="confirmPassword"
               required
               autoComplete="new-password"
-              placeholder="Repeat password"
+              placeholder={m.auth.register.repeatPassword}
               disabled={isPending}
             />
           </div>
@@ -172,10 +169,10 @@ export default function RegisterPage() {
             {isPending ? (
               <>
                 <Loader2 className="animate-spin" />
-                Creating account…
+                {m.auth.register.creating}
               </>
             ) : (
-              "Create account"
+              m.auth.register.submit
             )}
           </button>
         </form>

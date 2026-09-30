@@ -2,7 +2,8 @@ import React from "react";
 import { getSession } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import PageHeader from "@/components/PageHeader";
-import { formatDate, initials } from "@/lib/format";
+import { initials } from "@/lib/format";
+import { getI18n } from "@/lib/i18n/server";
 import ChangePasswordForm from "@/components/ChangePasswordForm";
 import {
   User,
@@ -16,6 +17,7 @@ export const revalidate = 0;
 
 export default async function ProfilePage() {
   const user = await getSession();
+  const { m, fmt } = await getI18n();
 
   if (!user || user.status !== "APPROVED") {
     redirect("/login");
@@ -43,17 +45,17 @@ export default async function ProfilePage() {
   }
 
   const details = [
-    { icon: User, label: "Full name", value: fullUser.name },
-    { icon: Mail, label: "Email", value: fullUser.email },
+    { icon: User, label: m.profile.fullName, value: fullUser.name },
+    { icon: Mail, label: m.profile.email, value: fullUser.email },
     {
       icon: Shield,
-      label: "Role",
-      value: fullUser.role === "ADMIN" ? "Administrator" : "User",
+      label: m.profile.role,
+      value: fullUser.role === "ADMIN" ? m.profile.administrator : m.profile.user,
     },
     {
       icon: Calendar,
-      label: "Member since",
-      value: formatDate(fullUser.createdAt, {
+      label: m.profile.memberSince,
+      value: fmt.date(fullUser.createdAt, {
         year: "numeric",
         month: "long",
         day: "numeric",
@@ -63,9 +65,9 @@ export default async function ProfilePage() {
       ? [
           {
             icon: UserCheck,
-            label: "Approved by",
+            label: m.profile.approvedBy,
             value: `${fullUser.approvedBy}${
-              fullUser.approvedAt ? ` · ${formatDate(fullUser.approvedAt)}` : ""
+              fullUser.approvedAt ? ` · ${fmt.date(fullUser.approvedAt)}` : ""
             }`,
           },
         ]
@@ -74,7 +76,7 @@ export default async function ProfilePage() {
 
   return (
     <>
-      <PageHeader icon={User} title="Profile" description="Your account details and security." />
+      <PageHeader icon={User} title={m.profile.title} description={m.profile.description} />
 
       <section className="card overflow-hidden max-w-3xl">
         <div className="card-head flex flex-col sm:flex-row sm:items-center gap-4 p-5">
@@ -85,10 +87,8 @@ export default async function ProfilePage() {
             <h2 className="text-base font-semibold text-fg truncate">{fullUser.name}</h2>
             <p className="text-[13px] text-muted truncate">{fullUser.email}</p>
             <div className="flex items-center gap-1.5 mt-2">
-              <span className="badge badge-success badge-dot capitalize">
-                {fullUser.status.toLowerCase()}
-              </span>
-              <span className="badge badge-accent capitalize">{fullUser.role.toLowerCase()}</span>
+              <span className="badge badge-success badge-dot">{m.userStatus[fullUser.status]}</span>
+              <span className="badge badge-accent">{m.userRole[fullUser.role]}</span>
             </div>
           </div>
           <ChangePasswordForm />

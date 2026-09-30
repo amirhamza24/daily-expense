@@ -6,13 +6,15 @@ import Modal from './Modal';
 import PasswordInput from './PasswordInput';
 import { changeUserPassword } from '@/actions/auth';
 import { useToast } from './Toast';
+import { useI18n } from './I18nProvider';
 
+// Labels come from m.changePassword.strength (same order)
 const strengthLevels = [
-  { label: 'Too short', bar: 'bg-danger', text: 'text-danger' },
-  { label: 'Weak', bar: 'bg-danger', text: 'text-danger' },
-  { label: 'Fair', bar: 'bg-warning', text: 'text-warning' },
-  { label: 'Good', bar: 'bg-accent-2', text: 'text-accent-fg' },
-  { label: 'Strong', bar: 'bg-accent', text: 'text-accent-fg' },
+  { bar: 'bg-danger', text: 'text-danger' },
+  { bar: 'bg-danger', text: 'text-danger' },
+  { bar: 'bg-warning', text: 'text-warning' },
+  { bar: 'bg-accent-2', text: 'text-accent-fg' },
+  { bar: 'bg-accent', text: 'text-accent-fg' },
 ];
 
 /** 0 = too short … 4 = strong */
@@ -46,6 +48,7 @@ function Requirement({ met, children }: { met: boolean; children: React.ReactNod
 
 export default function ChangePasswordForm() {
   const { showToast } = useToast();
+  const { m } = useI18n();
   const [isPending, startTransition] = useTransition();
 
   const [isOpen, setIsOpen] = useState(false);
@@ -93,10 +96,10 @@ export default function ChangePasswordForm() {
     e.preventDefault();
     setError(null);
 
-    if (!currentPassword || !newPassword || !confirmNewPassword) return fail('All fields are required.');
-    if (newPassword.length < 6) return fail('New password must be at least 6 characters long.');
-    if (newPassword !== confirmNewPassword) return fail('New passwords do not match.');
-    if (currentPassword === newPassword) return fail('New password must be different from your current one.');
+    if (!currentPassword || !newPassword || !confirmNewPassword) return fail(m.changePassword.allRequired);
+    if (newPassword.length < 6) return fail(m.changePassword.tooShort);
+    if (newPassword !== confirmNewPassword) return fail(m.changePassword.mismatch);
+    if (currentPassword === newPassword) return fail(m.changePassword.same);
 
     startTransition(async () => {
       const formData = new FormData();
@@ -120,7 +123,7 @@ export default function ChangePasswordForm() {
     <>
       <button type="button" onClick={handleOpen} className="btn btn-secondary btn-sm">
         <KeyRound />
-        Change password
+        {m.changePassword.open}
       </button>
 
       <Modal
@@ -128,23 +131,23 @@ export default function ChangePasswordForm() {
         onClose={handleClose}
         locked={isPending}
         icon={<KeyRound className="h-5 w-5" />}
-        title="Change password"
-        description="Use a strong password you don't use anywhere else."
+        title={m.changePassword.title}
+        description={m.changePassword.description}
         footer={
           <>
             <button type="button" onClick={handleClose} className="btn btn-secondary" disabled={isPending}>
-              Cancel
+              {m.cancel}
             </button>
             <button type="submit" form="password-form" disabled={isPending} className="btn btn-primary">
               {isPending ? (
                 <>
                   <Loader2 className="animate-spin" />
-                  Updating…
+                  {m.changePassword.updating}
                 </>
               ) : (
                 <>
                   <ShieldCheck />
-                  Update password
+                  {m.changePassword.submit}
                 </>
               )}
             </button>
@@ -161,7 +164,7 @@ export default function ChangePasswordForm() {
 
           <div>
             <label className="label" htmlFor="pw-current">
-              Current password
+              {m.changePassword.current}
             </label>
             <PasswordInput
               id="pw-current"
@@ -169,7 +172,7 @@ export default function ChangePasswordForm() {
               value={currentPassword}
               onChange={(e) => setCurrentPassword(e.target.value)}
               autoComplete="current-password"
-              placeholder="Enter current password"
+              placeholder={m.changePassword.currentPlaceholder}
               disabled={isPending}
               autoFocus
             />
@@ -179,7 +182,7 @@ export default function ChangePasswordForm() {
 
           <div>
             <label className="label" htmlFor="pw-new">
-              New password
+              {m.changePassword.new}
             </label>
             <PasswordInput
               id="pw-new"
@@ -187,7 +190,7 @@ export default function ChangePasswordForm() {
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
               autoComplete="new-password"
-              placeholder="At least 6 characters"
+              placeholder={m.auth.atLeast6}
               disabled={isPending}
             />
 
@@ -204,21 +207,21 @@ export default function ChangePasswordForm() {
                 ))}
               </div>
               <span className={`w-16 text-right text-xs font-medium transition-colors ${newPassword ? level.text : 'text-faint'}`}>
-                {newPassword ? level.label : '—'}
+                {newPassword ? m.changePassword.strength[score] : '—'}
               </span>
             </div>
 
             <ul className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1.5 rounded-xl bg-subtle border border-line p-3">
-              <Requirement met={checks.length}>6+ characters</Requirement>
-              <Requirement met={checks.mixed}>Upper &amp; lowercase</Requirement>
-              <Requirement met={checks.number}>Contains a number</Requirement>
-              <Requirement met={checks.differs}>Differs from current</Requirement>
+              <Requirement met={checks.length}>{m.changePassword.reqLength}</Requirement>
+              <Requirement met={checks.mixed}>{m.changePassword.reqMixed}</Requirement>
+              <Requirement met={checks.number}>{m.changePassword.reqNumber}</Requirement>
+              <Requirement met={checks.differs}>{m.changePassword.reqDiffers}</Requirement>
             </ul>
           </div>
 
           <div>
             <label className="label" htmlFor="pw-confirm">
-              Confirm new password
+              {m.changePassword.confirm}
             </label>
             <PasswordInput
               id="pw-confirm"
@@ -226,7 +229,7 @@ export default function ChangePasswordForm() {
               value={confirmNewPassword}
               onChange={(e) => setConfirmNewPassword(e.target.value)}
               autoComplete="new-password"
-              placeholder="Repeat new password"
+              placeholder={m.changePassword.repeatNew}
               disabled={isPending}
               className={mismatch ? 'border-danger! focus:shadow-[0_0_0_3px_var(--danger-soft)]!' : matches ? 'border-accent!' : ''}
             />
@@ -237,11 +240,11 @@ export default function ChangePasswordForm() {
             >
               {matches ? (
                 <>
-                  <Check className="h-3.5 w-3.5" /> Passwords match
+                  <Check className="h-3.5 w-3.5" /> {m.changePassword.match}
                 </>
               ) : mismatch ? (
                 <>
-                  <X className="h-3.5 w-3.5" /> Passwords don&apos;t match
+                  <X className="h-3.5 w-3.5" /> {m.changePassword.noMatch}
                 </>
               ) : null}
             </p>

@@ -3,6 +3,9 @@
  * A "Ymd" is a local calendar date; month is 0-based like Date.
  */
 
+import { intlLocale, type Locale } from '@/lib/i18n/config';
+import { getMessagesFor } from '@/lib/i18n/messages';
+
 export const DEFAULT_TIME_ZONE = 'UTC';
 export const TZ_COOKIE = 'tz';
 const DAY_MS = 86_400_000;
@@ -85,32 +88,32 @@ export function parseYmd(s: string | undefined | null): Ymd | null {
 }
 
 /** Formats a "YYYY-MM-DD" key for display without any time-zone shift. */
-export function formatYmd(key: string, opts: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' }) {
+export function formatYmd(
+  key: string,
+  opts: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' },
+  locale: Locale = 'en',
+) {
   const v = parseYmd(key);
   if (!v) return key;
-  return new Date(Date.UTC(v.y, v.m, v.d)).toLocaleDateString('en-US', { ...opts, timeZone: 'UTC' });
+  return new Date(Date.UTC(v.y, v.m, v.d)).toLocaleDateString(intlLocale(locale), { ...opts, timeZone: 'UTC' });
 }
 
-export function formatMonthKey(key: string, opts: Intl.DateTimeFormatOptions = { month: 'short', year: '2-digit' }) {
+export function formatMonthKey(
+  key: string,
+  opts: Intl.DateTimeFormatOptions = { month: 'short', year: '2-digit' },
+  locale: Locale = 'en',
+) {
   const m = key.match(/^(\d{4})-(\d{2})$/);
   if (!m) return key;
-  return new Date(Date.UTC(+m[1], +m[2] - 1, 1)).toLocaleDateString('en-US', { ...opts, timeZone: 'UTC' });
+  return new Date(Date.UTC(+m[1], +m[2] - 1, 1)).toLocaleDateString(intlLocale(locale), { ...opts, timeZone: 'UTC' });
 }
 
 // ─── Analysis periods ────────────────────────────────────────────────────────
 
 export type RangePreset = 'today' | 'week' | 'month' | 'last-month' | '3m' | '6m' | 'year' | 'custom';
 
-export const RANGE_PRESETS: Array<{ value: RangePreset; label: string }> = [
-  { value: 'today', label: 'Today' },
-  { value: 'week', label: 'This week' },
-  { value: 'month', label: 'This month' },
-  { value: 'last-month', label: 'Last month' },
-  { value: '3m', label: 'Last 3 months' },
-  { value: '6m', label: 'Last 6 months' },
-  { value: 'year', label: 'This year' },
-  { value: 'custom', label: 'Custom range' },
-];
+/** Labels live in messages (`m.periods.presets`). */
+export const RANGE_PRESETS: RangePreset[] = ['today', 'week', 'month', 'last-month', '3m', '6m', 'year', 'custom'];
 
 export interface Period {
   preset: RangePreset;
@@ -129,13 +132,25 @@ export interface Period {
   chartEnd: Ymd;
 }
 
-const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-export const monthName = (m: number) => MONTHS[m];
+/** Month name in the locale, e.g. (8) -> "September" / "সেপ্টেম্বর". */
+export const monthName = (m: number, locale: Locale = 'en', style: 'long' | 'short' = 'long') =>
+  new Date(Date.UTC(2000, m, 1)).toLocaleDateString(intlLocale(locale), { month: style, timeZone: 'UTC' });
 
-function spanLabel(a: Ymd, bExclusive: Ymd) {
+/** "September 2026" / "সেপ্টেম্বর ২০২৬" */
+export const monthYearLabel = (v: Ymd, locale: Locale = 'en') =>
+  new Date(Date.UTC(v.y, v.m, 1)).toLocaleDateString(intlLocale(locale), {
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  });
+
+const formatYear = (y: number, locale: Locale) =>
+  new Intl.NumberFormat(intlLocale(locale), { useGrouping: false }).format(y);
+
+function spanLabel(a: Ymd, bExclusive: Ymd, locale: Locale) {
   const last = addDays(bExclusive, -1);
   const f = (v: Ymd, year: boolean) =>
-    new Date(Date.UTC(v.y, v.m, v.d)).toLocaleDateString('en-US', {
+    new Date(Date.UTC(v.y, v.m, v.d)).toLocaleDateString(intlLocale(locale), {
       month: 'short',
       day: 'numeric',
       ...(year ? { year: 'numeric' } : {}),
@@ -151,8 +166,10 @@ export function resolvePeriod(
   tz: string,
   from?: string | null,
   to?: string | null,
+  locale: Locale = 'en',
   now = new Date(),
 ): Period {
+  const m = getMessagesFor(locale).periods;
   const today = toYmd(now, tz);
   const tomorrow = addDays(today, 1);
   const monthStart = normYmd(today.y, today.m, 1);
@@ -165,16 +182,16 @@ export function resolvePeriod(
       end = tomorrow;
       prevStart = addDays(today, -1);
       prevEnd = today;
-      label = spanLabel(start, end);
-      prevLabel = 'yesterday';
+      label = spanLabel(start, end, locale);
+      prevLabel = m.prev.yesterday;
       break;
     case 'week': {
       start = addDays(today, -new Date(Date.UTC(today.y, today.m, today.d)).getUTCDay()); // Sunday
       end = addDays(start, 7);
       prevStart = addDays(start, -7);
       prevEnd = start;
-      label = `This week (${spanLabel(start, end)})`;
-      prevLabel = 'last week';
+      label = m.thisWeekLabel(spanLabel(start, end, locale));
+      prevLabel = m.prev.lastWeek;
       break;
     }
     case 'last-month':
@@ -182,8 +199,8 @@ export function resolvePeriod(
       end = monthStart;
       prevStart = addMonths(monthStart, -2);
       prevEnd = start;
-      label = `${monthName(start.m)} ${start.y}`;
-      prevLabel = `${monthName(prevStart.m)} ${prevStart.y}`;
+      label = monthYearLabel(start, locale);
+      prevLabel = monthYearLabel(prevStart, locale);
       break;
     case '3m':
     case '6m': {
@@ -192,8 +209,11 @@ export function resolvePeriod(
       end = addMonths(monthStart, 1);
       prevStart = addMonths(start, -n);
       prevEnd = start;
-      label = `Last ${n} months (${monthName(start.m).slice(0, 3)} – ${monthName(today.m).slice(0, 3)} ${today.y})`;
-      prevLabel = `the previous ${n} months`;
+      label = m.lastNMonthsLabel(
+        n,
+        `${monthName(start.m, locale, 'short')} – ${monthName(today.m, locale, 'short')} ${formatYear(today.y, locale)}`,
+      );
+      prevLabel = m.prev.previousNMonths(n);
       break;
     }
     case 'year':
@@ -201,8 +221,8 @@ export function resolvePeriod(
       end = normYmd(today.y + 1, 0, 1);
       prevStart = normYmd(today.y - 1, 0, 1);
       prevEnd = start;
-      label = `${today.y}`;
-      prevLabel = `${today.y - 1}`;
+      label = formatYear(today.y, locale);
+      prevLabel = formatYear(today.y - 1, locale);
       break;
     case 'custom': {
       let a = parseYmd(from) ?? monthStart;
@@ -213,8 +233,8 @@ export function resolvePeriod(
       const len = daysBetween(start, end);
       prevStart = addDays(start, -len);
       prevEnd = start;
-      label = spanLabel(start, end);
-      prevLabel = 'the previous period';
+      label = spanLabel(start, end, locale);
+      prevLabel = m.prev.previousPeriod;
       break;
     }
     case 'month':
@@ -223,8 +243,9 @@ export function resolvePeriod(
       end = addMonths(monthStart, 1);
       prevStart = addMonths(monthStart, -1);
       prevEnd = monthStart;
-      label = `${monthName(start.m)} ${start.y}`;
-      prevLabel = monthName(prevStart.m) + (prevStart.y !== start.y ? ` ${prevStart.y}` : '');
+      label = monthYearLabel(start, locale);
+      prevLabel =
+        prevStart.y !== start.y ? monthYearLabel(prevStart, locale) : monthName(prevStart.m, locale);
       preset = 'month';
   }
 

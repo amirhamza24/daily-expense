@@ -10,7 +10,6 @@ import {
   Calendar,
   ChevronLeft,
   ChevronRight,
-  DollarSign,
   Eye,
   HandCoins,
   History,
@@ -21,6 +20,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import TakaSign from "@/components/TakaSign";
 import DatePicker from "react-datepicker";
 import PageHeader from "./PageHeader";
 import AnimatedNumber from "./AnimatedNumber";
@@ -33,13 +33,13 @@ import SegmentIndicator from "./SegmentIndicator";
 import { useToast } from "./Toast";
 import { useConfirm } from "./ConfirmModal";
 import { deleteMoneyRecord } from "@/actions/money";
-import { formatDate, formatMoney } from "@/lib/format";
+import { useI18n } from "./I18nProvider";
+import { useDatePickerI18n } from "./useDatePickerI18n";
+import type { Messages } from "@/lib/i18n/messages";
 import {
   MONEY_STATUS_FILTERS,
   isMoneyType,
-  moneyTerms,
   remainingOf,
-  statusLabels,
   type MoneyRecordView,
   type MoneySummary,
   type MoneyType,
@@ -78,32 +78,24 @@ const Dot = ({ className }: { className?: string }) => (
   </svg>
 );
 
-const STATUS_OPTIONS: SelectOption[] = [
-  { value: "", label: "Any status" },
+const statusOptions = (m: Messages): SelectOption[] => [
+  { value: "", label: m.money.anyStatus },
   ...MONEY_STATUS_FILTERS.map((s) => ({
     value: s as string,
-    label: statusLabels[s],
+    label: m.moneyStatus[s],
     icon: Dot,
     iconClassName: statusDot[s],
   })),
 ];
 
-const DATE_OPTIONS: SelectOption[] = [
-  { value: "", label: "Any time" },
-  { value: "today", label: "Today" },
-  { value: "week", label: "This week" },
-  { value: "month", label: "This month" },
-  { value: "custom", label: "Custom range…" },
+const dateOptions = (m: Messages): SelectOption[] => [
+  { value: "", label: m.money.anyTime },
+  ...(["today", "week", "month", "custom"] as const).map((value) => ({ value, label: m.money.dates[value] })),
 ];
 
-const SORT_OPTIONS: SelectOption[] = [
-  { value: "latest", label: "Newest first" },
-  { value: "oldest", label: "Oldest first" },
-  { value: "highest", label: "Highest amount" },
-  { value: "lowest", label: "Lowest amount" },
-  { value: "due", label: "Due date (soonest)" },
-  { value: "person", label: "Person (A–Z)" },
-];
+const SORT_VALUES = ["latest", "oldest", "highest", "lowest", "due", "person"] as const;
+const sortOptions = (m: Messages): SelectOption[] =>
+  SORT_VALUES.map((value) => ({ value, label: m.money.sorts[value] }));
 
 // ─── Summary ─────────────────────────────────────────────────────────────────
 
@@ -125,6 +117,7 @@ function SummaryCard({
   /** Gradient tint class, e.g. "deco-teal". */
   deco: string;
 }) {
+  const { fmt } = useI18n();
   const tile =
     tone === "success"
       ? "bg-success-soft! text-success!"
@@ -140,7 +133,7 @@ function SummaryCard({
         </span>
       </div>
       <p className="stat-value mt-3">
-        <AnimatedNumber value={value} format={formatMoney} />
+        <AnimatedNumber value={value} format={fmt.money} />
       </p>
       <p className="text-xs mt-1 text-faint">{hint}</p>
     </Link>
@@ -148,10 +141,11 @@ function SummaryCard({
 }
 
 function OverdueHint({ count, base }: { count: number; base: string }) {
+  const { m } = useI18n();
   if (count === 0) return <>{base}</>;
   return (
     <>
-      {base} · <span className="text-danger font-medium">{count} overdue</span>
+      {base} · <span className="text-danger font-medium">{m.money.overdueCount(count)}</span>
     </>
   );
 }
@@ -171,6 +165,8 @@ function FilterBar({
 }) {
   const searchParams = useSearchParams();
   const { showToast } = useToast();
+  const { m } = useI18n();
+  const datePickerI18n = useDatePickerI18n("short");
   const get = (k: string) => searchParams.get(k) || "";
 
   const [person, setPerson] = useState(get("person"));
@@ -188,11 +184,11 @@ function FilterBar({
     const min = minAmount.trim();
     const max = maxAmount.trim();
     if ((min && Number(min) < 0) || (max && Number(max) < 0)) {
-      showToast("Amounts can't be negative.", "error");
+      showToast(m.money.negativeAmounts, "error");
       return false;
     }
     if (min && max && Number(min) > Number(max)) {
-      showToast("Minimum amount can't be more than the maximum.", "error");
+      showToast(m.money.minOverMax, "error");
       return false;
     }
     return { minAmount: min || null, maxAmount: max || null };
@@ -220,9 +216,9 @@ function FilterBar({
             type="search"
             value={person}
             onChange={(e) => setPerson(e.target.value)}
-            placeholder="Search by person, e.g. Rahim"
+            placeholder={m.money.searchPerson}
             className="input pl-9 pr-8"
-            aria-label="Search by person"
+            aria-label={m.money.searchPersonLabel}
           />
           {person && (
             <button
@@ -232,7 +228,7 @@ function FilterBar({
                 apply({ person: null });
               }}
               className="absolute right-1.5 top-1/2 -translate-y-1/2 icon-btn h-6 w-6"
-              aria-label="Clear search"
+              aria-label={m.expenses.clearSearch}
             >
               <X className="h-3.5! w-3.5!" />
             </button>
@@ -243,26 +239,26 @@ function FilterBar({
           <Select
             value={status}
             onChange={(v) => apply({ status: v || null })}
-            options={STATUS_OPTIONS}
+            options={statusOptions(m)}
             className="lg:w-44"
-            aria-label="Status"
+            aria-label={m.money.status}
           />
 
           <Select
             value={dateRange}
             onChange={(v) => apply({ dateRange: v || null, startDate: null, endDate: null })}
-            options={DATE_OPTIONS}
+            options={dateOptions(m)}
             className="lg:w-40"
-            aria-label="Date range"
+            aria-label={m.expenses.dateRange}
           />
 
           <div className="col-span-2 sm:col-span-1">
             <Select
               value={sortBy}
               onChange={(v) => apply({ sortBy: v === "latest" ? null : v })}
-              options={SORT_OPTIONS}
+              options={sortOptions(m)}
               className="lg:w-48"
-              aria-label="Sort"
+              aria-label={m.expenses.sort}
             />
           </div>
         </div>
@@ -271,7 +267,7 @@ function FilterBar({
       <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2.5">
         <div className="grid grid-cols-2 gap-2.5 sm:w-72">
           <div className="relative">
-            <DollarSign className="input-icon" />
+            <TakaSign className="input-icon" />
             <input
               type="number"
               min="0"
@@ -280,13 +276,13 @@ function FilterBar({
               value={minAmount}
               onChange={(e) => setMinAmount(e.target.value)}
               onBlur={handleAmountBlur}
-              placeholder="Min amount"
+              placeholder={m.money.minAmount}
               className="input pl-9 tabular"
-              aria-label="Minimum amount"
+              aria-label={m.money.minAmountLabel}
             />
           </div>
           <div className="relative">
-            <DollarSign className="input-icon" />
+            <TakaSign className="input-icon" />
             <input
               type="number"
               min="0"
@@ -295,9 +291,9 @@ function FilterBar({
               value={maxAmount}
               onChange={(e) => setMaxAmount(e.target.value)}
               onBlur={handleAmountBlur}
-              placeholder="Max amount"
+              placeholder={m.money.maxAmount}
               className="input pl-9 tabular"
-              aria-label="Maximum amount"
+              aria-label={m.money.maxAmountLabel}
             />
           </div>
         </div>
@@ -310,8 +306,8 @@ function FilterBar({
                 selected={startDate}
                 onChange={(d: Date | null) => apply({ startDate: d ? toYmd(d) : null })}
                 maxDate={endDate ?? undefined}
-                placeholderText="Start date"
-                dateFormat="MMM d, yyyy"
+                placeholderText={m.expenses.startDate}
+                {...datePickerI18n}
                 fixedHeight
                 className="input pl-9 cursor-pointer"
                 wrapperClassName="w-full"
@@ -323,8 +319,8 @@ function FilterBar({
                 selected={endDate}
                 onChange={(d: Date | null) => apply({ endDate: d ? toYmd(d) : null })}
                 minDate={startDate ?? undefined}
-                placeholderText="End date"
-                dateFormat="MMM d, yyyy"
+                placeholderText={m.expenses.endDate}
+                {...datePickerI18n}
                 fixedHeight
                 className="input pl-9 cursor-pointer"
                 wrapperClassName="w-full"
@@ -335,13 +331,13 @@ function FilterBar({
 
         {/* Lets Enter submit from the amount fields */}
         <button type="submit" className="sr-only">
-          Apply filters
+          {m.money.applyFilters}
         </button>
 
         {hasFilters && (
           <button type="button" onClick={clear} className="btn btn-ghost btn-sm sm:ml-auto self-start sm:self-auto">
             <X />
-            Clear filters
+            {m.expenses.clearFilters}
           </button>
         )}
       </div>
@@ -356,6 +352,7 @@ export default function MoneyClient({ records, summary, people, pagination }: Mo
   const searchParams = useSearchParams();
   const { showToast } = useToast();
   const confirm = useConfirm();
+  const { m, fmt } = useI18n();
   const [isPending, startTransition] = useTransition();
 
   const typeParam = searchParams.get("type");
@@ -409,66 +406,64 @@ export default function MoneyClient({ records, summary, people, pagination }: Mo
 
   const handleDelete = async (r: MoneyRecordView) => {
     const remaining = remainingOf(r);
-    const terms = moneyTerms[r.type];
+    const terms = m.moneyTerms[r.type];
     const effect =
       remaining === 0
-        ? "Your available balance won't change because it's fully settled."
+        ? m.money.deleteEffectSettled
         : r.type === "LENT"
-          ? `The unpaid ${formatMoney(remaining)} will be added back to your available balance.`
-          : `The unpaid ${formatMoney(remaining)} will be deducted from your available balance.`;
+          ? m.money.deleteEffectLent(fmt.money(remaining))
+          : m.money.deleteEffectBorrowed(fmt.money(remaining));
     const ok = await confirm({
-      title: `Delete ${terms.label.toLowerCase()} record`,
-      message: `Delete the record for ${r.personName}${
-        r.payments.length ? ` and its ${r.payments.length} ${terms.payment.toLowerCase()}(s)` : ""
-      }? ${effect} This can't be undone.`,
-      confirmText: "Delete",
+      title: terms.deleteRecord,
+      message: m.money.deleteMessage(r.personName, r.payments.length, terms.payment, effect),
+      confirmText: m.delete,
       variant: "danger",
       icon: <Trash2 className="h-6 w-6" />,
     });
     if (!ok) return;
     startTransition(async () => {
       const res = await deleteMoneyRecord(r.id);
-      if (res.success) showToast("Record deleted.", "success");
-      else showToast(res.error || "Failed to delete record.", "error");
+      if (res.success) showToast(m.money.recordDeleted, "success");
+      else showToast(res.error || m.money.deleteFailed, "error");
     });
   };
 
   const tabs: Array<{ value: MoneyType | null; label: string; icon?: React.ComponentType<{ className?: string }> }> = [
-    { value: null, label: "All" },
-    { value: "LENT", label: "Lent", icon: ArrowUpRight },
-    { value: "BORROWED", label: "Borrowed", icon: ArrowDownLeft },
+    { value: null, label: m.money.all },
+    { value: "LENT", label: m.moneyTerms.LENT.label, icon: ArrowUpRight },
+    { value: "BORROWED", label: m.moneyTerms.BORROWED.label, icon: ArrowDownLeft },
   ];
 
-  const settledHeader = activeType ? moneyTerms[activeType].settled : "Repaid / Paid";
+  const settledHeader = activeType ? m.moneyTerms[activeType].settled : m.money.colSettledBoth;
   const firstItem = (pagination.page - 1) * pagination.limit + 1;
   const lastItem = Math.min(pagination.page * pagination.limit, pagination.total);
   const hasFilters = FILTER_KEYS.some((k) => searchParams.has(k));
 
   const rowActions = (r: MoneyRecordView) => {
-    const terms = moneyTerms[r.type];
+    const terms = m.moneyTerms[r.type];
     const paid = remainingOf(r) === 0;
     return (
       <>
-        <button onClick={() => setViewing(r)} className="icon-btn" title="View details" aria-label="View details">
+        <button onClick={() => setViewing(r)} className="icon-btn" title={m.expenses.viewDetails} aria-label={m.expenses.viewDetails}>
           <Eye />
         </button>
         <button
           onClick={() => openPayment(r)}
           className="icon-btn icon-btn-success"
-          title={paid ? "Fully paid" : terms.recordPayment}
+          title={paid ? m.money.fullyPaid : terms.recordPayment}
           aria-label={terms.recordPayment}
           disabled={paid}
         >
           <Banknote />
         </button>
-        <button onClick={() => openEdit(r)} className="icon-btn" title="Edit" aria-label="Edit">
+        <button onClick={() => openEdit(r)} className="icon-btn" title={m.edit} aria-label={m.edit}>
           <Pencil />
         </button>
         <button
           onClick={() => handleDelete(r)}
           className="icon-btn icon-btn-danger"
-          title="Delete"
-          aria-label="Delete"
+          title={m.delete}
+          aria-label={m.delete}
         >
           <Trash2 />
         </button>
@@ -479,27 +474,27 @@ export default function MoneyClient({ records, summary, people, pagination }: Mo
   const dueLabel = (r: MoneyRecordView) =>
     r.dueDate ? (
       <span className={r.displayStatus === "OVERDUE" ? "text-danger font-medium" : ""}>
-        Due {formatDate(r.dueDate, shortDate)}
+        {m.money.due(fmt.date(r.dueDate, shortDate))}
       </span>
     ) : (
-      <span>No due date</span>
+      <span>{m.money.noDueDate}</span>
     );
 
   return (
     <>
       <PageHeader
         icon={HandCoins}
-        title="Lend & Borrow"
-        description="Who owes you, whom you owe, and what's still pending."
+        title={m.money.title}
+        description={m.money.description}
         actions={
           <>
             <Link href="/transaction-history?type=LendBorrow" className="btn btn-secondary">
               <History />
-              History
+              {m.money.history}
             </Link>
             <button onClick={openNew} className="btn btn-primary">
               <Plus />
-              New record
+              {m.money.newRecord}
             </button>
           </>
         }
@@ -508,37 +503,37 @@ export default function MoneyClient({ records, summary, people, pagination }: Mo
       {/* Summary */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         <SummaryCard
-          label="Total lent"
+          label={m.money.totalLent}
           deco="deco-teal"
           value={summary.totalLent}
-          hint={`${summary.activeLending} outstanding`}
+          hint={m.money.outstandingCount(summary.activeLending)}
           href={`${BASE}?type=LENT`}
           icon={ArrowUpRight}
           tone="neutral"
         />
         <SummaryCard
-          label="Receivable"
+          label={m.money.receivable}
           deco="deco-green"
           value={summary.receivable}
-          hint={<OverdueHint count={summary.overdueLending} base="Others owe you" />}
+          hint={<OverdueHint count={summary.overdueLending} base={m.money.othersOweYou} />}
           href={`${BASE}?type=LENT&status=OPEN`}
           icon={HandCoins}
           tone="success"
         />
         <SummaryCard
-          label="Total borrowed"
+          label={m.money.totalBorrowed}
           deco="deco-amber"
           value={summary.totalBorrowed}
-          hint={`${summary.activeBorrowing} outstanding`}
+          hint={m.money.outstandingCount(summary.activeBorrowing)}
           href={`${BASE}?type=BORROWED`}
           icon={ArrowDownLeft}
           tone="neutral"
         />
         <SummaryCard
-          label="Payable"
+          label={m.money.payable}
           deco="deco-orange"
           value={summary.payable}
-          hint={<OverdueHint count={summary.overdueBorrowing} base="You owe others" />}
+          hint={<OverdueHint count={summary.overdueBorrowing} base={m.money.youOweOthers} />}
           href={`${BASE}?type=BORROWED&status=OPEN`}
           icon={Banknote}
           tone="warning"
@@ -547,14 +542,14 @@ export default function MoneyClient({ records, summary, people, pagination }: Mo
 
       <section className="card overflow-hidden">
         <div className="card-head flex flex-col gap-3 p-3 md:p-4">
-          <div className="segmented sm:max-w-sm" role="tablist" aria-label="Record type">
+          <div className="segmented sm:max-w-sm" role="tablist" aria-label={m.money.recordType}>
             <SegmentIndicator />
             {tabs.map((t) => {
               const active = shownType === t.value;
               const Icon = t.icon;
               return (
                 <button
-                  key={t.label}
+                  key={t.value ?? "all"}
                   type="button"
                   role="tab"
                   aria-selected={active}
@@ -576,13 +571,13 @@ export default function MoneyClient({ records, summary, people, pagination }: Mo
               <div className="h-10 w-10 rounded-full bg-subtle flex items-center justify-center mb-3">
                 <HandCoins className="h-5 w-5 text-faint" />
               </div>
-              <p className="text-sm font-medium text-fg">No lending or borrowing yet</p>
+              <p className="text-sm font-medium text-fg">{m.money.emptyTitle}</p>
               <p className="text-[13px] text-muted mt-1 max-w-sm">
-                Record money you gave to someone or money you received, and track every repayment until it&apos;s settled.
+                {m.money.emptyBody}
               </p>
               <button onClick={openNew} className="btn btn-secondary btn-sm mt-4">
                 <Plus />
-                New record
+                {m.money.newRecord}
               </button>
             </div>
           ) : (
@@ -590,14 +585,14 @@ export default function MoneyClient({ records, summary, people, pagination }: Mo
               <div className="h-10 w-10 rounded-full bg-subtle flex items-center justify-center mb-3">
                 <SearchX className="h-5 w-5 text-faint" />
               </div>
-              <p className="text-sm font-medium text-fg">No records match</p>
+              <p className="text-sm font-medium text-fg">{m.money.noMatchTitle}</p>
               <p className="text-[13px] text-muted mt-1 max-w-sm">
-                Try another person, status or date range.
+                {m.money.noMatchBody}
               </p>
               {(hasFilters || activeType) && (
                 <button onClick={() => navigate(new URLSearchParams())} className="btn btn-secondary btn-sm mt-4">
                   <X />
-                  Show all records
+                  {m.money.showAll}
                 </button>
               )}
             </div>
@@ -609,20 +604,20 @@ export default function MoneyClient({ records, summary, people, pagination }: Mo
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th>Person</th>
-                    <th className="text-right!">Amount</th>
+                    <th>{m.money.colPerson}</th>
+                    <th className="text-right!">{m.money.colAmount}</th>
                     <th className="text-right!">{settledHeader}</th>
-                    <th className="text-right!">Remaining</th>
-                    <th>Date</th>
-                    <th>Status</th>
+                    <th className="text-right!">{m.money.colRemaining}</th>
+                    <th>{m.money.colDate}</th>
+                    <th>{m.money.colStatus}</th>
                     <th className="w-px">
-                      <span className="sr-only">Actions</span>
+                      <span className="sr-only">{m.expenses.colActions}</span>
                     </th>
                   </tr>
                 </thead>
                 <tbody className="stagger-rows" key={searchParams.toString()}>
                   {records.map((r) => {
-                    const terms = moneyTerms[r.type];
+                    const terms = m.moneyTerms[r.type];
                     const remaining = remainingOf(r);
                     return (
                       <tr key={r.id} onClick={() => setViewing(r)} className="cursor-pointer">
@@ -638,22 +633,22 @@ export default function MoneyClient({ records, summary, people, pagination }: Mo
                             </div>
                           </div>
                         </td>
-                        <td className="text-right whitespace-nowrap tabular text-muted">{formatMoney(r.amount)}</td>
-                        <td className="text-right whitespace-nowrap tabular text-muted">{formatMoney(r.paidAmount)}</td>
+                        <td className="text-right whitespace-nowrap tabular text-muted">{fmt.money(r.amount)}</td>
+                        <td className="text-right whitespace-nowrap tabular text-muted">{fmt.money(r.paidAmount)}</td>
                         <td className="text-right whitespace-nowrap">
                           <span
                             className={`font-semibold tabular ${
                               remaining === 0 ? "text-faint" : r.type === "LENT" ? "text-success" : "text-warning"
                             }`}
                           >
-                            {formatMoney(remaining)}
+                            {fmt.money(remaining)}
                           </span>
                           <div className="w-20 ml-auto mt-1.5">
                             <SettledBar amount={r.amount} paidAmount={r.paidAmount} type={r.type} />
                           </div>
                         </td>
                         <td className="whitespace-nowrap">
-                          <p className="text-muted">{formatDate(r.date, shortDate)}</p>
+                          <p className="text-muted">{fmt.date(r.date, shortDate)}</p>
                           <p className="text-xs text-faint mt-0.5">{dueLabel(r)}</p>
                         </td>
                         <td>
@@ -672,7 +667,7 @@ export default function MoneyClient({ records, summary, people, pagination }: Mo
             {/* Mobile cards */}
             <ul className="md:hidden divide-y divide-line stagger-rows" key={`m-${searchParams.toString()}`}>
               {records.map((r) => {
-                const terms = moneyTerms[r.type];
+                const terms = m.moneyTerms[r.type];
                 const remaining = remainingOf(r);
                 return (
                   <li key={r.id} className="px-4 py-3.5">
@@ -684,7 +679,7 @@ export default function MoneyClient({ records, summary, people, pagination }: Mo
                       <span className="min-w-0 flex-1">
                         <span className="block font-medium text-fg truncate">{r.personName}</span>
                         <span className="block text-xs text-faint mt-0.5">
-                          {terms.label} {terms.arrow} · {formatDate(r.date, { month: "short", day: "numeric" })}
+                          {terms.label} {terms.arrow} · {fmt.date(r.date, { month: "short", day: "numeric" })}
                         </span>
                       </span>
                       <span className="flex flex-col items-end gap-1 shrink-0">
@@ -693,7 +688,7 @@ export default function MoneyClient({ records, summary, people, pagination }: Mo
                             remaining === 0 ? "text-faint" : r.type === "LENT" ? "text-success" : "text-warning"
                           }`}
                         >
-                          {formatMoney(remaining)}
+                          {fmt.money(remaining)}
                         </span>
                         <MoneyStatusBadge status={r.displayStatus} />
                       </span>
@@ -702,15 +697,15 @@ export default function MoneyClient({ records, summary, people, pagination }: Mo
                     <dl className="grid grid-cols-3 gap-2 mt-3 text-xs">
                       <div>
                         <dt className="text-faint">{terms.label}</dt>
-                        <dd className="tabular text-fg font-medium">{formatMoney(r.amount)}</dd>
+                        <dd className="tabular text-fg font-medium">{fmt.money(r.amount)}</dd>
                       </div>
                       <div>
                         <dt className="text-faint">{terms.settled}</dt>
-                        <dd className="tabular text-fg font-medium">{formatMoney(r.paidAmount)}</dd>
+                        <dd className="tabular text-fg font-medium">{fmt.money(r.paidAmount)}</dd>
                       </div>
                       <div className="text-right">
-                        <dt className="text-faint">Remaining</dt>
-                        <dd className="tabular text-fg font-medium">{formatMoney(remaining)}</dd>
+                        <dt className="text-faint">{m.money.remaining}</dt>
+                        <dd className="tabular text-fg font-medium">{fmt.money(remaining)}</dd>
                       </div>
                     </dl>
                     <div className="mt-2">
@@ -731,10 +726,7 @@ export default function MoneyClient({ records, summary, people, pagination }: Mo
         {pagination.total > 0 && (
           <div className="flex items-center justify-between gap-3 px-4 py-3 border-t border-line">
             <span className="text-[13px] text-muted">
-              <span className="tabular">
-                {firstItem}–{lastItem}
-              </span>{" "}
-              of <span className="tabular">{pagination.total}</span>
+              <span className="tabular">{m.expenses.range(firstItem, lastItem, pagination.total)}</span>
             </span>
             {pagination.totalPages > 1 && (
               <div className="flex items-center gap-1.5">
@@ -744,14 +736,14 @@ export default function MoneyClient({ records, summary, people, pagination }: Mo
                   className="btn btn-secondary btn-sm"
                 >
                   <ChevronLeft />
-                  Prev
+                  {m.expenses.prev}
                 </button>
                 <button
                   disabled={pagination.page >= pagination.totalPages}
                   onClick={() => apply({ page: String(pagination.page + 1) })}
                   className="btn btn-secondary btn-sm"
                 >
-                  Next
+                  {m.expenses.next}
                   <ChevronRight />
                 </button>
               </div>

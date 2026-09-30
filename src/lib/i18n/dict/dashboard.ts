@@ -1,0 +1,109 @@
+import { localizeDigits as d } from '@/lib/format';
+
+// Dashboard, welcome banner, transaction details modal.
+
+export const en = {
+  welcome: {
+    greeting: { night: 'Good night', morning: 'Good morning', afternoon: 'Good afternoon', evening: 'Good evening' },
+    fallback: 'Welcome',
+    welcomeBack: 'Welcome back,',
+    liveTime: 'Live time',
+  },
+
+  dashboard: {
+    loadError: 'your dashboard',
+    availableBalance: 'Available balance',
+    afterAll: 'After all transactions',
+    totalExpenses: 'Total expenses',
+    allTimeNoIncome: 'All time, excluding income',
+    monthExpenses: "This month's expenses",
+    expensesIn: (month: string) => `Expenses in ${month}`,
+    today: 'Today',
+    spentToday: 'Spent today',
+    lendBorrow: 'Lend & borrow',
+    lendBorrowHint: 'Money owed to you and by you',
+    othersOweYou: 'Money others owe you',
+    youOwe: 'Money you owe',
+    activeLending: 'Active lending',
+    activeBorrowing: 'Active borrowing',
+    overdue: 'Overdue',
+    recent: 'Recent transactions',
+    recentHint: 'Your latest five entries',
+    newTransaction: 'New transaction',
+    noTransactions: 'No transactions yet',
+    noTransactionsHint: 'Record your first expense to see it here.',
+    addTransaction: 'Add transaction',
+    monthSummary: (month: string) => `${month} summary`,
+    moneyInOut: 'Money in vs. money out',
+    moneyIn: 'Money in',
+    moneyOut: 'Money out',
+    netThisMonth: 'Net this month',
+    deleted: 'Expense deleted and wallet balance restored.',
+    deleteFailed: 'Failed to delete expense.',
+  },
+
+  details: {
+    date: 'Date',
+    type: 'Type',
+    credit: 'Credit',
+    debit: 'Debit',
+    breakdown: (n: number) => `Breakdown · ${n} items`,
+    note: 'Note',
+    noNote: 'No note added.',
+    unassigned: 'Unassigned',
+  },
+};
+
+type DashboardMessages = typeof en;
+
+export const bn: DashboardMessages = {
+  welcome: {
+    greeting: { night: 'শুভ রাত্রি', morning: 'শুভ সকাল', afternoon: 'শুভ দুপুর', evening: 'শুভ সন্ধ্যা' },
+    fallback: 'স্বাগতম',
+    welcomeBack: 'আবার স্বাগতম,',
+    liveTime: 'এখনকার সময়',
+  },
+
+  dashboard: {
+    loadError: 'আপনার ড্যাশবোর্ড',
+    availableBalance: 'বর্তমান ব্যালেন্স',
+    afterAll: 'সব লেনদেনের পরে',
+    totalExpenses: 'মোট খরচ',
+    allTimeNoIncome: 'শুরু থেকে এখন পর্যন্ত, আয় বাদে',
+    monthExpenses: 'এই মাসের খরচ',
+    expensesIn: (month) => `${month} মাসের খরচ`,
+    today: 'আজ',
+    spentToday: 'আজকের খরচ',
+    lendBorrow: 'ধার ও দেনা',
+    lendBorrowHint: 'আপনার পাওনা ও আপনার দেনা',
+    othersOweYou: 'অন্যদের কাছে আপনার পাওনা',
+    youOwe: 'আপনার দেনা',
+    activeLending: 'চলমান ধার',
+    activeBorrowing: 'চলমান দেনা',
+    overdue: 'মেয়াদোত্তীর্ণ',
+    recent: 'সাম্প্রতিক লেনদেন',
+    recentHint: 'আপনার শেষ পাঁচটি লেনদেন',
+    newTransaction: 'নতুন লেনদেন',
+    noTransactions: 'এখনো কোনো লেনদেন নেই',
+    noTransactionsHint: 'প্রথম খরচটি লিখুন, এখানে দেখা যাবে।',
+    addTransaction: 'লেনদেন যোগ করুন',
+    monthSummary: (month) => `${month} মাসের সারাংশ`,
+    moneyInOut: 'টাকা এসেছে বনাম টাকা গেছে',
+    moneyIn: 'টাকা এসেছে',
+    moneyOut: 'টাকা গেছে',
+    netThisMonth: 'এই মাসের নিট',
+    deleted: 'খরচ মুছে ফেলা হয়েছে এবং ওয়ালেট ব্যালেন্স ফেরত এসেছে।',
+    deleteFailed: 'খরচ মোছা যায়নি।',
+  },
+
+  details: {
+    date: 'তারিখ',
+    type: 'ধরন',
+    credit: 'জমা',
+    debit: 'খরচ',
+    breakdown: (n) => `খরচের ভাগ · ${d(n, 'bn')}টি আইটেম`,
+    note: 'নোট',
+    noNote: 'কোনো নোট নেই।',
+    unassigned: 'ভাগ করা হয়নি',
+  },
+};

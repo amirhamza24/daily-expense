@@ -10,7 +10,6 @@ import {
   Banknote,
   Calendar,
   CalendarClock,
-  DollarSign,
   HandCoins,
   Info,
   Plus,
@@ -19,13 +18,16 @@ import {
   User,
   X,
 } from "lucide-react";
+import TakaSign from "@/components/TakaSign";
 import DatePicker from "react-datepicker";
 import { useToast } from "./Toast";
 import { ComboInput } from "./Select";
 import { useConfirm } from "./ConfirmModal";
 import { createMoneyRecords, getMoneyEntryData, recordMoneyPayments } from "@/actions/money";
-import { formatDate, formatMoney } from "@/lib/format";
-import { moneyTerms, round2, type MoneyType } from "@/lib/money";
+import { round2, type MoneyType } from "@/lib/money";
+import { useI18n } from "./I18nProvider";
+import { useDatePickerI18n } from "./useDatePickerI18n";
+import type { Messages } from "@/lib/i18n/messages";
 
 /*
  * Lend / borrow / repayment / payment entry, embedded in the "New transaction"
@@ -35,50 +37,21 @@ import { moneyTerms, round2, type MoneyType } from "@/lib/money";
 
 export type MoneyEntryKind = "lend" | "borrow" | "repaid" | "payback";
 
-export const MONEY_ENTRY_KINDS: Record<
+const KIND_META: Record<
   MoneyEntryKind,
-  {
-    type: MoneyType;
-    mode: "new" | "settle";
-    title: string;
-    hint: string;
-    submit: string;
-    icon: React.ComponentType<{ className?: string }>;
-  }
+  { type: MoneyType; mode: "new" | "settle"; icon: React.ComponentType<{ className?: string }> }
 > = {
-  lend: {
-    type: "LENT",
-    mode: "new",
-    title: "Lend money",
-    hint: "You give money to someone",
-    submit: "Record lent",
-    icon: ArrowUpRight,
-  },
-  borrow: {
-    type: "BORROWED",
-    mode: "new",
-    title: "Borrow money",
-    hint: "You take money from someone",
-    submit: "Record borrowed",
-    icon: ArrowDownLeft,
-  },
-  repaid: {
-    type: "LENT",
-    mode: "settle",
-    title: "Get repaid",
-    hint: "Someone returns money they owe you",
-    submit: "Record repayment",
-    icon: HandCoins,
-  },
-  payback: {
-    type: "BORROWED",
-    mode: "settle",
-    title: "Pay back",
-    hint: "You return money you owe",
-    submit: "Record payment",
-    icon: Banknote,
-  },
+  lend: { type: "LENT", mode: "new", icon: ArrowUpRight },
+  borrow: { type: "BORROWED", mode: "new", icon: ArrowDownLeft },
+  repaid: { type: "LENT", mode: "settle", icon: HandCoins },
+  payback: { type: "BORROWED", mode: "settle", icon: Banknote },
 };
+
+/** Lend / borrow / repayment / payment options, with text in the current language. */
+export const MONEY_ENTRY_KINDS = (m: Messages) =>
+  Object.fromEntries(
+    (Object.keys(KIND_META) as MoneyEntryKind[]).map((k) => [k, { ...KIND_META[k], ...m.money.kinds[k] }]),
+  ) as Record<MoneyEntryKind, (typeof KIND_META)[MoneyEntryKind] & Messages["money"]["kinds"][MoneyEntryKind]>;
 
 type OpenRecord = {
   id: string;
@@ -124,7 +97,7 @@ export default function MoneyEntryForm({ kind, ...rest }: MoneyEntryFormProps) {
     load();
   };
 
-  const config = MONEY_ENTRY_KINDS[kind];
+  const config = KIND_META[kind];
   return config.mode === "new" ? (
     <NewRecordsForm key={kind} kind={kind} people={data?.people ?? []} {...rest} />
   ) : (
@@ -138,9 +111,6 @@ type PersonRow = { key: number; name: string; amount: string };
 let rowKey = 0;
 const newRow = (): PersonRow => ({ key: ++rowKey, name: "", amount: "" });
 
-const joinNames = (names: string[]) =>
-  names.length <= 2 ? names.join(" and ") : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
-
 function NewRecordsForm({
   formId,
   kind,
@@ -151,7 +121,10 @@ function NewRecordsForm({
 }: Omit<MoneyEntryFormProps, "kind"> & { kind: MoneyEntryKind; people: string[] }) {
   const { showToast } = useToast();
   const confirm = useConfirm();
-  const config = MONEY_ENTRY_KINDS[kind];
+  const { m, fmt } = useI18n();
+  const t = m.money;
+  const datePickerI18n = useDatePickerI18n("short");
+  const config = KIND_META[kind];
   const isLent = config.type === "LENT";
 
   const [rows, setRows] = useState<PersonRow[]>(() => [newRow()]);
@@ -174,16 +147,16 @@ function NewRecordsForm({
     for (const r of filled) {
       const amount = parseFloat(r.amount);
       if (!r.name.trim()) {
-        showToast("Each person needs a name.", "error");
+        showToast(t.eachNeedsName, "error");
         return;
       }
       if (isNaN(amount) || amount <= 0) {
-        showToast(`Enter an amount greater than zero for ${r.name.trim()}.`, "error");
+        showToast(t.amountFor(r.name.trim()), "error");
         return;
       }
     }
     if (dueDate && dueDate.toDateString() !== date.toDateString() && dueDate < date) {
-      showToast("Due date can't be before the date.", "error");
+      showToast(t.dueBefore, "error");
       return;
     }
 
@@ -191,11 +164,9 @@ function NewRecordsForm({
     const sum = round2(filled.reduce((s, r) => s + parseFloat(r.amount), 0));
 
     const ok = await confirm({
-      title: isLent ? "Record money lent" : "Record money borrowed",
-      message: isLent
-        ? `Lend ${formatMoney(sum)} to ${joinNames(names)}? It will be deducted from your available balance and tracked as receivable.`
-        : `Borrow ${formatMoney(sum)} from ${joinNames(names)}? It will be added to your available balance and tracked as payable.`,
-      confirmText: "Confirm",
+      title: isLent ? t.recordLentTitle : t.recordBorrowedTitle,
+      message: isLent ? t.lendConfirm(fmt.money(sum), names) : t.borrowConfirm(fmt.money(sum), names),
+      confirmText: m.confirm,
       variant: isLent ? "info" : "warning",
     });
     if (!ok) return;
@@ -212,14 +183,11 @@ function NewRecordsForm({
     startTransition(async () => {
       const res = await createMoneyRecords(payload);
       if (res.success) {
-        const who = names.length === 1 ? names[0] : `${names.length} people`;
-        showToast(
-          isLent ? `Lent ${formatMoney(sum)} to ${who}.` : `Borrowed ${formatMoney(sum)} from ${who}.`,
-          "success",
-        );
+        const who = names.length === 1 ? names[0] : t.nPeople(names.length);
+        showToast(isLent ? t.lentDone(fmt.money(sum), who) : t.borrowedDone(fmt.money(sum), who), "success");
         onDone();
       } else {
-        showToast(res.error || "Failed to save.", "error");
+        showToast(res.error || t.saveFailedShort, "error");
       }
     });
   };
@@ -228,10 +196,10 @@ function NewRecordsForm({
     <form id={formId} onSubmit={handleSubmit} className="flex flex-col gap-4">
       <div>
         <div className="flex items-center justify-between mb-1.5">
-          <span className="label mb-0!">{isLent ? "Lent to" : "Borrowed from"}</span>
+          <span className="label mb-0!">{m.moneyTerms[config.type].personLabel}</span>
           {multi && (
             <span className="text-xs text-muted">
-              Total <span className="tabular font-semibold text-fg">{formatMoney(total)}</span>
+              {t.total} <span className="tabular font-semibold text-fg">{fmt.money(total)}</span>
             </span>
           )}
         </div>
@@ -249,14 +217,14 @@ function NewRecordsForm({
                   suggestions={people.filter(
                     (p) => !rows.some((o) => o.key !== r.key && o.name.trim().toLowerCase() === p.toLowerCase()),
                   )}
-                  placeholder={i === 0 ? "Person, e.g. Rahim" : "Another person"}
-                  aria-label={`Person ${i + 1} name`}
+                  placeholder={t.personNPlaceholder(i === 0)}
+                  aria-label={t.personName(i + 1)}
                   disabled={isPending}
                   autoFocus={i === rows.length - 1}
                 />
               </div>
               <div className="relative w-32 shrink-0">
-                <DollarSign className="input-icon" />
+                <TakaSign className="input-icon" />
                 <input
                   type="number"
                   step="0.01"
@@ -264,7 +232,7 @@ function NewRecordsForm({
                   value={r.amount}
                   onChange={(e) => update(r.key, { amount: e.target.value })}
                   placeholder="0.00"
-                  aria-label={`Person ${i + 1} amount`}
+                  aria-label={t.personAmount(i + 1)}
                   className="input pl-9 tabular"
                   disabled={isPending}
                 />
@@ -274,7 +242,7 @@ function NewRecordsForm({
                   type="button"
                   onClick={() => remove(r.key)}
                   className="icon-btn icon-btn-danger h-9 w-9 shrink-0"
-                  aria-label={`Remove person ${i + 1}`}
+                  aria-label={t.removePerson(i + 1)}
                   disabled={isPending}
                 >
                   <X />
@@ -291,19 +259,19 @@ function NewRecordsForm({
           disabled={isPending || rows.length >= 20}
         >
           <Plus />
-          {isLent ? "Split between more people" : "Add another person"}
+          {isLent ? t.splitMore : t.addPerson}
         </button>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <label className="label">{moneyTerms[config.type].dateLabel}</label>
+          <label className="label">{m.moneyTerms[config.type].dateLabel}</label>
           <div className="relative">
             <Calendar className="input-icon" />
             <DatePicker
               selected={date}
               onChange={(d: Date | null) => setDate(d || new Date())}
-              dateFormat="MMM d, yyyy"
+              {...datePickerI18n}
               fixedHeight
               portalId="root-portal"
               popperPlacement="bottom-start"
@@ -315,7 +283,7 @@ function NewRecordsForm({
         </div>
         <div>
           <label className="label">
-            Due date <span className="text-faint font-normal">(optional)</span>
+            {t.dueDate} <span className="text-faint font-normal">({m.optional})</span>
           </label>
           <div className="relative">
             <CalendarClock className="input-icon" />
@@ -323,8 +291,8 @@ function NewRecordsForm({
               selected={dueDate}
               onChange={(d: Date | null) => setDueDate(d)}
               minDate={date}
-              placeholderText="No due date"
-              dateFormat="MMM d, yyyy"
+              placeholderText={t.noDueDate}
+              {...datePickerI18n}
               fixedHeight
               portalId="root-portal"
               popperPlacement="bottom-start"
@@ -337,7 +305,7 @@ function NewRecordsForm({
                 type="button"
                 onClick={() => setDueDate(null)}
                 className="absolute right-1.5 top-1/2 -translate-y-1/2 icon-btn h-6 w-6"
-                aria-label="Clear due date"
+                aria-label={t.clearDueDate}
                 disabled={isPending}
               >
                 <X className="h-3.5! w-3.5!" />
@@ -349,7 +317,7 @@ function NewRecordsForm({
 
       <div>
         <label className="label" htmlFor="money-entry-note">
-          Note <span className="text-faint font-normal">(optional)</span>
+          {t.note} <span className="text-faint font-normal">({m.optional})</span>
         </label>
         <textarea
           id="money-entry-note"
@@ -357,7 +325,7 @@ function NewRecordsForm({
           onChange={(e) => setNote(e.target.value)}
           maxLength={300}
           rows={2}
-          placeholder="e.g. For medical bills"
+          placeholder={t.notePlaceholder}
           className="input resize-none"
           disabled={isPending}
         />
@@ -366,10 +334,8 @@ function NewRecordsForm({
       <div className="alert bg-subtle text-muted">
         <Info />
         <span>
-          {isLent
-            ? "Deducted from your available balance and tracked as receivable in Lend & Borrow. Not counted as an expense."
-            : "Added to your available balance and tracked as payable in Lend & Borrow. Not counted as income."}
-          {multi && " A separate record is created for each person."}
+          {isLent ? t.lentInfoLong : t.borrowedInfoLong}
+          {multi && t.separateRecords}
         </span>
       </div>
     </form>
@@ -395,8 +361,11 @@ function SettleForm({
 }) {
   const { showToast } = useToast();
   const confirm = useConfirm();
-  const config = MONEY_ENTRY_KINDS[kind];
-  const terms = moneyTerms[config.type];
+  const { m, fmt } = useI18n();
+  const t = m.money;
+  const datePickerI18n = useDatePickerI18n("short");
+  const config = MONEY_ENTRY_KINDS(m)[kind];
+  const terms = m.moneyTerms[config.type];
   const isLent = config.type === "LENT";
 
   const [amounts, setAmounts] = useState<Record<string, string>>({});
@@ -424,25 +393,20 @@ function SettleForm({
     e.preventDefault();
 
     if (selected.length === 0) {
-      showToast(`Enter a ${terms.payment.toLowerCase()} amount for at least one person.`, "error");
+      showToast(t.enterPaymentFor(terms.payment), "error");
       return;
     }
     if (overpaid.length > 0) {
       const s = overpaid[0];
-      showToast(
-        `${terms.payment} for ${s.record.personName} can't be more than the remaining ${formatMoney(s.record.remaining)}.`,
-        "error",
-      );
+      showToast(t.paymentForTooMuch(terms.payment, s.record.personName, fmt.money(s.record.remaining)), "error");
       return;
     }
 
     const names = [...new Set(selected.map((s) => s.record.personName))];
     const ok = await confirm({
       title: config.submit,
-      message: isLent
-        ? `Record ${formatMoney(total)} received from ${joinNames(names)}? It will be added to your available balance and reduce your receivable.`
-        : `Record ${formatMoney(total)} paid to ${joinNames(names)}? It will be deducted from your available balance and reduce your payable.`,
-      confirmText: "Confirm",
+      message: isLent ? t.receivedConfirm(fmt.money(total), names) : t.paidConfirm(fmt.money(total), names),
+      confirmText: m.confirm,
       variant: isLent ? "success" : "info",
     });
     if (!ok) return;
@@ -454,14 +418,11 @@ function SettleForm({
         note: note.trim() || undefined,
       });
       if (res.success) {
-        const who = names.length === 1 ? names[0] : `${names.length} people`;
-        showToast(
-          isLent ? `Recorded ${formatMoney(total)} repaid by ${who}.` : `Recorded ${formatMoney(total)} paid to ${who}.`,
-          "success",
-        );
+        const who = names.length === 1 ? names[0] : t.nPeople(names.length);
+        showToast(isLent ? t.repaidDone(fmt.money(total), who) : t.paidDone(fmt.money(total), who), "success");
         onDone();
       } else {
-        showToast(res.error || `Failed to record ${terms.payment.toLowerCase()}.`, "error");
+        showToast(res.error || terms.recordPaymentFailed, "error");
       }
     });
   };
@@ -474,7 +435,7 @@ function SettleForm({
           <p>{loadError}</p>
           <button type="button" onClick={onRetry} className="mt-1.5 font-medium underline underline-offset-2 cursor-pointer inline-flex items-center gap-1">
             <RefreshCw className="h-3.5! w-3.5! mt-0!" />
-            Try again
+            {t.tryAgain}
           </button>
         </div>
       </div>
@@ -483,7 +444,7 @@ function SettleForm({
 
   if (!data) {
     return (
-      <div className="flex flex-col gap-2" aria-busy="true" aria-label="Loading records">
+      <div className="flex flex-col gap-2" aria-busy="true" aria-label={t.loadingRecords}>
         {[0, 1, 2].map((i) => (
           <div key={i} className="flex items-center gap-3 rounded-lg border border-line p-3">
             <div className="skeleton h-4 flex-1" />
@@ -501,15 +462,13 @@ function SettleForm({
           <HandCoins className="h-5 w-5 text-faint" />
         </div>
         <p className="text-sm font-medium text-fg">
-          {isLent ? "Nobody owes you right now" : "You don't owe anyone right now"}
+          {isLent ? t.nobodyOwes : t.youOweNobody}
         </p>
         <p className="text-[13px] text-muted mt-1 max-w-xs">
-          {isLent
-            ? "Record money you lent first — repayments are matched against it."
-            : "Record money you borrowed first — payments are matched against it."}
+          {isLent ? t.lendFirst : t.borrowFirst}
         </p>
         <Link href="/lend-borrow" className="btn btn-ghost btn-sm mt-3 group">
-          Open Lend &amp; Borrow
+          {t.openLendBorrow}
           <ArrowRight className="transition-transform duration-200 group-hover:translate-x-0.5" />
         </Link>
       </div>
@@ -520,10 +479,10 @@ function SettleForm({
     <form id={formId} onSubmit={handleSubmit} className="flex flex-col gap-4">
       <div>
         <div className="flex items-center justify-between mb-1.5">
-          <span className="label mb-0!">{isLent ? "Who is paying you back?" : "Whom are you paying back?"}</span>
+          <span className="label mb-0!">{isLent ? t.whoPays : t.whomPay}</span>
           {total > 0 && (
             <span className="text-xs text-muted">
-              Total <span className="tabular font-semibold text-fg">{formatMoney(total)}</span>
+              {t.total} <span className="tabular font-semibold text-fg">{fmt.money(total)}</span>
             </span>
           )}
         </div>
@@ -535,9 +494,9 @@ function SettleForm({
               type="search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Find a person"
+              placeholder={t.findPerson}
               className="input pl-9"
-              aria-label="Find a person"
+              aria-label={t.findPerson}
             />
           </div>
         )}
@@ -559,16 +518,15 @@ function SettleForm({
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-fg truncate">{r.personName}</p>
                     <p className="text-xs text-faint truncate">
-                      Remaining{" "}
-                      <span className={`tabular font-medium ${isLent ? "text-success" : "text-warning"}`}>
-                        {formatMoney(r.remaining)}
+                      <span className={isLent ? "text-success" : "text-warning"}>
+                        {t.remainingOf(fmt.money(r.remaining), fmt.money(r.amount))}
                       </span>{" "}
-                      of {formatMoney(r.amount)} · {formatDate(r.date, { month: "short", day: "numeric" })}
+                      · {fmt.date(r.date, { month: "short", day: "numeric" })}
                       {r.note && ` · ${r.note}`}
                     </p>
                   </div>
                   <div className="relative w-32 shrink-0">
-                    <DollarSign className="input-icon" />
+                    <TakaSign className="input-icon" />
                     <input
                       type="number"
                       step="0.01"
@@ -577,7 +535,7 @@ function SettleForm({
                       value={value}
                       onChange={(e) => setAmount(r.id, e.target.value)}
                       placeholder="0.00"
-                      aria-label={`${terms.payment} amount for ${r.personName}`}
+                      aria-label={t.amountFor2(terms.payment, r.personName)}
                       aria-invalid={tooMuch}
                       className={`input pl-9 tabular ${tooMuch ? "border-danger!" : ""}`}
                       disabled={isPending}
@@ -586,7 +544,7 @@ function SettleForm({
                 </div>
                 <div className="flex items-center justify-between gap-2 mt-1.5">
                   {tooMuch ? (
-                    <span className="text-xs text-danger">Max {formatMoney(r.remaining)}</span>
+                    <span className="text-xs text-danger">{t.max(fmt.money(r.remaining))}</span>
                   ) : (
                     <span />
                   )}
@@ -596,27 +554,27 @@ function SettleForm({
                     className="text-xs font-medium text-accent-fg hover:underline underline-offset-2 cursor-pointer"
                     disabled={isPending}
                   >
-                    {active && parsed === r.remaining ? "Clear" : "Full amount"}
+                    {active && parsed === r.remaining ? t.clear : t.fullAmount}
                   </button>
                 </div>
               </li>
             );
           })}
           {visible.length === 0 && (
-            <li className="text-center text-[13px] text-faint py-4">No one matches “{query}”.</li>
+            <li className="text-center text-[13px] text-faint py-4">{t.noMatch(query)}</li>
           )}
         </ul>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <label className="label">{terms.payment} date</label>
+          <label className="label">{terms.paymentDate}</label>
           <div className="relative">
             <Calendar className="input-icon" />
             <DatePicker
               selected={paymentDate}
               onChange={(d: Date | null) => setPaymentDate(d || new Date())}
-              dateFormat="MMM d, yyyy"
+              {...datePickerI18n}
               fixedHeight
               portalId="root-portal"
               popperPlacement="bottom-start"
@@ -628,7 +586,7 @@ function SettleForm({
         </div>
         <div>
           <label className="label" htmlFor="money-settle-note">
-            Note <span className="text-faint font-normal">(optional)</span>
+            {t.note} <span className="text-faint font-normal">({m.optional})</span>
           </label>
           <input
             id="money-settle-note"
@@ -636,7 +594,7 @@ function SettleForm({
             maxLength={300}
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            placeholder={isLent ? "e.g. Paid in cash" : "e.g. Bank transfer"}
+            placeholder={isLent ? t.paidCash : t.bankTransfer}
             className="input"
             disabled={isPending}
           />
@@ -644,9 +602,7 @@ function SettleForm({
       </div>
 
       <p className="text-xs text-faint">
-        {isLent
-          ? "Adds to your available balance and reduces what others owe you."
-          : "Deducted from your available balance and reduces what you owe."}
+        {isLent ? t.repayInfoOthers : t.payInfoYou}
       </p>
     </form>
   );

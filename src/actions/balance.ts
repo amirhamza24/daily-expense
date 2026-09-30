@@ -3,11 +3,12 @@
 import { db } from '@/lib/db';
 import { getSession } from '@/lib/auth';
 import { revalidatePath } from 'next/cache';
+import { getI18n } from '@/lib/i18n/server';
 
 async function getAuthenticatedUser() {
   const session = await getSession();
   if (!session || session.status !== 'APPROVED') {
-    throw new Error('Unauthorized or account not approved.');
+    throw new Error((await getI18n()).m.expenseServer.notApproved);
   }
   return session;
 }
@@ -28,13 +29,14 @@ export async function getBalance() {
 
 export async function setOrUpdateBalance(totalBalance: number, note: string) {
   const user = await getAuthenticatedUser();
+  const { m } = await getI18n();
 
   if (totalBalance < 0) {
-    return { success: false, error: 'Balance cannot be negative.' };
+    return { success: false, error: m.expenseServer.balanceNegative };
   }
 
   if (!note.trim()) {
-    return { success: false, error: 'A note describing this balance is required.' };
+    return { success: false, error: m.expenseServer.balanceNoteRequired };
   }
 
   try {
@@ -109,6 +111,6 @@ export async function setOrUpdateBalance(totalBalance: number, note: string) {
   } catch (error) {
     const err = error as Error;
     console.error('setOrUpdateBalance error:', err);
-    return { success: false, error: err.message || 'Failed to update balance.' };
+    return { success: false, error: err.message || m.expenseServer.balanceFailed };
   }
 }

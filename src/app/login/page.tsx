@@ -8,22 +8,25 @@ import { loginUser } from "@/actions/auth";
 import { useToast } from "@/components/Toast";
 import AuthShell, { AuthShellSkeleton } from "@/components/AuthShell";
 import PasswordInput from "@/components/PasswordInput";
+import { useI18n } from "@/components/I18nProvider";
 
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { showToast } = useToast();
+  const { m } = useI18n();
   const [isPending, startTransition] = useTransition();
   // The transition ends when loginUser returns, but the dashboard still has to
   // load; keep the button busy until this page unmounts.
   const [redirecting, setRedirecting] = useState(false);
   const busy = isPending || redirecting;
   const [unverifiedEmail, setUnverifiedEmail] = useState<string | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(
-    searchParams.get("error") === "suspended"
-      ? "Your session was terminated. Your account has been suspended."
-      : null,
-  );
+  const [errorMessage, setErrorMessage] = useState<string | null>(() => {
+    const reason = searchParams.get("error");
+    return reason === "suspended" || reason === "rejected" || reason === "pending"
+      ? m.auth.login.sessionEnded[reason]
+      : null;
+  });
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -35,7 +38,7 @@ function LoginContent() {
     const password = formData.get("password") as string;
 
     if (!email || !password) {
-      setErrorMessage("Please enter both email and password.");
+      setErrorMessage(m.auth.login.bothRequired);
       return;
     }
 
@@ -44,14 +47,14 @@ function LoginContent() {
 
       if (res.success) {
         setRedirecting(true);
-        showToast("Welcome back! Login successful.", "success");
+        showToast(m.auth.login.welcomeToast, "success");
         router.push("/dashboard");
         router.refresh();
       } else {
         setErrorMessage(res.message);
         showToast(res.message, "error");
 
-        if (res.message === "Please verify your email first.") {
+        if (res.code === "EMAIL_UNVERIFIED") {
           setUnverifiedEmail(email);
         }
       }
@@ -61,13 +64,13 @@ function LoginContent() {
   return (
     <AuthShell
       icon={LogIn}
-      title="Welcome back"
-      description="Sign in to continue tracking your expenses."
+      title={m.auth.login.title}
+      description={m.auth.login.description}
       footer={
         <>
-          Don&apos;t have an account?{" "}
+          {m.auth.login.noAccount}{" "}
           <Link href="/register" className="font-medium text-accent-fg hover:underline underline-offset-4">
-            Create one
+            {m.auth.login.createOne}
           </Link>
         </>
       }
@@ -83,7 +86,7 @@ function LoginContent() {
               href={`/verify?email=${encodeURIComponent(unverifiedEmail)}`}
               className="pl-6.5 font-medium underline underline-offset-4"
             >
-              Verify your email now →
+              {m.auth.login.verifyNow}
             </Link>
           )}
         </div>
@@ -92,7 +95,7 @@ function LoginContent() {
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <div>
           <label className="label" htmlFor="email">
-            Email
+            {m.auth.email}
           </label>
           <div className="relative">
             <Mail className="input-icon" />
@@ -102,7 +105,7 @@ function LoginContent() {
               name="email"
               required
               autoComplete="email"
-              placeholder="you@example.com"
+              placeholder={m.auth.emailPlaceholder}
               className="input pl-9 h-11"
               disabled={busy}
             />
@@ -110,9 +113,17 @@ function LoginContent() {
         </div>
 
         <div>
-          <label className="label" htmlFor="password">
-            Password
-          </label>
+          <div className="flex items-center justify-between">
+            <label className="label" htmlFor="password">
+              {m.auth.password}
+            </label>
+            <Link
+              href="/forgot-password"
+              className="mb-1.5 text-xs font-medium text-accent-fg hover:underline underline-offset-4"
+            >
+              {m.auth.login.forgot}
+            </Link>
+          </div>
           <PasswordInput
               className="h-11"
             id="password"
@@ -128,11 +139,11 @@ function LoginContent() {
           {busy ? (
             <>
               <Loader2 className="animate-spin" />
-              {redirecting ? "Opening dashboard…" : "Signing in…"}
+              {redirecting ? m.auth.login.openingDashboard : m.auth.login.signingIn}
             </>
           ) : (
             <>
-              Sign in
+              {m.auth.login.submit}
               <ArrowRight />
             </>
           )}

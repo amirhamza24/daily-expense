@@ -5,6 +5,7 @@ import AnalyticsClient from '@/components/AnalyticsClient';
 import ErrorState from '@/components/ErrorState';
 import { getAnalytics, getUserTimeZone } from '@/lib/finance';
 import { RANGE_PRESETS, type RangePreset } from '@/lib/dates';
+import { getI18n } from '@/lib/i18n/server';
 
 export const revalidate = 0; // Disable caching
 
@@ -21,11 +22,12 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
   }
 
   const { range, from, to } = await searchParams;
-  const preset: RangePreset = RANGE_PRESETS.some((p) => p.value === range) ? (range as RangePreset) : 'month';
+  const preset: RangePreset = RANGE_PRESETS.includes(range as RangePreset) ? (range as RangePreset) : 'month';
+  const { locale, m } = await getI18n();
 
   let data;
   try {
-    data = await getAnalytics(sessionUser.id, await getUserTimeZone(), preset, from, to);
+    data = await getAnalytics(sessionUser.id, await getUserTimeZone(), preset, from, to, locale);
   } catch (error) {
     console.error('Analytics server page error:', error);
   }
@@ -33,8 +35,8 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
   if (!data) {
     return (
       <ErrorState
-        title="Couldn't load analytics"
-        message="We couldn't aggregate your data right now. Please try again later."
+        title={m.analytics.loadErrorTitle}
+        message={m.analytics.loadErrorMessage}
       />
     );
   }

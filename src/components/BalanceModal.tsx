@@ -1,11 +1,13 @@
 "use client";
 
 import React, { useState, useTransition, useEffect } from "react";
-import { DollarSign, Loader2, Wallet } from "lucide-react";
+import { Loader2, Wallet } from "lucide-react";
+import TakaSign from "@/components/TakaSign";
 import Modal from "./Modal";
 import { setOrUpdateBalance } from "@/actions/balance";
 import { useToast } from "./Toast";
 import { useConfirm, confirmPresets } from "./ConfirmModal";
+import { useI18n } from "./I18nProvider";
 
 interface BalanceModalProps {
   isOpen: boolean;
@@ -22,6 +24,8 @@ export default function BalanceModal({
 }: BalanceModalProps) {
   const { showToast } = useToast();
   const confirm = useConfirm();
+  const { m } = useI18n();
+  const b = m.balanceModal;
   const [isPending, startTransition] = useTransition();
   const [balanceInput, setBalanceInput] = useState(currentBalance.toString());
   const [noteInput, setNoteInput] = useState(currentNote);
@@ -40,25 +44,25 @@ export default function BalanceModal({
     const parsed = parseFloat(balanceInput);
 
     if (isNaN(parsed) || parsed < 0) {
-      showToast("Please enter a valid positive number.", "error");
+      showToast(b.invalid, "error");
       return;
     }
 
     if (!noteInput.trim()) {
-      showToast("Please add a note describing this balance.", "error");
+      showToast(b.noteRequired, "error");
       return;
     }
 
-    const ok = await confirm(confirmPresets.setBalance());
+    const ok = await confirm(confirmPresets.setBalance(m));
     if (!ok) return;
 
     startTransition(async () => {
       const res = await setOrUpdateBalance(parsed, noteInput.trim());
       if (res.success) {
-        showToast("Initial balance updated successfully.", "success");
+        showToast(b.updated, "success");
         onClose();
       } else {
-        showToast(res.error || "Failed to update balance.", "error");
+        showToast(res.error || b.failed, "error");
       }
     });
   };
@@ -69,21 +73,21 @@ export default function BalanceModal({
       onClose={onClose}
       locked={isPending}
       icon={<Wallet className="h-5 w-5" />}
-      title="Starting balance"
-      description="Set the amount your wallet starts with."
+      title={b.title}
+      description={b.description}
       footer={
         <>
           <button type="button" onClick={onClose} className="btn btn-secondary" disabled={isPending}>
-            Cancel
+            {m.cancel}
           </button>
           <button type="submit" form="balance-form" disabled={isPending} className="btn btn-primary">
             {isPending ? (
               <>
                 <Loader2 className="animate-spin" />
-                Saving…
+                {m.saving}
               </>
             ) : (
-              "Save changes"
+              b.saveChanges
             )}
           </button>
         </>
@@ -92,10 +96,10 @@ export default function BalanceModal({
       <form id="balance-form" onSubmit={handleSubmit} className="flex flex-col gap-4">
         <div>
           <label className="label" htmlFor="balance-amount">
-            Amount
+            {b.amount}
           </label>
           <div className="relative">
-            <DollarSign className="input-icon" />
+            <TakaSign className="input-icon" />
             <input
               id="balance-amount"
               type="number"
@@ -109,13 +113,13 @@ export default function BalanceModal({
             />
           </div>
           <p className="text-xs text-faint mt-1.5">
-            Your remaining balance is recalculated from logged expenses.
+            {b.hint}
           </p>
         </div>
 
         <div>
           <label className="label" htmlFor="balance-note">
-            Note
+            {b.note}
           </label>
           <textarea
             id="balance-note"
@@ -124,7 +128,7 @@ export default function BalanceModal({
             rows={3}
             value={noteInput}
             onChange={(e) => setNoteInput(e.target.value)}
-            placeholder="e.g. Monthly salary, savings deposit…"
+            placeholder={b.notePlaceholder}
             className="input resize-none"
             disabled={isPending}
           />

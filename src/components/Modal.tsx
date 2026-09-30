@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Download, Loader2, X } from 'lucide-react';
 import { useToast } from './Toast';
+import { useI18n } from './I18nProvider';
 import { downloadNodeAsImage, type ImageFormat } from '@/lib/export-image';
 
 interface ModalProps {
@@ -31,13 +32,14 @@ const sizes = {
   lg: 'max-w-lg',
 };
 
-const FORMATS: Array<{ format: ImageFormat; label: string; hint: string }> = [
-  { format: 'png', label: 'PNG image', hint: 'Sharpest quality' },
-  { format: 'jpg', label: 'JPG image', hint: 'Smaller file' },
-];
 
 function DownloadMenu({ panelRef, fileName }: { panelRef: React.RefObject<HTMLDivElement | null>; fileName: string }) {
   const { showToast } = useToast();
+  const { m } = useI18n();
+  const FORMATS: Array<{ format: ImageFormat; label: string; hint: string }> = [
+    { format: 'png', label: m.download.png, hint: m.download.pngHint },
+    { format: 'jpg', label: m.download.jpg, hint: m.download.jpgHint },
+  ];
   const [menuOpen, setMenuOpen] = useState(false);
   const [busy, setBusy] = useState<ImageFormat | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -59,10 +61,10 @@ function DownloadMenu({ panelRef, fileName }: { panelRef: React.RefObject<HTMLDi
     setBusy(format);
     try {
       await downloadNodeAsImage(panel, fileName, format);
-      showToast(`Saved as ${format.toUpperCase()}.`, 'success');
+      showToast(m.download.savedAs(format.toUpperCase()), 'success');
     } catch (error) {
       console.error('Image export failed:', error);
-      showToast("Couldn't create the image. Please try again.", 'error');
+      showToast(m.download.failed, 'error');
     } finally {
       setBusy(null);
     }
@@ -75,8 +77,8 @@ function DownloadMenu({ panelRef, fileName }: { panelRef: React.RefObject<HTMLDi
         onClick={() => setMenuOpen((v) => !v)}
         disabled={!!busy}
         className="icon-btn -mt-1"
-        title="Download as image"
-        aria-label="Download as image"
+        title={m.download.asImage}
+        aria-label={m.download.asImage}
         aria-haspopup="menu"
         aria-expanded={menuOpen}
       >
@@ -89,7 +91,7 @@ function DownloadMenu({ panelRef, fileName }: { panelRef: React.RefObject<HTMLDi
           className="absolute right-0 top-full mt-1.5 z-10 w-48 rounded-xl border border-line bg-surface p-1 shadow-(--shadow-lg) animate-pop-in origin-top-right"
         >
           <p className="px-2.5 pt-1.5 pb-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-faint">
-            Download as
+            {m.download.as}
           </p>
           {FORMATS.map((f) => (
             <button
@@ -122,6 +124,7 @@ export default function Modal({
   download,
 }: ModalProps) {
   const panelRef = useRef<HTMLDivElement>(null);
+  const { m } = useI18n();
 
   useEffect(() => {
     if (!open) return;
@@ -162,7 +165,7 @@ export default function Modal({
               onClick={onClose}
               disabled={locked}
               className="icon-btn -mt-1"
-              aria-label="Close"
+              aria-label={m.close}
               data-export-ignore
             >
               <X />

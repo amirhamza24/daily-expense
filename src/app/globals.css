@@ -114,7 +114,8 @@
 }
 
 @theme inline {
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-sans: var(--font-inter), var(--font-bengali), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: var(--font-poppins), var(--font-bengali), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 
   --color-bg: var(--bg);
   --color-surface: var(--surface);
@@ -271,6 +272,102 @@ body {
     .page-hero {
       padding: 1.5rem 1.75rem;
     }
+  }
+
+  /* Dashboard welcome banner: multi-tone gradient with soft color blobs */
+  .welcome-hero {
+    position: relative;
+    overflow: hidden;
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    padding: 1rem 1.125rem;
+    background:
+      radial-gradient(60% 120% at 0% 0%, color-mix(in srgb, #22c55e 18%, transparent), transparent 60%),
+      radial-gradient(50% 120% at 100% 0%, color-mix(in srgb, #8b5cf6 14%, transparent), transparent 60%),
+      radial-gradient(60% 100% at 70% 100%, color-mix(in srgb, #06b6d4 14%, transparent), transparent 60%),
+      linear-gradient(120deg, var(--hero-from), var(--surface) 80%);
+    box-shadow: var(--shadow-md);
+  }
+  .welcome-hero::after {
+    content: "";
+    position: absolute;
+    width: 180px;
+    height: 180px;
+    right: 32%;
+    bottom: -120px;
+    border-radius: 999px;
+    border: 22px solid color-mix(in srgb, var(--accent) 7%, transparent);
+    pointer-events: none;
+  }
+  .welcome-hero > * {
+    position: relative;
+    z-index: 1;
+  }
+  @media (min-width: 768px) {
+    .welcome-hero {
+      padding: 1.125rem 1.5rem;
+    }
+  }
+  .welcome-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.125rem 0.5rem;
+    border-radius: 999px;
+    font-family: var(--font-display);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: var(--accent-fg);
+    background: color-mix(in srgb, var(--surface) 70%, transparent);
+    border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
+    backdrop-filter: blur(6px);
+  }
+  .welcome-clock {
+    flex-shrink: 0;
+    width: 15.5rem; /* fixed so ticking time / date length can't resize the card */
+    max-width: 100%;
+    padding: 0.625rem 1rem;
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--surface) 72%, transparent);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-sm);
+    backdrop-filter: blur(8px);
+  }
+  /* Clock digits: Inter's tabular figures (Poppins has none) in fixed cells, so
+     the time never changes width as seconds tick. */
+  .clock-time {
+    display: inline-flex;
+    align-items: baseline;
+    font-family: var(--font-sans);
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
+    white-space: nowrap;
+  }
+  .clock-digit {
+    display: inline-block;
+    width: 0.62em;
+    text-align: center;
+  }
+  .clock-sep {
+    display: inline-block;
+    margin: 0 0.05em;
+    color: var(--text-3);
+    animation: clock-blink 1s steps(1) infinite;
+  }
+  .live-dot {
+    position: relative;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 999px;
+    background: var(--success);
+  }
+  .live-dot::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: var(--success);
+    animation: live-ping 1.6s var(--ease-out) infinite;
   }
 
   /* Soft tinted header strip at the top of a card */
@@ -1208,6 +1305,44 @@ body {
   }
 }
 
+@keyframes clock-blink {
+  50% {
+    opacity: 0.25;
+  }
+}
+
+@keyframes live-ping {
+  from {
+    transform: scale(1);
+    opacity: 0.7;
+  }
+  to {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+}
+
+@keyframes orbit-spin {
+  from {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+@keyframes glow-breathe {
+  0%,
+  100% {
+    transform: translate(-50%, -50%) scale(0.92);
+    opacity: 0.55;
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.06);
+    opacity: 0.9;
+  }
+}
+
 @keyframes toast-progress {
   from {
     transform: scaleX(1);
@@ -1230,6 +1365,50 @@ body {
 .animate-drift {
   animation: drift 14s ease-in-out infinite;
 }
+/* Auth brand panel: slow orbital motion around the concentric rings.
+   Size with h-/w- utilities; speed with --orbit-duration. Deliberately kept
+   under prefers-reduced-motion (product decision): it is slow, low-contrast
+   rotation with no travel toward the viewer. */
+.auth-orbit,
+.auth-sweep {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  border-radius: 999px;
+  transform: translate(-50%, -50%);
+  animation: orbit-spin var(--orbit-duration, 40s) linear infinite;
+  will-change: transform;
+}
+/* A comet-like highlight travelling along the ring line */
+.auth-sweep {
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg 250deg,
+    rgba(167, 243, 208, 0.08) 290deg,
+    rgba(255, 255, 255, 0.75) 356deg,
+    transparent 360deg
+  );
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1.5px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1.5px));
+}
+.auth-orbit-dot {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  transform: translate(-50%, -50%);
+  border-radius: 999px;
+  background: #ecfdf5;
+  box-shadow:
+    0 0 8px 2px rgba(167, 243, 208, 0.7),
+    0 0 22px 6px rgba(52, 211, 153, 0.35);
+}
+.auth-glow {
+  transform: translate(-50%, -50%);
+  background: radial-gradient(circle, rgba(167, 243, 208, 0.22), rgba(52, 211, 153, 0.08) 45%, transparent 70%);
+  filter: blur(8px);
+  animation: glow-breathe 9s ease-in-out infinite;
+}
+
 .animate-toast-progress {
   transform-origin: left;
   animation: toast-progress 4s linear forwards;
@@ -1293,6 +1472,8 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .animate-float,
   .animate-drift,
+  .clock-sep,
+  .live-dot::after,
   .skeleton::after {
     animation: none !important;
   }

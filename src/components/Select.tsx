@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Check, ChevronDown } from "lucide-react";
+import { useI18n } from "./I18nProvider";
 
 /*
  * Custom replacements for the native <select> and <datalist>, styled with the
@@ -124,9 +125,10 @@ export function Select<T extends string>({
   "aria-label": ariaLabel,
   title,
   disabled,
-  placeholder = "Select…",
+  placeholder,
   size = "md",
 }: SelectProps<T>) {
+  const { m } = useI18n();
   const listId = useId();
   const triggerRef = useRef<HTMLButtonElement>(null);
   const [phase, setPhase] = useState<Phase>("closed");
@@ -244,7 +246,7 @@ export function Select<T extends string>({
             <SelectedIcon className="h-3.5 w-3.5" />
           </span>
         )}
-        <span className={`truncate ${selected ? "" : "text-faint"}`}>{selected?.label ?? placeholder}</span>
+        <span className={`truncate ${selected ? "" : "text-faint"}`}>{selected?.label ?? placeholder ?? m.selectPlaceholder}</span>
         <ChevronDown className="select-chevron" aria-hidden />
       </button>
 
@@ -318,6 +320,7 @@ export function ComboInput({
   onFocus,
   ...inputProps
 }: ComboInputProps) {
+  const { m } = useI18n();
   const listId = useId();
   const wrapRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
@@ -411,7 +414,7 @@ export function ComboInput({
             onMouseDown={(e) => e.preventDefault()}
           >
             <p className="px-2.5 pt-1.5 pb-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-faint">
-              Previously used
+              {m.previouslyUsed}
             </p>
             {matches.map((s, i) => (
               <div

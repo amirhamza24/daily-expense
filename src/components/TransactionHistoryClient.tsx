@@ -14,7 +14,9 @@ import {
   Banknote,
 } from "lucide-react";
 import { getCategoryIcon, getCategoryGlow } from "@/lib/categories";
-import { formatMoney } from "@/lib/format";
+import { useI18n } from "./I18nProvider";
+import { useDatePickerI18n } from "./useDatePickerI18n";
+import { categoryLabel, type Messages } from "@/lib/i18n/messages";
 import SplitBreakdown, { Collapse, type ExpenseSplitView } from "./SplitBreakdown";
 import DatePicker from "react-datepicker";
 import SegmentIndicator from "./SegmentIndicator";
@@ -65,19 +67,14 @@ const iconFor = (e: LedgerEntry) =>
 const tintFor = (e: LedgerEntry) =>
   isMoneyKind(e.kind) ? moneyMeta[e.kind as keyof typeof moneyMeta].tint : getCategoryGlow(e.category);
 
-const TABS: Array<{ value: HistoryTab; label: string; short?: string }> = [
-  { value: "All", label: "All" },
-  { value: "Income", label: "Income" },
-  { value: "Expense", label: "Expense" },
-  { value: "LendBorrow", label: "Lend & Borrow", short: "Lend/Borrow" },
-];
+const TAB_VALUES: HistoryTab[] = ["All", "Income", "Expense", "LendBorrow"];
 
-const MONEY_FILTER_OPTIONS: SelectOption[] = [
-  { value: "all", label: "All lend & borrow", icon: HandCoins, iconClassName: "bg-subtle text-muted" },
-  { value: "lent", label: "Lent", icon: ArrowUpRight, iconClassName: moneyMeta.lent.tint },
-  { value: "borrowed", label: "Borrowed", icon: ArrowDownLeft, iconClassName: moneyMeta.borrowed.tint },
-  { value: "repaid", label: "Repayments received", icon: HandCoins, iconClassName: moneyMeta.repaid.tint },
-  { value: "paidback", label: "Payments made", icon: Banknote, iconClassName: moneyMeta.paidback.tint },
+const moneyFilterOptions = (m: Messages): SelectOption[] => [
+  { value: "all", label: m.history.moneyFilter.all, icon: HandCoins, iconClassName: "bg-subtle text-muted" },
+  { value: "lent", label: m.history.moneyFilter.lent, icon: ArrowUpRight, iconClassName: moneyMeta.lent.tint },
+  { value: "borrowed", label: m.history.moneyFilter.borrowed, icon: ArrowDownLeft, iconClassName: moneyMeta.borrowed.tint },
+  { value: "repaid", label: m.history.moneyFilter.repaid, icon: HandCoins, iconClassName: moneyMeta.repaid.tint },
+  { value: "paidback", label: m.history.moneyFilter.paidback, icon: Banknote, iconClassName: moneyMeta.paidback.tint },
 ];
 
 export default function TransactionHistoryClient({
@@ -85,6 +82,13 @@ export default function TransactionHistoryClient({
   startingBalance,
   initialTab = "All",
 }: TransactionHistoryClientProps) {
+  const { m, fmt } = useI18n();
+  const h = m.history;
+  const datePickerI18n = useDatePickerI18n("short");
+  // Expense entries carry their stored category; lend & borrow ones are labelled by kind
+  const categoryText = (e: LedgerEntry) =>
+    isMoneyKind(e.kind) ? h.kinds[e.kind as keyof typeof h.kinds] : categoryLabel(m, e.category);
+
   // --- Filter and Search States ---
   const [searchQuery, setSearchQuery] = useState("");
   const [tab, setTab] = useState<HistoryTab>(initialTab);
@@ -166,12 +170,7 @@ export default function TransactionHistoryClient({
 
   // Helper to format dates beautifully
   const formatTransactionDate = (dateStr: string) => {
-    const d = new Date(dateStr);
-    return d.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
+    return fmt.date(dateStr, { month: "short", day: "numeric", year: "numeric" });
   };
 
   const hasFilters = !!(searchQuery || tab !== "All" || startDate || endDate);
@@ -183,7 +182,7 @@ export default function TransactionHistoryClient({
         href={`/lend-borrow?person=${encodeURIComponent(e.person)}`}
         onClick={(ev) => ev.stopPropagation()}
         className="hover:text-accent-fg hover:underline underline-offset-2"
-        title={`Open ${e.person} in Lend & Borrow`}
+        title={h.openInLendBorrow(e.person)}
       >
         {e.title}
       </Link>
@@ -205,32 +204,32 @@ export default function TransactionHistoryClient({
                 setSearchQuery(e.target.value);
                 setCurrentPage(1);
               }}
-              placeholder="Search by title, person or note…"
+              placeholder={h.searchPlaceholder}
               className="input pl-9"
             />
           </div>
 
-          <div className="segmented xl:w-96 shrink-0" role="tablist" aria-label="Entry type">
+          <div className="segmented xl:w-96 shrink-0" role="tablist" aria-label={h.entryType}>
             <SegmentIndicator />
-            {TABS.map((t) => (
+            {TAB_VALUES.map((value) => (
               <button
-                key={t.value}
+                key={value}
                 type="button"
                 role="tab"
-                aria-selected={tab === t.value}
-                data-active={tab === t.value}
+                aria-selected={tab === value}
+                data-active={tab === value}
                 onClick={() => {
-                  setTab(t.value);
+                  setTab(value);
                   setCurrentPage(1);
                 }}
               >
-                {t.short ? (
+                {value === "LendBorrow" ? (
                   <>
-                    <span className="sm:hidden">{t.short}</span>
-                    <span className="hidden sm:inline">{t.label}</span>
+                    <span className="sm:hidden">{h.tabLendBorrowShort}</span>
+                    <span className="hidden sm:inline">{h.tabs[value]}</span>
                   </>
                 ) : (
-                  t.label
+                  h.tabs[value]
                 )}
               </button>
             ))}
@@ -246,8 +245,8 @@ export default function TransactionHistoryClient({
                   setStartDate(dateStr);
                   setCurrentPage(1);
                 }}
-                dateFormat="MMM d, yyyy"
-                placeholderText="From"
+                {...datePickerI18n}
+                placeholderText={h.from}
                 fixedHeight
                 className="input pl-9 cursor-pointer"
                 wrapperClassName="w-full"
@@ -262,8 +261,8 @@ export default function TransactionHistoryClient({
                   setEndDate(dateStr);
                   setCurrentPage(1);
                 }}
-                dateFormat="MMM d, yyyy"
-                placeholderText="To"
+                {...datePickerI18n}
+                placeholderText={h.to}
                 fixedHeight
                 className="input pl-9 cursor-pointer"
                 wrapperClassName="w-full"
@@ -281,21 +280,21 @@ export default function TransactionHistoryClient({
                   setMoneyFilter(v);
                   setCurrentPage(1);
                 }}
-                options={MONEY_FILTER_OPTIONS}
-                aria-label="Lend & borrow entry type"
+                options={moneyFilterOptions(m)}
+                aria-label={h.moneyFilterLabel}
               />
             </div>
             <div className="flex items-center gap-4 text-[13px] text-muted sm:ml-auto">
               <span>
-                Money in{" "}
-                <span className="tabular font-medium text-success">+{formatMoney(moneyIn)}</span>
+                {h.moneyIn}{" "}
+                <span className="tabular font-medium text-success">+{fmt.money(moneyIn)}</span>
               </span>
               <span>
-                Money out{" "}
-                <span className="tabular font-medium text-fg">−{formatMoney(moneyOut)}</span>
+                {h.moneyOut}{" "}
+                <span className="tabular font-medium text-fg">−{fmt.money(moneyOut)}</span>
               </span>
               <Link href="/lend-borrow" className="font-medium text-accent-fg hover:underline underline-offset-2">
-                Manage →
+                {h.manage}
               </Link>
             </div>
           </div>
@@ -304,21 +303,21 @@ export default function TransactionHistoryClient({
         <div className="flex flex-wrap items-center justify-between gap-2 text-[13px] text-muted">
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
             <span>
-              <span className="tabular font-medium text-fg">{totalItems}</span>{" "}
-              {totalItems === 1 ? "entry" : "entries"}
+              <span className="tabular font-medium text-fg">{fmt.number(totalItems)}</span>{" "}
+              {h.entries(totalItems)}
             </span>
             <span className="text-line-strong">·</span>
             <span>
-              Starting balance{" "}
+              {h.startingBalance}{" "}
               <span className="tabular font-medium text-fg">
-                {formatMoney(startingBalance)}
+                {fmt.money(startingBalance)}
               </span>
             </span>
           </div>
           {hasFilters && (
             <button onClick={handleResetFilters} className="btn btn-ghost btn-sm animate-fade-in">
               <FilterX />
-              Reset filters
+              {h.resetFilters}
             </button>
           )}
         </div>
@@ -331,12 +330,12 @@ export default function TransactionHistoryClient({
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Date</th>
-                  <th>Transaction</th>
-                  <th>Category</th>
-                  <th>Type</th>
-                  <th className="text-right!">Amount</th>
-                  <th className="text-right!">Balance</th>
+                  <th>{h.colDate}</th>
+                  <th>{h.colTransaction}</th>
+                  <th>{h.colCategory}</th>
+                  <th>{h.colType}</th>
+                  <th className="text-right!">{h.colAmount}</th>
+                  <th className="text-right!">{h.colBalance}</th>
                 </tr>
               </thead>
               <tbody className="stagger-rows" key={pageKey}>
@@ -362,7 +361,7 @@ export default function TransactionHistoryClient({
                             {hasSplits && (
                               <span className="badge h-5 px-1.5 gap-0.5 text-[11px] shrink-0">
                                 <ChevronRight className="chevron h-3 w-3" data-open={isOpen} />
-                                {t.splits.length} items
+                                {m.items(t.splits.length)}
                               </span>
                             )}
                           </p>
@@ -373,23 +372,23 @@ export default function TransactionHistoryClient({
                         <td>
                           <span className={`badge ${tintFor(t)}`}>
                             <CategoryIcon className="h-3 w-3" />
-                            {t.category}
+                            {categoryText(t)}
                           </span>
                         </td>
                         <td>
                           <span className={`badge badge-dot ${isCredit ? "badge-success" : "badge-danger"}`}>
-                            {isCredit ? "Credit" : "Debit"}
+                            {isCredit ? h.credit : h.debit}
                           </span>
                         </td>
                         <td className="text-right whitespace-nowrap">
                           <span className={`font-semibold tabular ${isCredit ? "text-success" : "text-fg"}`}>
                             {isCredit ? "+" : "−"}
-                            {formatMoney(t.amount)}
+                            {fmt.money(t.amount)}
                           </span>
                         </td>
                         <td className="text-right whitespace-nowrap tabular text-muted">
                           {t.runningBalance < 0 && "−"}
-                          {formatMoney(t.runningBalance)}
+                          {fmt.money(t.runningBalance)}
                         </td>
                       </tr>
                       {hasSplits && (
@@ -434,12 +433,12 @@ export default function TransactionHistoryClient({
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-fg truncate">{titleFor(t)}</p>
                       <p className="flex items-center gap-1 text-xs text-faint mt-0.5">
-                        {t.category} · {formatTransactionDate(t.date)}
+                        {categoryText(t)} · {formatTransactionDate(t.date)}
                         {hasSplits && (
                           <>
                             {" · "}
                             <span className="inline-flex items-center gap-0.5 text-muted">
-                              {t.splits.length} items
+                              {m.items(t.splits.length)}
                               <ChevronRight className="chevron h-3 w-3" data-open={isOpen} />
                             </span>
                           </>
@@ -452,11 +451,11 @@ export default function TransactionHistoryClient({
                     <div className="text-right shrink-0">
                       <p className={`text-sm font-semibold tabular ${isCredit ? "text-success" : "text-fg"}`}>
                         {isCredit ? "+" : "−"}
-                        {formatMoney(t.amount)}
+                        {fmt.money(t.amount)}
                       </p>
                       <p className="text-xs text-faint tabular mt-0.5">
                         {t.runningBalance < 0 && "−"}
-                        {formatMoney(t.runningBalance)}
+                        {fmt.money(t.runningBalance)}
                       </p>
                     </div>
                   </div>
@@ -476,8 +475,7 @@ export default function TransactionHistoryClient({
           {totalPages > 1 && (
             <div className="flex items-center justify-between gap-3 px-4 py-3 border-t border-line">
               <span className="text-[13px] text-muted">
-                Page <span className="tabular font-medium text-fg">{currentPage}</span> of{" "}
-                <span className="tabular font-medium text-fg">{totalPages}</span>
+                <span className="tabular">{m.pageOf(currentPage, totalPages)}</span>
               </span>
               <div className="flex items-center gap-1.5">
                 <button
@@ -486,14 +484,14 @@ export default function TransactionHistoryClient({
                   className="btn btn-secondary btn-sm"
                 >
                   <ChevronLeft />
-                  Prev
+                  {m.expenses.prev}
                 </button>
                 <button
                   onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
                   disabled={currentPage === totalPages}
                   className="btn btn-secondary btn-sm"
                 >
-                  Next
+                  {m.expenses.next}
                   <ChevronRight />
                 </button>
               </div>
@@ -510,18 +508,18 @@ export default function TransactionHistoryClient({
             )}
           </div>
           <p className="text-sm font-medium text-fg">
-            {tab === "LendBorrow" ? "No lend & borrow history" : "No transactions found"}
+            {tab === "LendBorrow" ? h.noLendBorrow : h.noneFound}
           </p>
           <p className="text-[13px] text-muted mt-1 max-w-sm">
             {tab === "LendBorrow" && !searchQuery && !startDate && !endDate
-              ? "Money you lend, borrow, get back or pay back will show up here."
+              ? h.lendBorrowEmpty
               : hasFilters
-                ? "Nothing matches these filters. Try widening the date range or clearing the search."
-                : "Once you record transactions they will show up here."}
+                ? h.filtersEmpty
+                : h.empty}
           </p>
           {hasFilters && (
             <button onClick={handleResetFilters} className="btn btn-secondary btn-sm mt-4">
-              Clear all filters
+              {h.clearAll}
             </button>
           )}
         </div>

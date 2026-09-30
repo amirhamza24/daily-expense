@@ -4,12 +4,13 @@ import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
+import { getI18n } from "@/lib/i18n/server";
 
 // Helper to check if current user is an admin
 async function getAdminUser() {
   const session = await getSession();
   if (!session || session.role !== "ADMIN" || session.status !== "APPROVED") {
-    throw new Error("Unauthorized. Admin privilege required.");
+    throw new Error((await getI18n()).m.adminServer.unauthorized);
   }
   return session;
 }
@@ -34,7 +35,7 @@ export async function getAllUsers() {
     return users;
   } catch (error) {
     console.error("getAllUsers error:", error);
-    throw new Error("Failed to retrieve user registry.");
+    throw new Error((await getI18n()).m.adminServer.fetchUsersFailed);
   }
 }
 
@@ -70,7 +71,7 @@ export async function updateUserStatus(
     console.error("updateUserStatus error:", err);
     return {
       success: false,
-      error: err.message || "Failed to update user status.",
+      error: err.message || (await getI18n()).m.adminServer.statusFailed,
     };
   }
 }
@@ -107,7 +108,7 @@ export async function getAdminOverview() {
     };
   } catch (error) {
     console.error("getAdminOverview error:", error);
-    throw new Error("Failed to retrieve system overview metrics.");
+    throw new Error((await getI18n()).m.adminServer.overviewFailed);
   }
 }
 
@@ -128,7 +129,7 @@ export async function updateUserRole(
   if (admin.id === userId && newRole === "USER") {
     return {
       success: false,
-      error: "You cannot demote your own admin account.",
+      error: (await getI18n()).m.adminServer.cantDemoteSelf,
     };
   }
 
@@ -140,13 +141,13 @@ export async function updateUserRole(
     });
 
     if (!targetUser) {
-      return { success: false, error: "User not found." };
+      return { success: false, error: (await getI18n()).m.adminServer.userNotFound };
     }
 
     if (targetUser.status !== "APPROVED") {
       return {
         success: false,
-        error: "Role can only be changed for APPROVED users.",
+        error: (await getI18n()).m.adminServer.roleNeedsApproved,
       };
     }
 
@@ -164,7 +165,7 @@ export async function updateUserRole(
     console.error("updateUserRole error:", err);
     return {
       success: false,
-      error: err.message || "Failed to update user role.",
+      error: err.message || (await getI18n()).m.adminServer.roleFailed,
     };
   }
 }

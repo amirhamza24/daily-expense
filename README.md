@@ -4,7 +4,7 @@
 
 ### Daily Expense & Lend/Borrow Tracker
 
-Track spending, income, balance, and money lent or borrowed, all in one dashboard.
+Track spending, income, balance, and money lent or borrowed, all in one dashboard, in English or বাংলা.
 
 ![Version](https://img.shields.io/badge/version-0.3.0-166534?style=for-the-badge)
 [![Next.js](https://img.shields.io/badge/Next.js-16.2.6-black?style=for-the-badge&logo=next.js)](https://nextjs.org/)
@@ -44,6 +44,7 @@ Track spending, income, balance, and money lent or borrowed, all in one dashboar
 
 ### 📊 Dashboard & Analytics
 
+- Welcome banner with the user's name, a time-of-day greeting, today's date and a live clock (hours, minutes, seconds; fixed width, no jitter)
 - Stat cards: available balance, total, monthly and today's expenses (income excluded)
 - Lend & Borrow overview: money owed to you, money you owe, and active/overdue counts
 - Monthly summary: money in vs. money out
@@ -86,17 +87,27 @@ Track spending, income, balance, and money lent or borrowed, all in one dashboar
 ### 🔐 Auth & Admin
 
 - Registration with email OTP verification
+- **Forgot password** (`/forgot-password`): 6-digit email code, then a new password
+  - Clear error when no account exists for the email
+  - Code stored hashed (SHA-256), valid for 10 minutes, max 5 attempts, 60-second resend cooldown
 - Admin approval (`PENDING → APPROVED / REJECTED / SUSPENDED`)
 - JWT session in an httpOnly cookie, access checked again on every request
 - Admin panel: user registry, approve/reject/suspend, role management
 - Profile and password change
+
+### 🌐 Language (English / বাংলা)
+
+- English by default; switch to Bangla in **Settings → Language** (saved per device)
+- The whole app is translated, including emails, toasts, insights, reports and the Help page
+- Bangla digits and month names (`bn-BD`), lakh-style number grouping, localized date pickers
 
 ### 🎨 UI
 
 - Light / dark mode with no flash on load
 - Responsive, with card layouts on mobile
 - Gradient stat cards, skeleton loaders, toasts, confirm dialogs
-- Respects the system **reduced-motion** setting
+- Slow, smooth orbit animation around the circles on the login / register / forgot-password brand panel
+- Respects the system **reduced-motion** setting (except the decorative auth-panel orbit)
 
 ---
 
@@ -114,7 +125,21 @@ Track spending, income, balance, and money lent or borrowed, all in one dashboar
 | Dates              | date-fns, react-datepicker                              |
 | Image / PDF export | html-to-image, jsPDF                                    |
 | Icons              | lucide-react                                            |
+| Fonts              | Inter, Poppins, Hind Siliguri (`next/font`)             |
+| i18n               | Typed in-house dictionaries + `Intl` (`en`, `bn-BD`)    |
 | Hosting            | Vercel                                                  |
+
+---
+
+---
+
+| Variable                       | Purpose                                                                                        |
+| ------------------------------ | ---------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`                 | PostgreSQL connection string                                                                   |
+| `JWT_SECRET`                   | Session signing secret (required in production)                                                |
+| `RESEND_API_KEY`               | Sends verification and password-reset emails (codes are logged to the server console if unset) |
+| `EMAIL_FROM`                   | Sender address for emails                                                                      |
+| `SEED_ADMIN_*` / `SEED_USER_*` | Accounts created by `prisma db seed`                                                           |
 
 ---
 
@@ -129,6 +154,8 @@ Track spending, income, balance, and money lent or borrowed, all in one dashboar
 - Lend & Borrow history tab in Transaction history; running balance now matches available balance
 - Custom dropdowns, sliding tab indicator, smoother animations
 - Time-zone-aware daily/monthly grouping
+- Bangla / English translation for the whole app (Settings → Language), with Bangla digits and month names
+- Forgot password with email code
 
 ### v0.2.0
 
