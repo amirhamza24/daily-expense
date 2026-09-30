@@ -29,7 +29,7 @@ Next.js 16 App Router (see AGENTS.md — read `node_modules/next/dist/docs/` bef
 2. `src/app/(authenticated)/layout.tsx` — calls `getSession()` (which re-reads role/status from DB on every request so admin actions take effect immediately), clears the cookie and redirects with `?error=pending|suspended|rejected` if the user is not `APPROVED`.
 3. Each page / server action re-checks `getSession()`; admin pages additionally require `role === 'ADMIN'`.
 
-User lifecycle: register → email OTP verification (`/verify`) → `PENDING` → admin approves in `/admin/users` → `APPROVED`. Only approved users can log in.
+User lifecycle: register → `PendingRegistration` row + emailed code (no `User` yet) → email OTP verification (`/verify`) creates the `User` as `PENDING` → admin approves in `/admin/users` → `APPROVED`. Only approved users can log in. Unverified emails never become accounts; `User.verificationCode*` fields are legacy (pre-`PendingRegistration` accounts, upgraded in place on verify). In production a failed verification email fails the register/resend step.
 
 **Data flow.** Pages under `src/app/(authenticated)/*/page.tsx` are async Server Components that query Prisma directly (`export const revalidate = 0`) and pass serialized data to a `*Client.tsx` component in `src/components/`. Mutations are Server Actions in `src/actions/*.ts` that return `{ success, error? }` / `{ success, message }` and call `revalidatePath(...)` for affected pages. Clients call actions inside `startTransition` and report results via `useToast()`; destructive actions first `await useConfirm()(confirmPresets.x())`.
 

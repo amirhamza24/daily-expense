@@ -45,11 +45,19 @@ async function sendEmail(to: string, subject: string, html: string, devLog: stri
   const resend = new Resend(apiKey);
   const emailFrom = process.env.EMAIL_FROM || 'onboarding@resend.dev';
 
+  // Resend reports API failures in `error` rather than throwing, so both paths must be checked.
+  // In development the code is logged too, so a rejected send (e.g. the onboarding@resend.dev
+  // sandbox sender only reaches the Resend account owner) never blocks sign-up locally.
+  const devHint = process.env.NODE_ENV === 'production' ? '' : ` ${devLog}`;
   try {
-    const data = await resend.emails.send({ from: emailFrom, to, subject, html });
+    const { data, error } = await resend.emails.send({ from: emailFrom, to, subject, html });
+    if (error) {
+      console.error(`Failed to send email "${subject}" to ${to} from ${emailFrom}: ${error.message}.${devHint}`);
+      return { success: false, error };
+    }
     return { success: true, data };
   } catch (error) {
-    console.error(`Failed to send email "${subject}":`, error);
+    console.error(`Failed to send email "${subject}" to ${to}:`, error, devHint);
     return { success: false, error };
   }
 }

@@ -5,6 +5,7 @@ import { hashPassword, comparePassword, setSession, removeSession, getSession } 
 import { sendOTPEmail, sendPasswordResetEmail } from '@/lib/email';
 import { createHash, randomInt, timingSafeEqual } from 'crypto';
 import { getI18n } from '@/lib/i18n/server';
+import type { Locale } from '@/lib/i18n/config';
 
 export type ActionResponse = {
   success: boolean;
@@ -13,10 +14,55 @@ export type ActionResponse = {
   code?: 'EMAIL_UNVERIFIED' | 'RESET_CODE_DEAD';
 };
 
+// ─── Sign-up & email verification ────────────────────────────────────────────
+// Flow: /register → PendingRegistration + emailed 6-digit code → /verify → the
+// User row is created only here, so an unverified email never becomes an
+// account (and never reaches the admin's approval list). Only the code's
+// SHA-256 is stored; each check burns one attempt.
+//
+// Legacy: accounts created before this flow may still exist as User rows with
+// emailVerified = false. Signing up / resending for such an email starts a
+// pending sign-up, and verifying it upgrades that existing row in place.
+
+const SIGNUP_CODE_TTL_SECONDS = 120; // matches the countdown on /verify
+const SIGNUP_RESEND_COOLDOWN_SECONDS = 120;
+const SIGNUP_MAX_ATTEMPTS = 5;
+const SIGNUP_STALE_HOURS = 24;
+
+function hashCode(code: string) {
+  return createHash('sha256').update(code).digest('hex');
+}
+
+function newSignupCode() {
+  const code = randomInt(100000, 1000000).toString();
+  return {
+    code,
+    codeHash: hashCode(code),
+    codeExpiry: new Date(Date.now() + SIGNUP_CODE_TTL_SECONDS * 1000),
+    codeSentAt: new Date(),
+    attempts: 0,
+  };
+}
+
+/**
+ * Emails the code. In production a failed send is a failed sign-up step (the
+ * person could never verify); in development the code is logged to the
+ * console by sendOTPEmail, so the flow can continue locally.
+ */
+async function deliverSignupCode(email: string, name: string, code: string, locale: Locale) {
+  try {
+    const res = await sendOTPEmail(email, name, code, locale);
+    if (res.success) return true;
+  } catch (emailError) {
+    console.error('Failed to send verification email:', emailError);
+  }
+  return process.env.NODE_ENV !== 'production';
+}
+
 export async function registerUser(formData: FormData): Promise<ActionResponse> {
   const { m, locale } = await getI18n();
-  const name = formData.get('name') as string;
-  const email = formData.get('email') as string;
+  const name = (formData.get('name') as string)?.trim();
+  const email = (formData.get('email') as string)?.trim().toLowerCase();
   const password = formData.get('password') as string;
 
   if (!name || !email || !password) {
@@ -24,46 +70,40 @@ export async function registerUser(formData: FormData): Promise<ActionResponse> 
   }
 
   try {
-    // Check if user already exists
-    const existingUser = await db.user.findUnique({
-      where: { email: email.toLowerCase() },
-    });
-
-    if (existingUser) {
+    const existingUser = await db.user.findUnique({ where: { email } });
+    if (existingUser?.emailVerified) {
       return { success: false, message: m.authServer.emailTaken };
     }
 
-    const hashedPassword = hashPassword(password);
-
-    // Generate secure 6-digit OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const otpExpiry = new Date(Date.now() + 2 * 60 * 1000); // 2 minutes
-
-    // Create the pending user in database
-    await db.user.create({
-      data: {
-        name,
-        email: email.toLowerCase(),
-        password: hashedPassword,
-        role: 'USER',
-        status: 'PENDING',
-        emailVerified: false,
-        verificationCode: otp,
-        verificationCodeExpiry: otpExpiry,
-      },
+    // Housekeeping: drop sign-ups that were never verified.
+    await db.pendingRegistration.deleteMany({
+      where: { createdAt: { lt: new Date(Date.now() - SIGNUP_STALE_HOURS * 60 * 60 * 1000) } },
     });
 
-    // Send the verification OTP email (non-blocking so email service failures don't crash registration)
-    try {
-      await sendOTPEmail(email.toLowerCase(), name, otp, locale);
-    } catch (emailError) {
-      console.error('Failed to send registration OTP email:', emailError);
+    const pending = await db.pendingRegistration.findUnique({ where: { email } });
+    if (pending) {
+      const waited = Math.floor((Date.now() - pending.codeSentAt.getTime()) / 1000);
+      if (waited < SIGNUP_RESEND_COOLDOWN_SECONDS) {
+        return { success: false, message: m.authServer.waitSeconds(SIGNUP_RESEND_COOLDOWN_SECONDS - waited) };
+      }
     }
 
-    return {
-      success: true,
-      message: m.authServer.registered,
-    };
+    // Re-registering the same email replaces the earlier unverified attempt:
+    // whoever can read the inbox decides which details become the account.
+    const { code, ...codeFields } = newSignupCode();
+    const details = { name, password: hashPassword(password), ...codeFields };
+    await db.pendingRegistration.upsert({
+      where: { email },
+      create: { email, ...details },
+      update: { ...details, createdAt: new Date() },
+    });
+
+    if (!(await deliverSignupCode(email, name, code, locale))) {
+      await db.pendingRegistration.delete({ where: { email } });
+      return { success: false, message: m.authServer.emailSendFailed };
+    }
+
+    return { success: true, message: m.authServer.registered };
   } catch (error) {
     console.error('Registration error:', error);
     return { success: false, message: m.internalError };
@@ -72,49 +112,73 @@ export async function registerUser(formData: FormData): Promise<ActionResponse> 
 
 export async function verifyEmailOTP(email: string, otp: string): Promise<ActionResponse> {
   const { m } = await getI18n();
-  if (!email || !otp) {
+  const normalized = email?.trim().toLowerCase();
+  if (!normalized || !otp) {
     return { success: false, message: m.authServer.emailAndCodeRequired };
   }
 
   try {
-    const user = await db.user.findUnique({
-      where: { email: email.toLowerCase() },
+    const pending = await db.pendingRegistration.findUnique({ where: { email: normalized } });
+    if (!pending) {
+      const user = await db.user.findUnique({ where: { email: normalized } });
+      return user?.emailVerified
+        ? { success: false, message: m.authServer.alreadyVerified }
+        : { success: false, message: m.authServer.noPendingSignup };
+    }
+
+    // Consume one attempt atomically before comparing, so parallel guesses
+    // can't slip past the limit.
+    const consumed = await db.pendingRegistration.updateMany({
+      where: { id: pending.id, codeExpiry: { gt: new Date() }, attempts: { lt: SIGNUP_MAX_ATTEMPTS } },
+      data: { attempts: { increment: 1 } },
+    });
+    if (consumed.count === 0) {
+      return pending.attempts >= SIGNUP_MAX_ATTEMPTS
+        ? { success: false, message: m.authServer.resetTooMany }
+        : { success: false, message: m.authServer.codeExpired };
+    }
+
+    const matches =
+      /^\d{6}$/.test(otp) &&
+      timingSafeEqual(Buffer.from(hashCode(otp), 'hex'), Buffer.from(pending.codeHash, 'hex'));
+
+    if (!matches) {
+      const attemptsLeft = SIGNUP_MAX_ATTEMPTS - (pending.attempts + 1);
+      return attemptsLeft <= 0
+        ? { success: false, message: m.authServer.resetTooMany }
+        : { success: false, message: m.authServer.resetWrong(attemptsLeft) };
+    }
+
+    // Verified: now (and only now) the account exists.
+    await db.$transaction(async (tx) => {
+      const legacy = await tx.user.findUnique({ where: { email: normalized } });
+      if (legacy) {
+        await tx.user.update({
+          where: { id: legacy.id },
+          data: {
+            name: pending.name,
+            password: pending.password,
+            emailVerified: true,
+            verificationCode: null,
+            verificationCodeExpiry: null,
+          },
+        });
+      } else {
+        await tx.user.create({
+          data: {
+            name: pending.name,
+            email: normalized,
+            password: pending.password,
+            role: 'USER',
+            status: 'PENDING',
+            emailVerified: true,
+          },
+        });
+      }
+      await tx.pendingRegistration.delete({ where: { id: pending.id } });
     });
 
-    if (!user) {
-      return { success: false, message: m.authServer.userNotFound };
-    }
-
-    if (user.emailVerified) {
-      return { success: false, message: m.authServer.alreadyVerified };
-    }
-
-    if (!user.verificationCode || !user.verificationCodeExpiry) {
-      return { success: false, message: m.authServer.noActiveCode };
-    }
-
-    if (user.verificationCode !== otp) {
-      return { success: false, message: m.authServer.invalidCode };
-    }
-
-    if (new Date() > user.verificationCodeExpiry) {
-      return { success: false, message: m.authServer.codeExpired };
-    }
-
-    // Set emailVerified = true, and clean verification code fields
-    await db.user.update({
-      where: { id: user.id },
-      data: {
-        emailVerified: true,
-        verificationCode: null,
-        verificationCodeExpiry: null,
-      },
-    });
-
-    return {
-      success: true,
-      message: m.authServer.verified,
-    };
+    return { success: true, message: m.authServer.verified };
   } catch (error) {
     console.error('Verification error:', error);
     return { success: false, message: m.internalError };
@@ -123,60 +187,43 @@ export async function verifyEmailOTP(email: string, otp: string): Promise<Action
 
 export async function resendVerificationOTP(email: string): Promise<ActionResponse> {
   const { m, locale } = await getI18n();
-  if (!email) {
+  const normalized = email?.trim().toLowerCase();
+  if (!normalized) {
     return { success: false, message: m.authServer.emailRequired };
   }
 
   try {
-    const user = await db.user.findUnique({
-      where: { email: email.toLowerCase() },
-    });
+    let pending = await db.pendingRegistration.findUnique({ where: { email: normalized } });
 
-    if (!user) {
-      return { success: false, message: m.authServer.userNotFound };
-    }
-
-    if (user.emailVerified) {
-      return { success: false, message: m.authServer.alreadyVerified };
-    }
-
-    // Rate limit check: 120 seconds (2 minutes)
-    if (user.verificationCodeExpiry) {
-      const lastCreatedTime = new Date(user.verificationCodeExpiry.getTime() - 2 * 60 * 1000);
-      const secondsSinceLastOtp = Math.floor((Date.now() - lastCreatedTime.getTime()) / 1000);
-      
-      if (secondsSinceLastOtp < 120) {
-        const waitTime = 120 - secondsSinceLastOtp;
-        return { 
-          success: false, 
-          message: m.authServer.waitSeconds(waitTime) 
-        };
+    if (!pending) {
+      const user = await db.user.findUnique({ where: { email: normalized } });
+      if (user?.emailVerified) {
+        return { success: false, message: m.authServer.alreadyVerified };
       }
+      if (!user) {
+        return { success: false, message: m.authServer.noPendingSignup };
+      }
+      // Legacy unverified account: move it onto the new flow.
+      pending = await db.pendingRegistration.create({
+        data: { email: normalized, name: user.name, password: user.password, ...newSignupCode(), codeSentAt: new Date(0) },
+      });
     }
 
-    // Generate new OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const otpExpiry = new Date(Date.now() + 2 * 60 * 1000); // 2 minutes
-
-    await db.user.update({
-      where: { id: user.id },
-      data: {
-        verificationCode: otp,
-        verificationCodeExpiry: otpExpiry,
-      },
-    });
-
-    // Send the verification OTP email (non-blocking)
-    try {
-      await sendOTPEmail(user.email, user.name, otp, locale);
-    } catch (emailError) {
-      console.error('Failed to send resend OTP email:', emailError);
+    const waited = Math.floor((Date.now() - pending.codeSentAt.getTime()) / 1000);
+    if (waited < SIGNUP_RESEND_COOLDOWN_SECONDS) {
+      return { success: false, message: m.authServer.waitSeconds(SIGNUP_RESEND_COOLDOWN_SECONDS - waited) };
     }
 
-    return {
-      success: true,
-      message: m.authServer.newCodeSent,
-    };
+    const { code, ...codeFields } = newSignupCode();
+    await db.pendingRegistration.update({ where: { id: pending.id }, data: codeFields });
+
+    if (!(await deliverSignupCode(normalized, pending.name, code, locale))) {
+      // Undo the cooldown so the person can retry straight away.
+      await db.pendingRegistration.update({ where: { id: pending.id }, data: { codeSentAt: new Date(0) } });
+      return { success: false, message: m.authServer.emailSendFailed };
+    }
+
+    return { success: true, message: m.authServer.newCodeSent };
   } catch (error) {
     console.error('Resend OTP error:', error);
     return { success: false, message: m.internalError };
@@ -198,6 +245,11 @@ export async function loginUser(formData: FormData): Promise<ActionResponse> {
     });
 
     if (!user) {
+      // Signed up but not verified yet: no account exists, but point them to /verify.
+      const pending = await db.pendingRegistration.findUnique({ where: { email: email.toLowerCase() } });
+      if (pending && comparePassword(password, pending.password)) {
+        return { success: false, message: m.authServer.verifyFirst, code: 'EMAIL_UNVERIFIED' };
+      }
       return { success: false, message: m.authServer.invalidLogin };
     }
 
@@ -257,10 +309,6 @@ const RESET_MAX_ATTEMPTS = 5;
 // Product decision: unknown emails get an explicit error (clearer UX), which
 // does let this form reveal whether an email is registered.
 
-function hashResetCode(code: string) {
-  return createHash('sha256').update(code).digest('hex');
-}
-
 export async function requestPasswordReset(email: string): Promise<ActionResponse> {
   const { m, locale } = await getI18n();
   const normalized = email?.trim().toLowerCase();
@@ -294,7 +342,7 @@ export async function requestPasswordReset(email: string): Promise<ActionRespons
     await db.user.update({
       where: { id: user.id },
       data: {
-        resetCodeHash: hashResetCode(code),
+        resetCodeHash: hashCode(code),
         resetCodeExpiry: new Date(Date.now() + RESET_CODE_TTL_MINUTES * 60 * 1000),
         resetAttempts: 0,
       },
@@ -363,7 +411,7 @@ export async function resetPasswordWithCode(
     }
 
     const matches = timingSafeEqual(
-      Buffer.from(hashResetCode(code), 'hex'),
+      Buffer.from(hashCode(code), 'hex'),
       Buffer.from(user.resetCodeHash, 'hex'),
     );
 

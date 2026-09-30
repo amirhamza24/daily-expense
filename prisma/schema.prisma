@@ -31,6 +31,8 @@ model User {
   approvedAt             DateTime?
   approvedBy             String?
   emailVerified          Boolean    @default(false)
+  // Legacy: sign-ups now live in PendingRegistration until verified. Kept only
+  // for accounts created before that change.
   verificationCode       String?
   verificationCodeExpiry DateTime?
   // Password reset: SHA-256 of the emailed 6-digit code (never the code itself),
@@ -43,6 +45,21 @@ model User {
   expenses               Expense[]
   balance                Balance?
   moneyRecords           MoneyRecord[]
+}
+
+// A sign-up waiting for its email code. The User row is created only when the
+// code is verified, so unverified emails never become accounts. Stores the
+// code's SHA-256 (never the code itself) and burns it after too many misses.
+model PendingRegistration {
+  id         String   @id @default(uuid())
+  name       String
+  email      String   @unique
+  password   String
+  codeHash   String
+  codeExpiry DateTime
+  codeSentAt DateTime @default(now())
+  attempts   Int      @default(0)
+  createdAt  DateTime @default(now())
 }
 
 model Expense {
