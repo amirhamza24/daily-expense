@@ -229,8 +229,8 @@ export const bn: CommonMessages = {
   internalError: 'কিছু একটা সমস্যা হয়েছে। আবার চেষ্টা করুন।',
   unauthorized: 'অনুমতি নেই। অনুগ্রহ করে লগইন করুন।',
   loggedOut: 'সফলভাবে লগআউট হয়েছে।',
-  am: 'পূর্বাহ্ণ',
-  pm: 'অপরাহ্ণ',
+  am: 'এএম',
+  pm: 'পিএম',
   items: (n) => `${d(n, 'bn')}টি আইটেম`,
   pageOf: (page, total) => `পৃষ্ঠা ${d(page, 'bn')} / ${d(total, 'bn')}`,
 
