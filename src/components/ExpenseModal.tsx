@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useTransition } from "react";
+import React, { useState, useTransition } from "react";
 import {
   Calendar,
   Loader2,
@@ -40,17 +40,18 @@ interface ExpenseModalProps {
     category: string;
     note?: string | null;
     expenseDate: Date | string;
-    splits?: Array<{ title: string; amount: number }>;
+    splits?: Array<{ title: string; amount: number; date?: Date | string | null }>;
   };
 }
 
-type SplitRow = { key: number; title: string; amount: string };
+type SplitRow = { key: number; title: string; amount: string; date: Date };
 
 let splitKey = 0;
-const newSplitRow = (title = "", amount = ""): SplitRow => ({
+const newSplitRow = (date: Date, title = "", amount = ""): SplitRow => ({
   key: ++splitKey,
   title,
   amount,
+  date,
 });
 
 const CATEGORIES = [
@@ -81,6 +82,7 @@ export default function ExpenseModal({
   const { m, fmt } = useI18n();
   const t = m.txModal;
   const datePickerI18n = useDatePickerI18n("long");
+  const itemDatePickerI18n = useDatePickerI18n("short");
   const [isPending, startTransition] = useTransition();
 
   // Form states
@@ -96,7 +98,13 @@ export default function ExpenseModal({
   const [note, setNote] = useState("");
   const [splits, setSplits] = useState<SplitRow[]>([]);
 
-  useEffect(() => {
+  // Reset the form whenever the modal opens or is pointed at another expense.
+  // Done during render (not in an effect) so the first frame already shows it.
+  const [prevOpen, setPrevOpen] = useState(false);
+  const [prevExpense, setPrevExpense] = useState(expense);
+  if (isOpen !== prevOpen || expense !== prevExpense) {
+    setPrevOpen(isOpen);
+    setPrevExpense(expense);
     if (isOpen) {
       if (expense) {
         setTitle(expense.title);
@@ -106,7 +114,9 @@ export default function ExpenseModal({
         setTransactionType(expense.category === "Income" ? "credit" : "debit");
         setExpenseDate(new Date(expense.expenseDate));
         setSplits(
-          (expense.splits ?? []).map((s) => newSplitRow(s.title, s.amount.toString())),
+          (expense.splits ?? []).map((s) =>
+            newSplitRow(new Date(s.date ?? expense.expenseDate), s.title, s.amount.toString()),
+          ),
         );
       } else {
         // Reset fields
@@ -120,7 +130,7 @@ export default function ExpenseModal({
         setSplits([]);
       }
     }
-  }, [isOpen, expense]);
+  }
 
   if (!isOpen) return null;
 
@@ -139,7 +149,13 @@ export default function ExpenseModal({
     setSplits((rows) => rows.map((r) => (r.key === key ? { ...r, ...patch } : r)));
   const removeSplit = (key: number) =>
     setSplits((rows) => rows.filter((r) => r.key !== key));
-  const addSplit = () => setSplits((rows) => [...rows, newSplitRow()]);
+  // A new item starts on the previous item's day (or the expense date); when
+  // adding to an existing expense later, it's most likely being spent today.
+  const addSplit = () =>
+    setSplits((rows) => [
+      ...rows,
+      newSplitRow(expense?.id ? new Date() : new Date(rows.at(-1)?.date ?? expenseDate)),
+    ]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -155,9 +171,12 @@ export default function ExpenseModal({
       return;
     }
 
-    // Drop completely empty breakdown rows; validate the rest
+    // Drop completely empty breakdown rows; validate the rest. Saved oldest
+    // first so the "left" amounts read as a timeline.
     const filledSplits = hasSplits
-      ? splits.filter((s) => s.title.trim() || s.amount.trim())
+      ? splits
+          .filter((s) => s.title.trim() || s.amount.trim())
+          .sort((a, b) => a.date.getTime() - b.date.getTime())
       : [];
     for (const s of filledSplits) {
       const value = parseFloat(s.amount);
@@ -195,6 +214,7 @@ export default function ExpenseModal({
       splits: filledSplits.map((s) => ({
         title: s.title.trim(),
         amount: parseFloat(s.amount),
+        date: s.date.toISOString(),
       })),
     };
 
@@ -444,34 +464,51 @@ export default function ExpenseModal({
             <Collapse open={hasSplits}>
               <div className="border-t border-line px-3 pt-3 pb-3 flex flex-col gap-2">
                 {splits.map((s, i) => (
-                  <div key={s.key} className="flex items-center gap-2 animate-fade-up">
-                    <span className="w-5 shrink-0 text-center text-xs text-faint tabular">
+                  <div key={s.key} className="flex items-start gap-2 animate-fade-up">
+                    <span className="w-5 h-8 shrink-0 flex items-center justify-center text-xs text-faint tabular">
                       {fmt.digits(i + 1)}
                     </span>
-                    <input
-                      type="text"
-                      value={s.title}
-                      maxLength={80}
-                      onChange={(e) => updateSplit(s.key, { title: e.target.value })}
-                      placeholder={t.reasonPlaceholder}
-                      aria-label={t.itemReason(i + 1)}
-                      className="input h-8 flex-1 min-w-0 text-[13px]"
-                      disabled={isPending}
-                      autoFocus={i === splits.length - 1 && !s.title}
-                    />
-                    <div className="relative w-28 shrink-0">
-                      <TakaSign className="input-icon h-3.5! w-3.5! left-2.5!" />
+                    <div className="flex-1 min-w-0 grid grid-cols-2 sm:grid-cols-[minmax(0,1fr)_8.5rem_7rem] gap-2">
                       <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={s.amount}
-                        onChange={(e) => updateSplit(s.key, { amount: e.target.value })}
-                        placeholder="0.00"
-                        aria-label={t.itemAmount(i + 1)}
-                        className="input h-8 pl-7 text-[13px] tabular"
+                        type="text"
+                        value={s.title}
+                        maxLength={80}
+                        onChange={(e) => updateSplit(s.key, { title: e.target.value })}
+                        placeholder={t.reasonPlaceholder}
+                        aria-label={t.itemReason(i + 1)}
+                        className="input h-8 col-span-2 sm:col-span-1 min-w-0 text-[13px]"
                         disabled={isPending}
+                        autoFocus={i === splits.length - 1 && !s.title}
                       />
+                      <div className="relative min-w-0">
+                        <Calendar className="input-icon h-3.5! w-3.5! left-2.5!" />
+                        <DatePicker
+                          selected={s.date}
+                          onChange={(date: Date | null) => date && updateSplit(s.key, { date })}
+                          {...itemDatePickerI18n}
+                          fixedHeight
+                          portalId="root-portal"
+                          popperPlacement="bottom-start"
+                          title={t.itemDate(i + 1)}
+                          className="input h-8 pl-7 text-[13px] cursor-pointer"
+                          disabled={isPending}
+                          wrapperClassName="w-full"
+                        />
+                      </div>
+                      <div className="relative min-w-0">
+                        <TakaSign className="input-icon h-3.5! w-3.5! left-2.5!" />
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={s.amount}
+                          onChange={(e) => updateSplit(s.key, { amount: e.target.value })}
+                          placeholder="0.00"
+                          aria-label={t.itemAmount(i + 1)}
+                          className="input h-8 pl-7 text-[13px] tabular"
+                          disabled={isPending}
+                        />
+                      </div>
                     </div>
                     <button
                       type="button"

@@ -54,7 +54,7 @@ export default async function ExpensesPage({ searchParams }: ExpensesPageProps) 
       category: string;
       note: string | null;
       expenseDate: Date;
-      splits: Array<{ title: string; amount: number }>;
+      splits: Array<{ title: string; amount: number; date: Date | null }>;
     }>;
     pagination: {
       page: number;
@@ -135,7 +135,7 @@ export default async function ExpensesPage({ searchParams }: ExpensesPageProps) 
         note: true,
         expenseDate: true,
         splits: {
-          select: { title: true, amount: true },
+          select: { title: true, amount: true, date: true },
           orderBy: { position: 'asc' },
         },
       },

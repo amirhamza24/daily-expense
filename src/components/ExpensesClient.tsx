@@ -49,7 +49,7 @@ interface ExpensesClientProps {
     category: string;
     note: string | null;
     expenseDate: Date;
-    splits: Array<{ title: string; amount: number }>;
+    splits: Array<{ title: string; amount: number; date: Date | null }>;
   }>;
   pagination: {
     page: number;
@@ -201,7 +201,13 @@ export default function ExpensesClient({
       const rows = allExpensesForCSV.map((exp) => {
         const escapedTitle = `"${exp.title.replace(/"/g, '""')}"`;
         const escapedNote = `"${(exp.note || "").replace(/"/g, '""')}"`;
-        const breakdown = exp.splits.map((s) => `${s.title}: ${s.amount}`).join("; ");
+        const breakdown = exp.splits
+          .map((s) =>
+            s.date
+              ? `${new Date(s.date).toLocaleDateString("en-US")} ${s.title}: ${s.amount}`
+              : `${s.title}: ${s.amount}`,
+          )
+          .join("; ");
         const escapedBreakdown = `"${breakdown.replace(/"/g, '""')}"`;
         const formattedDate = new Date(exp.expenseDate).toLocaleDateString(
           "en-US",

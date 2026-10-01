@@ -22,6 +22,8 @@ export type ExpenseFilterOptions = {
 export type ExpenseSplitInput = {
   title: string;
   amount: number;
+  /** ISO string; defaults to the expense date. */
+  date?: string;
 };
 
 export type ExpenseInput = {
@@ -36,7 +38,7 @@ export type ExpenseInput = {
 
 const splitsInclude = {
   splits: {
-    select: { id: true, title: true, amount: true },
+    select: { id: true, title: true, amount: true, date: true },
     orderBy: { position: "asc" },
   },
 } satisfies Prisma.ExpenseInclude;
@@ -54,7 +56,9 @@ function normalizeSplits(data: ExpenseInput, m: Messages) {
     if (!Number.isFinite(amount) || amount <= 0) {
       throw new Error(m.expenseServer.splitNeedsAmount(title));
     }
-    return { title: title.slice(0, 80), amount, position: i };
+    const date = new Date(s.date || data.expenseDate);
+    if (isNaN(date.getTime())) throw new Error(m.expenseServer.splitNeedsDate(title));
+    return { title: title.slice(0, 80), amount, date, position: i };
   });
 
   const sum = splits.reduce((acc, s) => acc + s.amount, 0);

@@ -84,6 +84,9 @@ model ExpenseSplit {
   title     String
   amount    Float
   position  Int     @default(0)
+  // Day this item was spent (e.g. cash withdrawn once, spent over several days).
+  // Null on legacy rows — treat as the parent expense's date.
+  date      DateTime?
 
   expense   Expense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
   expenseId String

@@ -35,8 +35,12 @@ export interface LedgerEntry {
   category: string;
   note: string;
   date: string;
+  /** "YYYY-MM-DD" of `date` in the viewer's time zone. */
+  day: string;
   createdAt: string;
   splits: ExpenseSplitView[];
+  /** "YYYY-MM-DD" of each breakdown item, in the same order as `splits`. */
+  splitDays: string[];
   /** Set for lend & borrow entries. */
   person?: string;
 }
@@ -45,6 +49,44 @@ interface TransactionHistoryClientProps {
   entries: LedgerEntry[];
   startingBalance: number;
   initialTab?: HistoryTab;
+  /** Today as "YYYY-MM-DD" in the viewer's time zone. */
+  today: string;
+}
+
+type Period = "thisMonth" | "lastMonth" | "last3Months" | "thisYear" | "all" | "custom";
+const PERIODS: Period[] = ["thisMonth", "lastMonth", "last3Months", "thisYear", "all", "custom"];
+const DEFAULT_PERIOD: Period = "thisMonth";
+
+const pad = (n: number) => String(n).padStart(2, "0");
+/** Day key for a (possibly overflowing) calendar date, e.g. d = 0 → last day of previous month. */
+const dayKey = (y: number, m: number, d: number) => {
+  const t = new Date(Date.UTC(y, m, d));
+  return `${t.getUTCFullYear()}-${pad(t.getUTCMonth() + 1)}-${pad(t.getUTCDate())}`;
+};
+/** Day key ↔ local Date for the date pickers (calendar date only, no time-zone shift). */
+const keyToDate = (key: string) => {
+  if (!key) return null;
+  const [y, m, d] = key.split("-").map(Number);
+  return new Date(y, m - 1, d);
+};
+const dateToKey = (date: Date | null) =>
+  date ? `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}` : "";
+
+function periodRange(period: Period, today: string): { from: string; to: string } {
+  const [y, mo] = today.split("-").map(Number);
+  const m = mo - 1;
+  switch (period) {
+    case "thisMonth":
+      return { from: dayKey(y, m, 1), to: dayKey(y, m + 1, 0) };
+    case "lastMonth":
+      return { from: dayKey(y, m - 1, 1), to: dayKey(y, m, 0) };
+    case "last3Months":
+      return { from: dayKey(y, m - 2, 1), to: dayKey(y, m + 1, 0) };
+    case "thisYear":
+      return { from: dayKey(y, 0, 1), to: dayKey(y, 11, 31) };
+    default:
+      return { from: "", to: "" };
+  }
 }
 
 const MONEY_KINDS: LedgerKind[] = ["lent", "borrowed", "repaid", "paidback"];
@@ -81,6 +123,7 @@ export default function TransactionHistoryClient({
   entries,
   startingBalance,
   initialTab = "All",
+  today,
 }: TransactionHistoryClientProps) {
   const { m, fmt } = useI18n();
   const h = m.history;
@@ -93,8 +136,20 @@ export default function TransactionHistoryClient({
   const [searchQuery, setSearchQuery] = useState("");
   const [tab, setTab] = useState<HistoryTab>(initialTab);
   const [moneyFilter, setMoneyFilter] = useState("all");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+  // Date range as "YYYY-MM-DD" keys; opens on the current month
+  const [period, setPeriod] = useState<Period>(DEFAULT_PERIOD);
+  const [startDate, setStartDate] = useState(() => periodRange(DEFAULT_PERIOD, today).from);
+  const [endDate, setEndDate] = useState(() => periodRange(DEFAULT_PERIOD, today).to);
+
+  const selectPeriod = (p: Period) => {
+    setPeriod(p);
+    if (p !== "custom") {
+      const range = periodRange(p, today);
+      setStartDate(range.from);
+      setEndDate(range.to);
+    }
+    setCurrentPage(1);
+  };
 
   // --- Pagination States ---
   const [currentPage, setCurrentPage] = useState(1);
@@ -125,6 +180,7 @@ export default function TransactionHistoryClient({
 
   // 3. Apply Filters
   const q = searchQuery.toLowerCase();
+  const inRange = (day: string) => (!startDate || day >= startDate) && (!endDate || day <= endDate);
   const filtered = latestFirst.filter((e) => {
     // A. Search (title, note, person, breakdown items)
     const matchesSearch =
@@ -141,13 +197,23 @@ export default function TransactionHistoryClient({
       (tab === "Expense" && e.kind === "expense") ||
       (tab === "LendBorrow" && isMoneyKind(e.kind) && (moneyFilter === "all" || e.kind === moneyFilter));
 
-    // C. Date Range
-    const tDate = new Date(e.date.split("T")[0] + "T00:00:00");
-    const matchesStartDate = !startDate ? true : tDate >= new Date(startDate + "T00:00:00");
-    const matchesEndDate = !endDate ? true : tDate <= new Date(endDate + "T23:59:59");
+    // C. Date range — an expense also shows when any of its items fall in it
+    const matchesDate = inRange(e.day) || e.splitDays.some(inRange);
 
-    return matchesSearch && matchesTab && matchesStartDate && matchesEndDate;
+    return matchesSearch && matchesTab && matchesDate;
   });
+
+  // Balance just before the range and at its end (all entries, ignoring tab/search)
+  const balanceBefore = (pred: (e: LedgerEntry) => boolean) => {
+    let last = startingBalance;
+    for (const e of enriched) {
+      if (!pred(e)) break;
+      last = e.runningBalance;
+    }
+    return last;
+  };
+  const openingBalance = balanceBefore((e) => !!startDate && e.day < startDate);
+  const closingBalance = balanceBefore((e) => !endDate || e.day <= endDate);
 
   // 4. Handle Pagination
   const totalItems = filtered.length;
@@ -163,9 +229,7 @@ export default function TransactionHistoryClient({
     setSearchQuery("");
     setTab("All");
     setMoneyFilter("all");
-    setStartDate("");
-    setEndDate("");
-    setCurrentPage(1);
+    selectPeriod(DEFAULT_PERIOD);
   };
 
   // Helper to format dates beautifully
@@ -173,8 +237,27 @@ export default function TransactionHistoryClient({
     return fmt.date(dateStr, { month: "short", day: "numeric", year: "numeric" });
   };
 
-  const hasFilters = !!(searchQuery || tab !== "All" || startDate || endDate);
+  const defaultRange = periodRange(DEFAULT_PERIOD, today);
+  const hasFilters = !!(
+    searchQuery ||
+    tab !== "All" ||
+    startDate !== defaultRange.from ||
+    endDate !== defaultRange.to
+  );
+  const hasRange = !!(startDate || endDate);
   const pageKey = `${currentPage}-${searchQuery}-${tab}-${moneyFilter}-${startDate}-${endDate}`;
+
+  const periodOptions: SelectOption[] = PERIODS.map((p) => ({
+    value: p,
+    label: h.periods[p],
+    hint:
+      p === "custom" || p === "all"
+        ? undefined
+        : (() => {
+            const r = periodRange(p, today);
+            return `${fmt.date(keyToDate(r.from)!, { month: "short", day: "numeric" })} – ${fmt.date(keyToDate(r.to)!, { month: "short", day: "numeric" })}`;
+          })(),
+  }));
 
   const titleFor = (e: LedgerEntry) =>
     e.person ? (
@@ -235,39 +318,54 @@ export default function TransactionHistoryClient({
             ))}
           </div>
 
-          <div className="grid grid-cols-2 gap-2.5 xl:w-72 shrink-0">
-            <div className="relative">
-              <Calendar className="input-icon" />
-              <DatePicker
-                selected={startDate ? new Date(startDate) : null}
-                onChange={(date: Date | null) => {
-                  const dateStr = date ? date.toISOString().split("T")[0] : "";
-                  setStartDate(dateStr);
-                  setCurrentPage(1);
-                }}
-                {...datePickerI18n}
-                placeholderText={h.from}
-                fixedHeight
-                className="input pl-9 cursor-pointer"
-                wrapperClassName="w-full"
-              />
-            </div>
-            <div className="relative">
-              <Calendar className="input-icon" />
-              <DatePicker
-                selected={endDate ? new Date(endDate) : null}
-                onChange={(date: Date | null) => {
-                  const dateStr = date ? date.toISOString().split("T")[0] : "";
-                  setEndDate(dateStr);
-                  setCurrentPage(1);
-                }}
-                {...datePickerI18n}
-                placeholderText={h.to}
-                fixedHeight
-                className="input pl-9 cursor-pointer"
-                wrapperClassName="w-full"
-              />
-            </div>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-[13rem_1fr_1fr] xl:grid-cols-[13rem_11rem_11rem] gap-2.5">
+          <div className="col-span-2 sm:col-span-1">
+            <Select
+              value={period}
+              onChange={(v) => selectPeriod(v as Period)}
+              options={periodOptions}
+              aria-label={h.periodLabel}
+            />
+          </div>
+          <div className="relative">
+            <Calendar className="input-icon" />
+            <DatePicker
+              selected={keyToDate(startDate)}
+              onChange={(date: Date | null) => {
+                const key = dateToKey(date);
+                setStartDate(key);
+                if (key && endDate && key > endDate) setEndDate(key);
+                setPeriod("custom");
+                setCurrentPage(1);
+              }}
+              {...datePickerI18n}
+              placeholderText={h.from}
+              fixedHeight
+              portalId="root-portal"
+              className="input pl-9 cursor-pointer"
+              wrapperClassName="w-full"
+            />
+          </div>
+          <div className="relative">
+            <Calendar className="input-icon" />
+            <DatePicker
+              selected={keyToDate(endDate)}
+              onChange={(date: Date | null) => {
+                const key = dateToKey(date);
+                setEndDate(key);
+                if (key && startDate && key < startDate) setStartDate(key);
+                setPeriod("custom");
+                setCurrentPage(1);
+              }}
+              {...datePickerI18n}
+              placeholderText={h.to}
+              fixedHeight
+              portalId="root-portal"
+              className="input pl-9 cursor-pointer"
+              wrapperClassName="w-full"
+            />
           </div>
         </div>
 
@@ -307,12 +405,32 @@ export default function TransactionHistoryClient({
               {h.entries(totalItems)}
             </span>
             <span className="text-line-strong">·</span>
-            <span>
-              {h.startingBalance}{" "}
-              <span className="tabular font-medium text-fg">
-                {fmt.money(startingBalance)}
+            {hasRange ? (
+              <>
+                <span>
+                  {h.openingBalance}{" "}
+                  <span className="tabular font-medium text-fg">
+                    {openingBalance < 0 && "−"}
+                    {fmt.money(openingBalance)}
+                  </span>
+                </span>
+                <span className="text-line-strong">→</span>
+                <span>
+                  {h.closingBalance}{" "}
+                  <span className="tabular font-medium text-fg">
+                    {closingBalance < 0 && "−"}
+                    {fmt.money(closingBalance)}
+                  </span>
+                </span>
+              </>
+            ) : (
+              <span>
+                {h.startingBalance}{" "}
+                <span className="tabular font-medium text-fg">
+                  {fmt.money(startingBalance)}
+                </span>
               </span>
-            </span>
+            )}
           </div>
           {hasFilters && (
             <button onClick={handleResetFilters} className="btn btn-ghost btn-sm animate-fade-in">
@@ -511,7 +629,7 @@ export default function TransactionHistoryClient({
             {tab === "LendBorrow" ? h.noLendBorrow : h.noneFound}
           </p>
           <p className="text-[13px] text-muted mt-1 max-w-sm">
-            {tab === "LendBorrow" && !searchQuery && !startDate && !endDate
+            {tab === "LendBorrow" && !searchQuery && !hasRange
               ? h.lendBorrowEmpty
               : hasFilters
                 ? h.filtersEmpty

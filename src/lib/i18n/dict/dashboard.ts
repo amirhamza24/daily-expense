@@ -51,6 +51,7 @@ export const en = {
     note: 'Note',
     noNote: 'No note added.',
     unassigned: 'Unassigned',
+    left: (amount: string) => `${amount} left`,
   },
 };
 
@@ -105,5 +106,6 @@ export const bn: DashboardMessages = {
     note: 'নোট',
     noNote: 'কোনো নোট নেই।',
     unassigned: 'ভাগ করা হয়নি',
+    left: (amount) => `বাকি ${amount}`,
   },
 };

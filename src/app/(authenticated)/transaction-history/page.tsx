@@ -8,6 +8,8 @@ import TransactionHistoryClient, {
 import PageHeader from "@/components/PageHeader";
 import { History } from "lucide-react";
 import { getI18n } from "@/lib/i18n/server";
+import { getUserTimeZone } from "@/lib/finance";
+import { toYmd, ymdKey } from "@/lib/dates";
 
 export async function generateMetadata() {
   const { m } = await getI18n();
@@ -32,13 +34,13 @@ export default async function TransactionHistoryPage({
   const initialTab = TABS.find((t) => t.toLowerCase() === type?.toLowerCase()) ?? "All";
 
   // 1. Starting balance, expenses/income, and lend & borrow records with their payments
-  const [balanceRecord, expenses, moneyRecords] = await Promise.all([
+  const [balanceRecord, expenses, moneyRecords, tz] = await Promise.all([
     db.balance.findUnique({ where: { userId: user.id } }),
     db.expense.findMany({
       where: { userId: user.id },
       include: {
         splits: {
-          select: { id: true, title: true, amount: true },
+          select: { id: true, title: true, amount: true, date: true },
           orderBy: { position: "asc" },
         },
       },
@@ -49,8 +51,12 @@ export default async function TransactionHistoryPage({
         payments: { select: { id: true, amount: true, paymentDate: true, note: true, createdAt: true } },
       },
     }),
+    getUserTimeZone(),
   ]);
   const startingBalance = balanceRecord?.totalBalance || 0;
+  // Calendar days in the viewer's time zone, so the date filter is the same
+  // on the server render and in the browser
+  const dayOf = (d: Date) => ymdKey(toYmd(d, tz));
 
   // 2. One ledger of everything that moved the available balance
   const entries: LedgerEntry[] = [
@@ -62,8 +68,10 @@ export default async function TransactionHistoryPage({
       category: t.category,
       note: t.note || "",
       date: t.expenseDate.toISOString(),
+      day: dayOf(t.expenseDate),
       createdAt: t.createdAt.toISOString(),
       splits: t.splits,
+      splitDays: t.splits.map((s) => dayOf(s.date ?? t.expenseDate)),
     })),
     ...moneyRecords.flatMap((r) => {
       const isLent = r.type === "LENT";
@@ -75,8 +83,10 @@ export default async function TransactionHistoryPage({
         category: isLent ? "Lent" : "Borrowed",
         note: r.note || "",
         date: r.date.toISOString(),
+        day: dayOf(r.date),
         createdAt: r.createdAt.toISOString(),
         splits: [],
+        splitDays: [],
         person: r.personName,
       };
       const payments: LedgerEntry[] = r.payments.map((p) => ({
@@ -87,8 +97,10 @@ export default async function TransactionHistoryPage({
         category: isLent ? "Repayment" : "Payment",
         note: p.note || "",
         date: p.paymentDate.toISOString(),
+        day: dayOf(p.paymentDate),
         createdAt: p.createdAt.toISOString(),
         splits: [],
+        splitDays: [],
         person: r.personName,
       }));
       return [record, ...payments];
@@ -110,6 +122,7 @@ export default async function TransactionHistoryPage({
         entries={entries}
         startingBalance={startingBalance}
         initialTab={initialTab}
+        today={dayOf(new Date())}
       />
     </>
   );

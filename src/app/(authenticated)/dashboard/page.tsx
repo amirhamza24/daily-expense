@@ -52,7 +52,7 @@ async function fetchDashboardData(userId: string, locale: Locale) {
         take: 5,
         include: {
           splits: {
-            select: { id: true, title: true, amount: true },
+            select: { id: true, title: true, amount: true, date: true },
             orderBy: { position: 'asc' },
           },
         },
