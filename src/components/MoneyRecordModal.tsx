@@ -24,6 +24,11 @@ import { createMoneyRecord, updateMoneyRecord } from "@/actions/money";
 import { useI18n } from "./I18nProvider";
 import { useDatePickerI18n } from "./useDatePickerI18n";
 import type { MoneyRecordView, MoneyType } from "@/lib/money";
+import MoneyEntryForm, {
+  MONEY_ENTRY_KINDS,
+  MoneyKindPicker,
+  type MoneyEntryKind,
+} from "./MoneyEntryForm";
 
 interface MoneyRecordModalProps {
   isOpen: boolean;
@@ -40,7 +45,71 @@ const sameDay = (a: Date, b: Date) => a.toDateString() === b.toDateString();
 export default function MoneyRecordModal(props: MoneyRecordModalProps) {
   if (!props.isOpen) return null;
   // Mounted fresh on every open, so fields start from the record (or blank)
-  return <RecordForm key={props.record?.id ?? "new"} {...props} />;
+  return props.record ? (
+    <RecordForm key={props.record.id} {...props} />
+  ) : (
+    <NewEntryForm key="new" {...props} />
+  );
+}
+
+/**
+ * New entry: lend, borrow, get repaid or pay back — the same four choices as
+ * the "New transaction" dialog.
+ */
+function NewEntryForm({ isOpen, onClose, defaultType = "LENT" }: MoneyRecordModalProps) {
+  const { m } = useI18n();
+  const [isPending, startTransition] = useTransition();
+  const [kind, setKind] = useState<MoneyEntryKind>(defaultType === "BORROWED" ? "borrow" : "lend");
+  const config = MONEY_ENTRY_KINDS(m)[kind];
+
+  return (
+    <Modal
+      open={isOpen}
+      onClose={onClose}
+      locked={isPending}
+      size="lg"
+      icon={<Plus className="h-5 w-5" />}
+      title={m.money.newRecordTitle}
+      description={m.txModal.moneyDesc}
+      footer={
+        <>
+          <button type="button" onClick={onClose} className="btn btn-secondary" disabled={isPending}>
+            {m.cancel}
+          </button>
+          <button
+            type="submit"
+            form="money-entry-form"
+            disabled={isPending}
+            className={`btn ${kind === "repaid" ? "btn-success" : "btn-primary"} min-w-32`}
+          >
+            {isPending ? (
+              <>
+                <Loader2 className="animate-spin" />
+                {m.saving}
+              </>
+            ) : (
+              config.submit
+            )}
+          </button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        <div>
+          <span className="label">{m.txModal.whatDoing}</span>
+          <MoneyKindPicker value={kind} onChange={setKind} disabled={isPending} />
+        </div>
+        <MoneyEntryForm
+          formId="money-entry-form"
+          kind={kind}
+          isPending={isPending}
+          startTransition={startTransition}
+          onDone={onClose}
+          hidePageLink
+        />
+      </div>
+    </Modal>
+  );
 }
 
 function RecordForm({

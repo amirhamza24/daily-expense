@@ -53,6 +53,53 @@ export const MONEY_ENTRY_KINDS = (m: Messages) =>
     (Object.keys(KIND_META) as MoneyEntryKind[]).map((k) => [k, { ...KIND_META[k], ...m.money.kinds[k] }]),
   ) as Record<MoneyEntryKind, (typeof KIND_META)[MoneyEntryKind] & Messages["money"]["kinds"][MoneyEntryKind]>;
 
+/** The four lend / borrow / repayment / payment choices as a 2×2 radio grid. */
+export function MoneyKindPicker({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: MoneyEntryKind;
+  onChange: (kind: MoneyEntryKind) => void;
+  disabled?: boolean;
+}) {
+  const { m } = useI18n();
+  const kinds = MONEY_ENTRY_KINDS(m);
+  return (
+    <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label={m.txModal.lendBorrowType}>
+      {(Object.keys(kinds) as MoneyEntryKind[]).map((k) => {
+        const cfg = kinds[k];
+        const Icon = cfg.icon;
+        const active = value === k;
+        const tint = cfg.type === "LENT" ? "bg-success-soft text-success" : "bg-warning-soft text-warning";
+        return (
+          <button
+            key={k}
+            type="button"
+            role="radio"
+            aria-checked={active}
+            onClick={() => onChange(k)}
+            disabled={disabled}
+            className={`flex items-start gap-2.5 rounded-lg border p-2.5 text-left transition-colors cursor-pointer ${
+              active
+                ? "border-accent bg-accent-soft/50 ring-1 ring-accent/30"
+                : "border-line hover:bg-subtle hover:border-line-strong"
+            }`}
+          >
+            <span className={`h-7 w-7 shrink-0 rounded-md flex items-center justify-center ${tint}`}>
+              <Icon className="h-3.5 w-3.5" />
+            </span>
+            <span className="min-w-0">
+              <span className="block text-[13px] font-medium text-fg leading-tight">{cfg.title}</span>
+              <span className="block text-[11.5px] text-faint leading-snug mt-0.5">{cfg.hint}</span>
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 type OpenRecord = {
   id: string;
   type: MoneyType;
@@ -73,9 +120,11 @@ interface MoneyEntryFormProps {
   isPending: boolean;
   startTransition: React.TransitionStartFunction;
   onDone: () => void;
+  /** Hide the "Open Lend & Borrow" link (when already on that page). */
+  hidePageLink?: boolean;
 }
 
-export default function MoneyEntryForm({ kind, ...rest }: MoneyEntryFormProps) {
+export default function MoneyEntryForm({ kind, hidePageLink, ...rest }: MoneyEntryFormProps) {
   const [data, setData] = useState<EntryData | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -101,7 +150,15 @@ export default function MoneyEntryForm({ kind, ...rest }: MoneyEntryFormProps) {
   return config.mode === "new" ? (
     <NewRecordsForm key={kind} kind={kind} people={data?.people ?? []} {...rest} />
   ) : (
-    <SettleForm key={kind} kind={kind} data={data} loadError={loadError} onRetry={retry} {...rest} />
+    <SettleForm
+      key={kind}
+      kind={kind}
+      data={data}
+      loadError={loadError}
+      onRetry={retry}
+      hidePageLink={hidePageLink}
+      {...rest}
+    />
   );
 }
 
@@ -353,6 +410,7 @@ function SettleForm({
   isPending,
   startTransition,
   onDone,
+  hidePageLink,
 }: Omit<MoneyEntryFormProps, "kind"> & {
   kind: MoneyEntryKind;
   data: EntryData | null;
@@ -467,10 +525,12 @@ function SettleForm({
         <p className="text-[13px] text-muted mt-1 max-w-xs">
           {isLent ? t.lendFirst : t.borrowFirst}
         </p>
-        <Link href="/lend-borrow" className="btn btn-ghost btn-sm mt-3 group">
-          {t.openLendBorrow}
-          <ArrowRight className="transition-transform duration-200 group-hover:translate-x-0.5" />
-        </Link>
+        {!hidePageLink && (
+          <Link href="/lend-borrow" className="btn btn-ghost btn-sm mt-3 group">
+            {t.openLendBorrow}
+            <ArrowRight className="transition-transform duration-200 group-hover:translate-x-0.5" />
+          </Link>
+        )}
       </div>
     );
   }

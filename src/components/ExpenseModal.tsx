@@ -17,7 +17,11 @@ import {
 import TakaSign from "@/components/TakaSign";
 import Link from "next/link";
 import { Collapse } from "./SplitBreakdown";
-import MoneyEntryForm, { MONEY_ENTRY_KINDS, type MoneyEntryKind } from "./MoneyEntryForm";
+import MoneyEntryForm, {
+  MONEY_ENTRY_KINDS,
+  MoneyKindPicker,
+  type MoneyEntryKind,
+} from "./MoneyEntryForm";
 import { Select, type SelectOption } from "./Select";
 import SegmentIndicator from "./SegmentIndicator";
 import { getCategoryIcon, getCategoryGlow } from "@/lib/categories";
@@ -336,37 +340,7 @@ export default function ExpenseModal({
                   <ArrowRight className="h-3 w-3" />
                 </Link>
               </div>
-              <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label={t.lendBorrowType}>
-                {(Object.keys(MONEY_ENTRY_KINDS(m)) as MoneyEntryKind[]).map((k) => {
-                  const cfg = MONEY_ENTRY_KINDS(m)[k];
-                  const Icon = cfg.icon;
-                  const active = moneyKind === k;
-                  const tint = cfg.type === "LENT" ? "bg-success-soft text-success" : "bg-warning-soft text-warning";
-                  return (
-                    <button
-                      key={k}
-                      type="button"
-                      role="radio"
-                      aria-checked={active}
-                      onClick={() => setMoneyKind(k)}
-                      disabled={isPending}
-                      className={`flex items-start gap-2.5 rounded-lg border p-2.5 text-left transition-colors cursor-pointer ${
-                        active
-                          ? "border-accent bg-accent-soft/50 ring-1 ring-accent/30"
-                          : "border-line hover:bg-subtle hover:border-line-strong"
-                      }`}
-                    >
-                      <span className={`h-7 w-7 shrink-0 rounded-md flex items-center justify-center ${tint}`}>
-                        <Icon className="h-3.5 w-3.5" />
-                      </span>
-                      <span className="min-w-0">
-                        <span className="block text-[13px] font-medium text-fg leading-tight">{cfg.title}</span>
-                        <span className="block text-[11.5px] text-faint leading-snug mt-0.5">{cfg.hint}</span>
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
+              <MoneyKindPicker value={moneyKind} onChange={setMoneyKind} disabled={isPending} />
             </div>
 
             <MoneyEntryForm
