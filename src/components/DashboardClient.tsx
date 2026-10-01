@@ -83,9 +83,13 @@ function StatCard({
 }) {
   const { fmt } = useI18n();
   return (
-    <div className={`card card-interactive p-4 md:p-5 ${featured ? "card-feature" : `card-deco ${deco}`}`}>
+    <div
+      className={`card card-interactive p-4 md:p-5 ${featured ? "card-feature" : `card-deco ${deco}`}`}
+    >
       <div className="flex items-center justify-between">
-        <span className={`stat-label ${featured ? "opacity-80" : ""}`}>{label}</span>
+        <span className={`stat-label ${featured ? "opacity-80" : ""}`}>
+          {label}
+        </span>
         <span
           className={`icon-tile h-8 w-8 rounded-lg ${featured ? "bg-white/15! text-white! ring-1 ring-white/20" : ""}`}
         >
@@ -96,7 +100,11 @@ function StatCard({
         {value < 0 && "−"}
         <AnimatedNumber value={value} format={fmt.money} />
       </p>
-      <p className={`text-xs mt-1 ${featured ? "text-white/70" : "text-faint"}`}>{hint}</p>
+      <p
+        className={`text-xs mt-1 ${featured ? "text-white/70" : "text-faint"}`}
+      >
+        {hint}
+      </p>
     </div>
   );
 }
@@ -104,9 +112,25 @@ function StatCard({
 function LendBorrowOverview({ summary }: { summary: MoneySummary }) {
   const { m, fmt } = useI18n();
   const counts = [
-    { label: m.dashboard.activeLending, deco: "deco-teal", value: summary.activeLending, href: "/lend-borrow?type=LENT&status=OPEN" },
-    { label: m.dashboard.activeBorrowing, deco: "deco-orange", value: summary.activeBorrowing, href: "/lend-borrow?type=BORROWED&status=OPEN" },
-    { label: m.dashboard.overdue, deco: "deco-rose", value: summary.overdue, href: "/lend-borrow?status=OVERDUE", danger: summary.overdue > 0 },
+    {
+      label: m.dashboard.activeLending,
+      deco: "deco-teal",
+      value: summary.activeLending,
+      href: "/lend-borrow?type=LENT&status=OPEN",
+    },
+    {
+      label: m.dashboard.activeBorrowing,
+      deco: "deco-blue",
+      value: summary.activeBorrowing,
+      href: "/lend-borrow?type=BORROWED&status=OPEN",
+    },
+    {
+      label: m.dashboard.overdue,
+      deco: "deco-violet",
+      value: summary.overdue,
+      href: "/lend-borrow?status=OVERDUE",
+      danger: summary.overdue > 0,
+    },
   ];
 
   return (
@@ -131,7 +155,9 @@ function LendBorrowOverview({ summary }: { summary: MoneySummary }) {
             <ArrowUpRight className="h-4 w-4" />
           </span>
           <span className="min-w-0">
-            <span className="block text-[13px] text-muted">{m.dashboard.othersOweYou}</span>
+            <span className="block text-[13px] text-muted">
+              {m.dashboard.othersOweYou}
+            </span>
             <span className="block text-lg font-semibold tabular tracking-tight text-success">
               <AnimatedNumber value={summary.receivable} format={fmt.money} />
             </span>
@@ -145,7 +171,9 @@ function LendBorrowOverview({ summary }: { summary: MoneySummary }) {
             <ArrowDownLeft className="h-4 w-4" />
           </span>
           <span className="min-w-0">
-            <span className="block text-[13px] text-muted">{m.dashboard.youOwe}</span>
+            <span className="block text-[13px] text-muted">
+              {m.dashboard.youOwe}
+            </span>
             <span className="block text-lg font-semibold tabular tracking-tight text-warning">
               <AnimatedNumber value={summary.payable} format={fmt.money} />
             </span>
@@ -163,10 +191,14 @@ function LendBorrowOverview({ summary }: { summary: MoneySummary }) {
                   : "border-line hover:border-line-strong hover:shadow-(--shadow-md)"
               }`}
             >
-              <span className={`text-xl font-semibold tabular ${c.danger ? "text-danger" : "text-fg"}`}>
+              <span
+                className={`text-xl font-semibold tabular ${c.danger ? "text-danger" : "text-fg"}`}
+              >
                 {fmt.number(c.value)}
               </span>
-              <span className={`text-xs leading-tight mt-0.5 ${c.danger ? "text-danger" : "text-faint"}`}>
+              <span
+                className={`text-xs leading-tight mt-0.5 ${c.danger ? "text-danger" : "text-faint"}`}
+              >
                 {c.label}
               </span>
             </Link>
@@ -221,7 +253,8 @@ export default function DashboardClient({
   };
 
   const monthTotal = stats.monthlyCredit + stats.monthlyDebit;
-  const debitShare = monthTotal > 0 ? (stats.monthlyDebit / monthTotal) * 100 : 0;
+  const debitShare =
+    monthTotal > 0 ? (stats.monthlyDebit / monthTotal) * 100 : 0;
   const monthName = fmt.date(new Date(), { month: "long" });
 
   return (
@@ -242,7 +275,7 @@ export default function DashboardClient({
           value={stats.totalExpenses}
           hint={m.dashboard.allTimeNoIncome}
           icon={TrendingDown}
-          deco="deco-cyan"
+          deco="deco-amber"
         />
         <StatCard
           label={m.dashboard.monthExpenses}
@@ -266,7 +299,10 @@ export default function DashboardClient({
           subtitle={m.insights.dashboardSubtitle}
           columns={2}
           footer={
-            <Link href="/analytics" className="btn btn-ghost btn-sm group shrink-0">
+            <Link
+              href="/analytics"
+              className="btn btn-ghost btn-sm group shrink-0"
+            >
               {m.more}
               <ArrowRight className="transition-transform duration-200 group-hover:translate-x-0.5" />
             </Link>
@@ -301,17 +337,24 @@ export default function DashboardClient({
               <div className="h-10 w-10 rounded-full bg-subtle flex items-center justify-center mb-3">
                 <Receipt className="h-5 w-5 text-faint" />
               </div>
-              <p className="text-sm font-medium text-fg">{m.dashboard.noTransactions}</p>
+              <p className="text-sm font-medium text-fg">
+                {m.dashboard.noTransactions}
+              </p>
               <p className="text-[13px] text-muted mt-1">
                 {m.dashboard.noTransactionsHint}
               </p>
-              <button onClick={openNew} className="btn btn-secondary btn-sm mt-4">
+              <button
+                onClick={openNew}
+                className="btn btn-secondary btn-sm mt-4"
+              >
                 <Plus />
                 {m.dashboard.addTransaction}
               </button>
             </div>
           ) : (
-            <ul className={`divide-y divide-line stagger-rows ${isPending ? "is-refreshing" : ""}`}>
+            <ul
+              className={`divide-y divide-line stagger-rows ${isPending ? "is-refreshing" : ""}`}
+            >
               {recentExpenses.map((exp) => {
                 const Icon = getCategoryIcon(exp.category);
                 const isCredit = exp.category === "Income";
@@ -334,8 +377,13 @@ export default function DashboardClient({
                           {exp.title}
                         </span>
                         <span className="block text-xs text-faint mt-0.5">
-                          {categoryLabel(m, exp.category)} · {fmt.date(exp.expenseDate, { month: "short", day: "numeric" })}
-                          {exp.splits.length > 0 && ` · ${m.items(exp.splits.length)}`}
+                          {categoryLabel(m, exp.category)} ·{" "}
+                          {fmt.date(exp.expenseDate, {
+                            month: "short",
+                            day: "numeric",
+                          })}
+                          {exp.splits.length > 0 &&
+                            ` · ${m.items(exp.splits.length)}`}
                         </span>
                       </span>
                     </button>
@@ -375,55 +423,70 @@ export default function DashboardClient({
         {/* Month summary */}
         <section className="card overflow-hidden flex flex-col">
           <div className="card-head px-5 py-4">
-            <h2 className="section-title">{m.dashboard.monthSummary(monthName)}</h2>
+            <h2 className="section-title">
+              {m.dashboard.monthSummary(monthName)}
+            </h2>
             <p className="section-subtitle">{m.dashboard.moneyInOut}</p>
           </div>
 
           <div className="px-5 pb-5 flex-1 flex flex-col">
-          <div className="mt-5 flex flex-col gap-4">
-            <div className="flex items-center justify-between">
-              <span className="flex items-center gap-2 text-[13px] text-muted">
-                <span className="h-6 w-6 rounded-md bg-success-soft text-success flex items-center justify-center">
-                  <ArrowDownRight className="h-3.5 w-3.5" />
+            <div className="mt-5 flex flex-col gap-4">
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-2 text-[13px] text-muted">
+                  <span className="h-6 w-6 rounded-md bg-success-soft text-success flex items-center justify-center">
+                    <ArrowDownRight className="h-3.5 w-3.5" />
+                  </span>
+                  {m.dashboard.moneyIn}
                 </span>
-                {m.dashboard.moneyIn}
+                <span className="text-sm font-semibold tabular text-fg">
+                  +
+                  <AnimatedNumber
+                    value={stats.monthlyCredit}
+                    format={fmt.money}
+                  />
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-2 text-[13px] text-muted">
+                  <span className="h-6 w-6 rounded-md bg-danger-soft text-danger flex items-center justify-center">
+                    <ArrowUpRight className="h-3.5 w-3.5" />
+                  </span>
+                  {m.dashboard.moneyOut}
+                </span>
+                <span className="text-sm font-semibold tabular text-fg">
+                  −
+                  <AnimatedNumber
+                    value={stats.monthlyDebit}
+                    format={fmt.money}
+                  />
+                </span>
+              </div>
+            </div>
+
+            {/* In / out ratio */}
+            <div className="mt-5 mb-5 h-1.5 w-full rounded-full bg-success/25 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-danger transition-[width] duration-700 ease-out"
+                style={{ width: `${debitShare}%` }}
+              />
+            </div>
+
+            <div className="mt-auto pt-4 border-t border-line flex items-center justify-between">
+              <span className="text-[13px] text-muted">
+                {m.dashboard.netThisMonth}
               </span>
-              <span className="text-sm font-semibold tabular text-fg">
-                +<AnimatedNumber value={stats.monthlyCredit} format={fmt.money} />
+              <span
+                className={`text-lg font-semibold tabular tracking-tight ${
+                  stats.monthlyRemaining >= 0 ? "text-success" : "text-danger"
+                }`}
+              >
+                {stats.monthlyRemaining < 0 ? "−" : "+"}
+                <AnimatedNumber
+                  value={stats.monthlyRemaining}
+                  format={fmt.money}
+                />
               </span>
             </div>
-            <div className="flex items-center justify-between">
-              <span className="flex items-center gap-2 text-[13px] text-muted">
-                <span className="h-6 w-6 rounded-md bg-danger-soft text-danger flex items-center justify-center">
-                  <ArrowUpRight className="h-3.5 w-3.5" />
-                </span>
-                {m.dashboard.moneyOut}
-              </span>
-              <span className="text-sm font-semibold tabular text-fg">
-                −<AnimatedNumber value={stats.monthlyDebit} format={fmt.money} />
-              </span>
-            </div>
-          </div>
-
-          {/* In / out ratio */}
-          <div className="mt-5 mb-5 h-1.5 w-full rounded-full bg-success/25 overflow-hidden">
-            <div
-              className="h-full rounded-full bg-danger transition-[width] duration-700 ease-out"
-              style={{ width: `${debitShare}%` }}
-            />
-          </div>
-
-          <div className="mt-auto pt-4 border-t border-line flex items-center justify-between">
-            <span className="text-[13px] text-muted">{m.dashboard.netThisMonth}</span>
-            <span
-              className={`text-lg font-semibold tabular tracking-tight ${
-                stats.monthlyRemaining >= 0 ? "text-success" : "text-danger"
-              }`}
-            >
-              {stats.monthlyRemaining < 0 ? "−" : "+"}
-              <AnimatedNumber value={stats.monthlyRemaining} format={fmt.money} />
-            </span>
-          </div>
           </div>
         </section>
       </div>

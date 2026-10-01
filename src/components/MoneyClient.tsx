@@ -49,11 +49,25 @@ interface MoneyClientProps {
   records: MoneyRecordView[];
   summary: MoneySummary;
   people: string[];
-  pagination: { page: number; totalPages: number; total: number; limit: number };
+  pagination: {
+    page: number;
+    totalPages: number;
+    total: number;
+    limit: number;
+  };
 }
 
 const BASE = "/lend-borrow";
-const FILTER_KEYS = ["status", "person", "dateRange", "startDate", "endDate", "minAmount", "maxAmount", "sortBy"];
+const FILTER_KEYS = [
+  "status",
+  "person",
+  "dateRange",
+  "startDate",
+  "endDate",
+  "minAmount",
+  "maxAmount",
+  "sortBy",
+];
 
 /** Local-date <-> "YYYY-MM-DD" (avoids the UTC shift of toISOString). */
 const toYmd = (d: Date) =>
@@ -90,10 +104,20 @@ const statusOptions = (m: Messages): SelectOption[] => [
 
 const dateOptions = (m: Messages): SelectOption[] => [
   { value: "", label: m.money.anyTime },
-  ...(["today", "week", "month", "custom"] as const).map((value) => ({ value, label: m.money.dates[value] })),
+  ...(["today", "week", "month", "custom"] as const).map((value) => ({
+    value,
+    label: m.money.dates[value],
+  })),
 ];
 
-const SORT_VALUES = ["latest", "oldest", "highest", "lowest", "due", "person"] as const;
+const SORT_VALUES = [
+  "latest",
+  "oldest",
+  "highest",
+  "lowest",
+  "due",
+  "person",
+] as const;
 const sortOptions = (m: Messages): SelectOption[] =>
   SORT_VALUES.map((value) => ({ value, label: m.money.sorts[value] }));
 
@@ -125,7 +149,10 @@ function SummaryCard({
         ? "bg-warning-soft! text-warning!"
         : "";
   return (
-    <Link href={href} className={`card card-interactive card-deco ${deco} p-4 md:p-5 block`}>
+    <Link
+      href={href}
+      className={`card card-interactive card-deco ${deco} p-4 md:p-5 block`}
+    >
       <div className="flex items-center justify-between">
         <span className="stat-label">{label}</span>
         <span className={`icon-tile h-8 w-8 rounded-lg ${tile}`}>
@@ -145,7 +172,10 @@ function OverdueHint({ count, base }: { count: number; base: string }) {
   if (count === 0) return <>{base}</>;
   return (
     <>
-      {base} · <span className="text-danger font-medium">{m.money.overdueCount(count)}</span>
+      {base} ·{" "}
+      <span className="text-danger font-medium">
+        {m.money.overdueCount(count)}
+      </span>
     </>
   );
 }
@@ -202,7 +232,11 @@ function FilterBar({
   };
 
   const handleAmountBlur = () => {
-    if (minAmount.trim() === get("minAmount") && maxAmount.trim() === get("maxAmount")) return;
+    if (
+      minAmount.trim() === get("minAmount") &&
+      maxAmount.trim() === get("maxAmount")
+    )
+      return;
     const amounts = applyAmounts();
     if (amounts) apply(amounts);
   };
@@ -246,7 +280,9 @@ function FilterBar({
 
           <Select
             value={dateRange}
-            onChange={(v) => apply({ dateRange: v || null, startDate: null, endDate: null })}
+            onChange={(v) =>
+              apply({ dateRange: v || null, startDate: null, endDate: null })
+            }
             options={dateOptions(m)}
             className="lg:w-40"
             aria-label={m.expenses.dateRange}
@@ -304,7 +340,9 @@ function FilterBar({
               <Calendar className="input-icon" />
               <DatePicker
                 selected={startDate}
-                onChange={(d: Date | null) => apply({ startDate: d ? toYmd(d) : null })}
+                onChange={(d: Date | null) =>
+                  apply({ startDate: d ? toYmd(d) : null })
+                }
                 maxDate={endDate ?? undefined}
                 placeholderText={m.expenses.startDate}
                 {...datePickerI18n}
@@ -317,7 +355,9 @@ function FilterBar({
               <Calendar className="input-icon" />
               <DatePicker
                 selected={endDate}
-                onChange={(d: Date | null) => apply({ endDate: d ? toYmd(d) : null })}
+                onChange={(d: Date | null) =>
+                  apply({ endDate: d ? toYmd(d) : null })
+                }
                 minDate={startDate ?? undefined}
                 placeholderText={m.expenses.endDate}
                 {...datePickerI18n}
@@ -335,7 +375,11 @@ function FilterBar({
         </button>
 
         {hasFilters && (
-          <button type="button" onClick={clear} className="btn btn-ghost btn-sm sm:ml-auto self-start sm:self-auto">
+          <button
+            type="button"
+            onClick={clear}
+            className="btn btn-ghost btn-sm sm:ml-auto self-start sm:self-auto"
+          >
             <X />
             {m.expenses.clearFilters}
           </button>
@@ -347,7 +391,12 @@ function FilterBar({
 
 // ─── Page ────────────────────────────────────────────────────────────────────
 
-export default function MoneyClient({ records, summary, people, pagination }: MoneyClientProps) {
+export default function MoneyClient({
+  records,
+  summary,
+  people,
+  pagination,
+}: MoneyClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { showToast } = useToast();
@@ -356,7 +405,9 @@ export default function MoneyClient({ records, summary, people, pagination }: Mo
   const [isPending, startTransition] = useTransition();
 
   const typeParam = searchParams.get("type");
-  const activeType: MoneyType | null = isMoneyType(typeParam) ? typeParam : null;
+  const activeType: MoneyType | null = isMoneyType(typeParam)
+    ? typeParam
+    : null;
 
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<MoneyRecordView | undefined>();
@@ -374,7 +425,10 @@ export default function MoneyClient({ records, summary, people, pagination }: Mo
     });
   };
 
-  const apply = (updates: Record<string, string | null>, before?: () => void) => {
+  const apply = (
+    updates: Record<string, string | null>,
+    before?: () => void,
+  ) => {
     const params = new URLSearchParams(searchParams.toString());
     if (!("page" in updates)) params.delete("page");
     for (const [key, val] of Object.entries(updates)) {
@@ -415,7 +469,12 @@ export default function MoneyClient({ records, summary, people, pagination }: Mo
           : m.money.deleteEffectBorrowed(fmt.money(remaining));
     const ok = await confirm({
       title: terms.deleteRecord,
-      message: m.money.deleteMessage(r.personName, r.payments.length, terms.payment, effect),
+      message: m.money.deleteMessage(
+        r.personName,
+        r.payments.length,
+        terms.payment,
+        effect,
+      ),
       confirmText: m.delete,
       variant: "danger",
       icon: <Trash2 className="h-6 w-6" />,
@@ -428,15 +487,28 @@ export default function MoneyClient({ records, summary, people, pagination }: Mo
     });
   };
 
-  const tabs: Array<{ value: MoneyType | null; label: string; icon?: React.ComponentType<{ className?: string }> }> = [
+  const tabs: Array<{
+    value: MoneyType | null;
+    label: string;
+    icon?: React.ComponentType<{ className?: string }>;
+  }> = [
     { value: null, label: m.money.all },
     { value: "LENT", label: m.moneyTerms.LENT.label, icon: ArrowUpRight },
-    { value: "BORROWED", label: m.moneyTerms.BORROWED.label, icon: ArrowDownLeft },
+    {
+      value: "BORROWED",
+      label: m.moneyTerms.BORROWED.label,
+      icon: ArrowDownLeft,
+    },
   ];
 
-  const settledHeader = activeType ? m.moneyTerms[activeType].settled : m.money.colSettledBoth;
+  const settledHeader = activeType
+    ? m.moneyTerms[activeType].settled
+    : m.money.colSettledBoth;
   const firstItem = (pagination.page - 1) * pagination.limit + 1;
-  const lastItem = Math.min(pagination.page * pagination.limit, pagination.total);
+  const lastItem = Math.min(
+    pagination.page * pagination.limit,
+    pagination.total,
+  );
   const hasFilters = FILTER_KEYS.some((k) => searchParams.has(k));
 
   const rowActions = (r: MoneyRecordView) => {
@@ -444,7 +516,12 @@ export default function MoneyClient({ records, summary, people, pagination }: Mo
     const paid = remainingOf(r) === 0;
     return (
       <>
-        <button onClick={() => setViewing(r)} className="icon-btn" title={m.expenses.viewDetails} aria-label={m.expenses.viewDetails}>
+        <button
+          onClick={() => setViewing(r)}
+          className="icon-btn"
+          title={m.expenses.viewDetails}
+          aria-label={m.expenses.viewDetails}
+        >
           <Eye />
         </button>
         <button
@@ -456,7 +533,12 @@ export default function MoneyClient({ records, summary, people, pagination }: Mo
         >
           <Banknote />
         </button>
-        <button onClick={() => openEdit(r)} className="icon-btn" title={m.edit} aria-label={m.edit}>
+        <button
+          onClick={() => openEdit(r)}
+          className="icon-btn"
+          title={m.edit}
+          aria-label={m.edit}
+        >
           <Pencil />
         </button>
         <button
@@ -473,7 +555,11 @@ export default function MoneyClient({ records, summary, people, pagination }: Mo
 
   const dueLabel = (r: MoneyRecordView) =>
     r.dueDate ? (
-      <span className={r.displayStatus === "OVERDUE" ? "text-danger font-medium" : ""}>
+      <span
+        className={
+          r.displayStatus === "OVERDUE" ? "text-danger font-medium" : ""
+        }
+      >
         {m.money.due(fmt.date(r.dueDate, shortDate))}
       </span>
     ) : (
@@ -488,7 +574,10 @@ export default function MoneyClient({ records, summary, people, pagination }: Mo
         description={m.money.description}
         actions={
           <>
-            <Link href="/transaction-history?type=LendBorrow" className="btn btn-secondary">
+            <Link
+              href="/transaction-history?type=LendBorrow"
+              className="btn btn-secondary"
+            >
               <History />
               {m.money.history}
             </Link>
@@ -513,9 +602,14 @@ export default function MoneyClient({ records, summary, people, pagination }: Mo
         />
         <SummaryCard
           label={m.money.receivable}
-          deco="deco-green"
+          deco="deco-violet"
           value={summary.receivable}
-          hint={<OverdueHint count={summary.overdueLending} base={m.money.othersOweYou} />}
+          hint={
+            <OverdueHint
+              count={summary.overdueLending}
+              base={m.money.othersOweYou}
+            />
+          }
           href={`${BASE}?type=LENT&status=OPEN`}
           icon={HandCoins}
           tone="success"
@@ -531,9 +625,14 @@ export default function MoneyClient({ records, summary, people, pagination }: Mo
         />
         <SummaryCard
           label={m.money.payable}
-          deco="deco-orange"
+          deco="deco-blue"
           value={summary.payable}
-          hint={<OverdueHint count={summary.overdueBorrowing} base={m.money.youOweOthers} />}
+          hint={
+            <OverdueHint
+              count={summary.overdueBorrowing}
+              base={m.money.youOweOthers}
+            />
+          }
           href={`${BASE}?type=BORROWED&status=OPEN`}
           icon={Banknote}
           tone="warning"
@@ -542,7 +641,11 @@ export default function MoneyClient({ records, summary, people, pagination }: Mo
 
       <section className="card overflow-hidden">
         <div className="card-head flex flex-col gap-3 p-3 md:p-4">
-          <div className="segmented sm:max-w-sm" role="tablist" aria-label={m.money.recordType}>
+          <div
+            className="segmented sm:max-w-sm"
+            role="tablist"
+            aria-label={m.money.recordType}
+          >
             <SegmentIndicator />
             {tabs.map((t) => {
               const active = shownType === t.value;
@@ -554,15 +657,31 @@ export default function MoneyClient({ records, summary, people, pagination }: Mo
                   role="tab"
                   aria-selected={active}
                   data-active={active}
-                  onClick={() => apply({ type: t.value }, () => setShownType(t.value))}
+                  onClick={() =>
+                    apply({ type: t.value }, () => setShownType(t.value))
+                  }
                 >
-                  {Icon && <Icon className={active ? (t.value === "LENT" ? "text-success" : "text-warning") : ""} />}
+                  {Icon && (
+                    <Icon
+                      className={
+                        active
+                          ? t.value === "LENT"
+                            ? "text-success"
+                            : "text-warning"
+                          : ""
+                      }
+                    />
+                  )}
                   {t.label}
                 </button>
               );
             })}
           </div>
-          <FilterBar key={searchParams.toString()} apply={apply} clear={clearFilters} />
+          <FilterBar
+            key={searchParams.toString()}
+            apply={apply}
+            clear={clearFilters}
+          />
         </div>
 
         {records.length === 0 ? (
@@ -571,11 +690,16 @@ export default function MoneyClient({ records, summary, people, pagination }: Mo
               <div className="h-10 w-10 rounded-full bg-subtle flex items-center justify-center mb-3">
                 <HandCoins className="h-5 w-5 text-faint" />
               </div>
-              <p className="text-sm font-medium text-fg">{m.money.emptyTitle}</p>
+              <p className="text-sm font-medium text-fg">
+                {m.money.emptyTitle}
+              </p>
               <p className="text-[13px] text-muted mt-1 max-w-sm">
                 {m.money.emptyBody}
               </p>
-              <button onClick={openNew} className="btn btn-secondary btn-sm mt-4">
+              <button
+                onClick={openNew}
+                className="btn btn-secondary btn-sm mt-4"
+              >
                 <Plus />
                 {m.money.newRecord}
               </button>
@@ -585,12 +709,17 @@ export default function MoneyClient({ records, summary, people, pagination }: Mo
               <div className="h-10 w-10 rounded-full bg-subtle flex items-center justify-center mb-3">
                 <SearchX className="h-5 w-5 text-faint" />
               </div>
-              <p className="text-sm font-medium text-fg">{m.money.noMatchTitle}</p>
+              <p className="text-sm font-medium text-fg">
+                {m.money.noMatchTitle}
+              </p>
               <p className="text-[13px] text-muted mt-1 max-w-sm">
                 {m.money.noMatchBody}
               </p>
               {(hasFilters || activeType) && (
-                <button onClick={() => navigate(new URLSearchParams())} className="btn btn-secondary btn-sm mt-4">
+                <button
+                  onClick={() => navigate(new URLSearchParams())}
+                  className="btn btn-secondary btn-sm mt-4"
+                >
                   <X />
                   {m.money.showAll}
                 </button>
@@ -598,7 +727,9 @@ export default function MoneyClient({ records, summary, people, pagination }: Mo
             </div>
           )
         ) : (
-          <div className={`transition-[opacity,filter] ${isPending ? "is-refreshing" : ""}`}>
+          <div
+            className={`transition-[opacity,filter] ${isPending ? "is-refreshing" : ""}`}
+          >
             {/* Desktop / tablet table */}
             <div className="hidden md:block overflow-x-auto">
               <table className="data-table">
@@ -620,12 +751,18 @@ export default function MoneyClient({ records, summary, people, pagination }: Mo
                     const terms = m.moneyTerms[r.type];
                     const remaining = remainingOf(r);
                     return (
-                      <tr key={r.id} onClick={() => setViewing(r)} className="cursor-pointer">
+                      <tr
+                        key={r.id}
+                        onClick={() => setViewing(r)}
+                        className="cursor-pointer"
+                      >
                         <td>
                           <div className="flex items-center gap-3 min-w-0">
                             <MoneyTypeIcon type={r.type} />
                             <div className="min-w-0">
-                              <p className="font-medium text-fg truncate max-w-40 lg:max-w-56">{r.personName}</p>
+                              <p className="font-medium text-fg truncate max-w-40 lg:max-w-56">
+                                {r.personName}
+                              </p>
                               <p className="text-xs text-faint truncate max-w-40 lg:max-w-56">
                                 {terms.label} {terms.arrow}
                                 {r.note && ` · ${r.note}`}
@@ -633,29 +770,47 @@ export default function MoneyClient({ records, summary, people, pagination }: Mo
                             </div>
                           </div>
                         </td>
-                        <td className="text-right whitespace-nowrap tabular text-muted">{fmt.money(r.amount)}</td>
-                        <td className="text-right whitespace-nowrap tabular text-muted">{fmt.money(r.paidAmount)}</td>
+                        <td className="text-right whitespace-nowrap tabular text-muted">
+                          {fmt.money(r.amount)}
+                        </td>
+                        <td className="text-right whitespace-nowrap tabular text-muted">
+                          {fmt.money(r.paidAmount)}
+                        </td>
                         <td className="text-right whitespace-nowrap">
                           <span
                             className={`font-semibold tabular ${
-                              remaining === 0 ? "text-faint" : r.type === "LENT" ? "text-success" : "text-warning"
+                              remaining === 0
+                                ? "text-faint"
+                                : r.type === "LENT"
+                                  ? "text-success"
+                                  : "text-warning"
                             }`}
                           >
                             {fmt.money(remaining)}
                           </span>
                           <div className="w-20 ml-auto mt-1.5">
-                            <SettledBar amount={r.amount} paidAmount={r.paidAmount} type={r.type} />
+                            <SettledBar
+                              amount={r.amount}
+                              paidAmount={r.paidAmount}
+                              type={r.type}
+                            />
                           </div>
                         </td>
                         <td className="whitespace-nowrap">
-                          <p className="text-muted">{fmt.date(r.date, shortDate)}</p>
-                          <p className="text-xs text-faint mt-0.5">{dueLabel(r)}</p>
+                          <p className="text-muted">
+                            {fmt.date(r.date, shortDate)}
+                          </p>
+                          <p className="text-xs text-faint mt-0.5">
+                            {dueLabel(r)}
+                          </p>
                         </td>
                         <td>
                           <MoneyStatusBadge status={r.displayStatus} />
                         </td>
                         <td onClick={(e) => e.stopPropagation()}>
-                          <div className="row-actions flex items-center justify-end">{rowActions(r)}</div>
+                          <div className="row-actions flex items-center justify-end">
+                            {rowActions(r)}
+                          </div>
                         </td>
                       </tr>
                     );
@@ -665,7 +820,10 @@ export default function MoneyClient({ records, summary, people, pagination }: Mo
             </div>
 
             {/* Mobile cards */}
-            <ul className="md:hidden divide-y divide-line stagger-rows" key={`m-${searchParams.toString()}`}>
+            <ul
+              className="md:hidden divide-y divide-line stagger-rows"
+              key={`m-${searchParams.toString()}`}
+            >
               {records.map((r) => {
                 const terms = m.moneyTerms[r.type];
                 const remaining = remainingOf(r);
@@ -677,15 +835,22 @@ export default function MoneyClient({ records, summary, people, pagination }: Mo
                     >
                       <MoneyTypeIcon type={r.type} className="h-9 w-9" />
                       <span className="min-w-0 flex-1">
-                        <span className="block font-medium text-fg truncate">{r.personName}</span>
+                        <span className="block font-medium text-fg truncate">
+                          {r.personName}
+                        </span>
                         <span className="block text-xs text-faint mt-0.5">
-                          {terms.label} {terms.arrow} · {fmt.date(r.date, { month: "short", day: "numeric" })}
+                          {terms.label} {terms.arrow} ·{" "}
+                          {fmt.date(r.date, { month: "short", day: "numeric" })}
                         </span>
                       </span>
                       <span className="flex flex-col items-end gap-1 shrink-0">
                         <span
                           className={`font-semibold tabular ${
-                            remaining === 0 ? "text-faint" : r.type === "LENT" ? "text-success" : "text-warning"
+                            remaining === 0
+                              ? "text-faint"
+                              : r.type === "LENT"
+                                ? "text-success"
+                                : "text-warning"
                           }`}
                         >
                           {fmt.money(remaining)}
@@ -697,24 +862,36 @@ export default function MoneyClient({ records, summary, people, pagination }: Mo
                     <dl className="grid grid-cols-3 gap-2 mt-3 text-xs">
                       <div>
                         <dt className="text-faint">{terms.label}</dt>
-                        <dd className="tabular text-fg font-medium">{fmt.money(r.amount)}</dd>
+                        <dd className="tabular text-fg font-medium">
+                          {fmt.money(r.amount)}
+                        </dd>
                       </div>
                       <div>
                         <dt className="text-faint">{terms.settled}</dt>
-                        <dd className="tabular text-fg font-medium">{fmt.money(r.paidAmount)}</dd>
+                        <dd className="tabular text-fg font-medium">
+                          {fmt.money(r.paidAmount)}
+                        </dd>
                       </div>
                       <div className="text-right">
                         <dt className="text-faint">{m.money.remaining}</dt>
-                        <dd className="tabular text-fg font-medium">{fmt.money(remaining)}</dd>
+                        <dd className="tabular text-fg font-medium">
+                          {fmt.money(remaining)}
+                        </dd>
                       </div>
                     </dl>
                     <div className="mt-2">
-                      <SettledBar amount={r.amount} paidAmount={r.paidAmount} type={r.type} />
+                      <SettledBar
+                        amount={r.amount}
+                        paidAmount={r.paidAmount}
+                        type={r.type}
+                      />
                     </div>
 
                     <div className="flex items-center justify-between gap-2 mt-2">
                       <span className="text-xs text-faint">{dueLabel(r)}</span>
-                      <div className="flex items-center -mr-1.5">{rowActions(r)}</div>
+                      <div className="flex items-center -mr-1.5">
+                        {rowActions(r)}
+                      </div>
                     </div>
                   </li>
                 );
@@ -726,7 +903,9 @@ export default function MoneyClient({ records, summary, people, pagination }: Mo
         {pagination.total > 0 && (
           <div className="flex items-center justify-between gap-3 px-4 py-3 border-t border-line">
             <span className="text-[13px] text-muted">
-              <span className="tabular">{m.expenses.range(firstItem, lastItem, pagination.total)}</span>
+              <span className="tabular">
+                {m.expenses.range(firstItem, lastItem, pagination.total)}
+              </span>
             </span>
             {pagination.totalPages > 1 && (
               <div className="flex items-center gap-1.5">
